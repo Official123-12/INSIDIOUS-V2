@@ -4,7 +4,8 @@ const {
     DisconnectReason,
     Browsers,
     makeCacheableSignalKeyStore,
-    fetchLatestBaileysVersion
+    fetchLatestBaileysVersion,
+    getAggregateVotesInPollMessage
 } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const express = require("express");
@@ -31,6 +32,7 @@ mongoose.connect(config.mongodb, { useNewUrlParser: true, useUnifiedTopology: tr
     .catch(err => console.error("DB Connection Error:", err));
 
 // WEB PAIRING DASHBOARD
+app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -58,6 +60,9 @@ app.get('/api/stats', async (req, res) => {
     }
 });
 
+let globalConn = null;
+let qrCodeData = null;
+
 async function startInsidious() {
     const { state, saveCreds } = await useMultiFileAuthState(config.sessionName);
     const { version } = await fetchLatestBaileysVersion();
@@ -68,16 +73,42 @@ async function startInsidious() {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })),
         },
-        printQRInTerminal: true,
+        // REMOVED: printQRInTerminal: true, - USING CUSTOM HANDLER
         logger: pino({ level: "silent" }),
         browser: Browsers.macOS("Safari"),
-        syncFullHistory: true
+        syncFullHistory: true,
+        getMessage: async (key) => {
+            return {
+                conversation: "message deleted"
+            }
+        }
     });
 
-    // 30. FORCE CHANNEL SUBSCRIPTION LOGIC
+    globalConn = conn;
+
+    // FIXED: HANDLE QR CODE MANUALLY
     conn.ev.on('connection.update', async (update) => {
-        if (update.connection === 'open') {
+        const { connection, qr } = update;
+        
+        // QR CODE HANDLING
+        if (qr) {
+            qrCodeData = qr;
+            console.log(fancy("📱 Scan QR Code below:"));
+            // Simple QR in terminal (alternative)
+            console.log(`QR Code: ${qr.substring(0, 50)}...`);
+            
+            // You can also use qrcode-terminal package if installed
+            try {
+                const qrcode = require('qrcode-terminal');
+                qrcode.generate(qr, { small: true });
+            } catch (e) {
+                console.log("Install qrcode-terminal for better QR display");
+            }
+        }
+        
+        if (connection === 'open') {
             console.log(fancy("👹 insidious is alive and connected."));
+            qrCodeData = null; // Clear QR after connection
             
             // Auto subscribe owner to channel
             try {
@@ -100,40 +131,65 @@ async function startInsidious() {
                 console.error("Channel subscription error:", error);
             }
         }
+        
+        // AUTO RECONNECT
+        if (connection === 'close') {
+            const shouldReconnect = update.lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+            if (shouldReconnect) {
+                console.log(fancy("🔄 Reconnecting..."));
+                setTimeout(startInsidious, 5000);
+            }
+        }
     });
 
-    // PAIRING CODE ENDPOINT
+    // QR CODE ENDPOINT FOR WEB
+    app.get('/api/qr', (req, res) => {
+        if (qrCodeData) {
+            res.json({ qr: qrCodeData });
+        } else {
+            res.json({ status: 'connected', qr: null });
+        }
+    });
+
+    // FIXED: PAIRING CODE ENDPOINT - ALLOW MULTIPLE PAIRS
     app.get('/pair', async (req, res) => {
         let num = req.query.num;
         if (!num) return res.json({ error: "Provide a number!" });
         
         try {
-            // Check if user already exists
-            const existingUser = await User.findOne({ jid: num + '@s.whatsapp.net' });
-            if (existingUser) {
-                return res.json({ error: "User already registered!" });
-            }
+            // REMOVED: Check if user already exists - ALLOW MULTIPLE PAIRS
+            const cleanNum = num.replace(/[^0-9]/g, '');
             
             // Generate pairing code
-            const code = await conn.requestPairingCode(num.replace(/[^0-9]/g, ''));
+            const code = await conn.requestPairingCode(cleanNum);
             
-            // Save user to database
-            await User.create({
-                jid: num + '@s.whatsapp.net',
-                deviceId: Math.random().toString(36).substr(2, 8),
-                linkedAt: new Date(),
-                isActive: true,
-                mustFollowChannel: true // Force channel subscription
-            });
+            // Save/Update user in database
+            await User.findOneAndUpdate(
+                { jid: cleanNum + '@s.whatsapp.net' },
+                {
+                    jid: cleanNum + '@s.whatsapp.net',
+                    deviceId: Math.random().toString(36).substr(2, 8),
+                    linkedAt: new Date(),
+                    isActive: true,
+                    mustFollowChannel: true,
+                    pairCount: { $inc: 1 }
+                },
+                { upsert: true, new: true }
+            );
             
             res.json({ 
                 success: true, 
                 code: code,
-                message: "Scan code in WhatsApp Linked Devices"
+                message: "Scan code in WhatsApp Linked Devices",
+                note: "Multiple pairings allowed"
             });
             
         } catch (err) {
-            res.json({ error: "Pairing failed. Try again." });
+            console.error("Pairing error:", err);
+            res.json({ 
+                error: "Pairing failed. Try again.",
+                details: err.message 
+            });
         }
     });
 
@@ -160,17 +216,23 @@ async function startInsidious() {
                             text: randomEmoji, 
                             key: msg.key 
                         } 
-                    }, { statusJidList: [msg.key.participant] });
+                    });
                 }
                 
                 // Auto reply to status
-                if (config.autoStatus.reply) {
-                    const statusText = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+                if (config.autoStatus.reply && msg.key.participant) {
+                    const statusText = msg.message.conversation || 
+                                     msg.message.extendedTextMessage?.text || 
+                                     msg.message.imageMessage?.caption || '';
                     if (statusText) {
-                        const aiResponse = await axios.get(`${config.aiModel}${encodeURIComponent("Reply to this status: " + statusText)}`);
-                        await conn.sendMessage(msg.key.participant, { 
-                            text: fancy(aiResponse.data) 
-                        });
+                        try {
+                            const aiResponse = await axios.get(`${config.aiModel}${encodeURIComponent("Reply to this status: " + statusText)}`);
+                            await conn.sendMessage(msg.key.participant, { 
+                                text: fancy(aiResponse.data) 
+                            });
+                        } catch (aiErr) {
+                            console.error("AI reply error:", aiErr);
+                        }
                     }
                 }
             } catch (error) {
@@ -190,10 +252,16 @@ async function startInsidious() {
             
             for (let num of participants) {
                 // 30. CHECK CHANNEL SUBSCRIPTION
-                const isSubscribed = await ChannelSubscriber.findOne({ jid: num });
+                const isSubscribed = await ChannelSubscriber.findOne({ jid: num, isActive: true });
                 const user = await User.findOne({ jid: num });
                 
-                let pp = await conn.profilePictureUrl(num, 'image').catch(() => config.menuImage);
+                let pp;
+                try {
+                    pp = await conn.profilePictureUrl(num, 'image');
+                } catch {
+                    pp = config.menuImage;
+                }
+                
                 let quote = await axios.get('https://api.quotable.io/random')
                     .then(res => res.data.content)
                     .catch(() => "Welcome to the Further.");
@@ -262,62 +330,75 @@ async function startInsidious() {
     });
 
     // 7. SLEEPING MODE ENHANCED
-    const [startH, startM] = config.sleepStart.split(':');
-    const [endH, endM] = config.sleepEnd.split(':');
+    if (config.sleepStart && config.sleepEnd) {
+        const [startH, startM] = config.sleepStart.split(':');
+        const [endH, endM] = config.sleepEnd.split(':');
 
-    cron.schedule(`${startM} ${startH} * * *`, async () => {
-        try {
-            await conn.groupSettingUpdate(config.groupJid, 'announcement');
-            await conn.sendMessage(config.groupJid, { 
-                text: fancy("🥀 ꜱʟᴇᴇᴘɪɴɢ ᴍᴏᴅᴇ ᴀᴄᴛɪᴠᴀᴛᴇᴅ: ɢʀᴏᴜᴘ ᴄʟᴏꜱᴇᴅ.\n⏰ Will reopen at " + config.sleepEnd) 
-            });
-            
-            // Update all groups in database
-            await Group.updateMany({}, { $set: { sleeping: true } });
-        } catch (error) {
-            console.error("Sleep mode error:", error);
-        }
-    });
+        cron.schedule(`${startM} ${startH} * * *`, async () => {
+            try {
+                await conn.groupSettingUpdate(config.groupJid, 'announcement');
+                await conn.sendMessage(config.groupJid, { 
+                    text: fancy("🥀 ꜱʟᴇᴇᴘɪɴɢ ᴍᴏᴅᴇ ᴀᴄᴛɪᴠᴀᴛᴇᴅ: ɢʀᴏᴜᴘ ᴄʟᴏꜱᴇᴅ.\n⏰ Will reopen at " + config.sleepEnd) 
+                });
+                
+                // Update all groups in database
+                await Group.updateMany({}, { $set: { sleeping: true } });
+            } catch (error) {
+                console.error("Sleep mode error:", error);
+            }
+        });
 
-    cron.schedule(`${endM} ${endH} * * *`, async () => {
-        try {
-            await conn.groupSettingUpdate(config.groupJid, 'not_announcement');
-            await conn.sendMessage(config.groupJid, { 
-                text: fancy("🥀 ᴀᴡᴀᴋᴇ ᴍᴏᴅᴇ: ɢʀᴏᴜᴘ ᴏᴘᴇɴᴇᴅ.") 
-            });
-            
-            await Group.updateMany({}, { $set: { sleeping: false } });
-        } catch (error) {
-            console.error("Awake mode error:", error);
-        }
-    });
+        cron.schedule(`${endM} ${endH} * * *`, async () => {
+            try {
+                await conn.groupSettingUpdate(config.groupJid, 'not_announcement');
+                await conn.sendMessage(config.groupJid, { 
+                    text: fancy("🥀 ᴀᴡᴀᴋᴇ ᴍᴏᴅᴇ: ɢʀᴏᴜᴘ ᴏᴘᴇɴᴇᴅ.") 
+                });
+                
+                await Group.updateMany({}, { $set: { sleeping: false } });
+            } catch (error) {
+                console.error("Awake mode error:", error);
+            }
+        });
+    }
 
     // 16. AUTO BIO WITH UPTIME
-    setInterval(() => {
-        if (config.autoBio) {
-            const uptime = process.uptime();
-            const days = Math.floor(uptime / 86400);
-            const hours = Math.floor((uptime % 86400) / 3600);
-            const minutes = Math.floor((uptime % 3600) / 60);
-            
-            const bio = `🤖 ${config.botName} | ⚡${days}d ${hours}h | 👑${config.ownerName}`;
-            
-            conn.updateProfileStatus(bio).catch(() => null);
-        }
-    }, 60000);
+    if (config.autoBio) {
+        setInterval(async () => {
+            try {
+                const uptime = process.uptime();
+                const days = Math.floor(uptime / 86400);
+                const hours = Math.floor((uptime % 86400) / 3600);
+                const minutes = Math.floor((uptime % 3600) / 60);
+                
+                const bio = `🤖 ${config.botName} | ⚡${days}d ${hours}h ${minutes}m | 👑${config.ownerName}`;
+                
+                await conn.updateProfileStatus(bio);
+            } catch (error) {
+                console.error("Auto bio error:", error);
+            }
+        }, 60000);
+    }
 
-    // 32. AUTO TYPING FOR ALL CHATS
+    // FIXED: 32. AUTO TYPING FOR ALL CHATS - FIXED UNDEFINED ERROR
     if (config.autoTyping) {
         setInterval(async () => {
             try {
-                const chats = await conn.chats.all();
-                for (const chat of chats.slice(0, 5)) {
-                    await conn.sendPresenceUpdate('composing', chat.id);
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    await conn.sendPresenceUpdate('paused', chat.id);
+                // FIXED: Handle chats properly
+                if (conn.chats) {
+                    const chatArray = Object.values(conn.chats);
+                    for (const chat of chatArray.slice(0, 5)) {
+                        try {
+                            await conn.sendPresenceUpdate('composing', chat.id);
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+                            await conn.sendPresenceUpdate('paused', chat.id);
+                        } catch (presenceError) {
+                            continue;
+                        }
+                    }
                 }
             } catch (error) {
-                console.error("Auto typing error:", error);
+                console.error("Auto typing interval error:", error);
             }
         }, 30000);
     }
@@ -348,18 +429,6 @@ async function startInsidious() {
         }
     });
 
-    // CONNECTION UPDATES
-    conn.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect } = update;
-        if (connection === 'close') {
-            const shouldReconnect = lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut;
-            if (shouldReconnect) {
-                console.log(fancy("🔄 Reconnecting..."));
-                setTimeout(startInsidious, 5000);
-            }
-        }
-    });
-
     return conn;
 }
 
@@ -369,4 +438,4 @@ startInsidious().catch(console.error);
 // Start web server
 app.listen(PORT, () => console.log(`🌐 Dashboard running on port ${PORT}`));
 
-module.exports = { startInsidious };
+module.exports = { startInsidious, globalConn };
