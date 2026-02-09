@@ -21,7 +21,7 @@ module.exports = {
     channelLink: "https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y",
     
     // 27. DEPLOYMENT & DATABASE (Always Online)
-    mongodb: process.env.MONGODB_URL || "YOUR_MONGODB_URL_HERE", // Lazima uweke link ya MongoDB Atlas
+    mongodb: process.env.MONGODB_URL || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/", // Lazima uweke link ya MongoDB Atlas
     sessionName: "session",
 
     // 1 - 4. ADMIN & SECURITY FEATURES (Set to true to activate)
