@@ -77,7 +77,7 @@ module.exports = {
     ],
 
     // VISUALS
-    menuImage: "https://files.catbox.moe/insidious-v2-menu.jpg", // Weka link ya picha yako ya bot
+    menuImage: "https://files.catbox.moe/irqrap.jpg", // Weka link ya picha yako ya bot
     footer: "© 2025 ɪɴꜱɪᴅɪᴏᴜꜱ ᴠ2.1.1 ʙʏ ꜱᴛᴀɴʏᴛᴢ",
 };
 
