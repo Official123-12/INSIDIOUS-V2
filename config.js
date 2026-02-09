@@ -22,7 +22,7 @@ module.exports = {
     
     // 27. DEPLOYMENT & DATABASE
     mongodb: process.env.MONGODB_URL || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious",
-    sessionName: "session",
+    sessionName: "insidious_session",
 
     // ANTI FEATURES
     antilink: true,
@@ -79,48 +79,4 @@ module.exports = {
     // VISUALS
     menuImage: "https://files.catbox.moe/irqrap.jpg",
     footer: "© 2025 ɪɴꜱɪᴅɪᴏᴜꜱ ᴠ2.1.1 ʙʏ ꜱᴛᴀɴʏᴛᴢ",
-
-    // 21. BUGS FEATURE (Ethical/Educational Only)
-    bugsEnabled: false, // Kuwa na control ya kuwasha/zima
-    bugEffects: {
-        delay: false,
-        lag: false,
-        notification: true // Kuonyesha notification ya warning tu
-    },
-
-    // 19. ANTISPAM SETTINGS
-    spamSettings: {
-        maxMessages: 5, // Messages kwa dakika
-        cooldown: 60000, // 1 minute
-        action: 'warn' // warn, mute, kick
-    },
-
-    // 20. ANTIBUG SETTINGS
-    bugPatterns: [
-        '\u200e', '\u200f', '\u202e',
-        /[\u2066-\u2069]/g,
-        /[^\x00-\x7F]/g
-    ],
-
-    // 9. ACTIVE MEMBERS SETTINGS
-    activeMembers: {
-        autoRemove: true,
-        daysInactive: 7,
-        checkInterval: 24 // Saa
-    },
-
-    // 18. DOWNLOAD STATUS SETTINGS
-    downloadStatus: {
-        autoSave: true,
-        quality: 'high',
-        format: 'mp4'
-    },
-
-    // 29. ACTION SETTINGS
-    actions: {
-        warn: true,
-        delete: true,
-        remove: true,
-        report: true
-    }
 };
