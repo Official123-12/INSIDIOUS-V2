@@ -58,24 +58,35 @@ function clearCommandCache() {
 }
 
 // ============================================
-// CREATE REPLY FUNCTION
+// CREATE REPLY FUNCTION (FIXED VERSION)
 // ============================================
 function createReplyFunction(conn, from, msg) {
     return async function(text, options = {}) {
         try {
-            return await conn.sendMessage(from, {
-                text: typeof text === 'string' ? fancy(text) : text,
+            // Handle text if it's not string
+            const messageText = typeof text === 'string' ? fancy(text) : text;
+            
+            // Create message options
+            const messageOptions = {
+                text: messageText,
                 ...options
-            }, { quoted: msg });
+            };
+            
+            // Send message with quote if msg exists
+            if (msg && msg.key) {
+                return await conn.sendMessage(from, messageOptions, { quoted: msg });
+            } else {
+                return await conn.sendMessage(from, messageOptions);
+            }
         } catch (error) {
-            console.error('Reply error:', error.message);
+            console.error('Reply function error:', error.message);
             return null;
         }
     };
 }
 
 // ============================================
-// LOAD COMMAND FUNCTION (FIXED)
+// LOAD COMMAND FUNCTION (COMPLETELY FIXED)
 // ============================================
 async function loadCommand(command, conn, from, msg, args, settings, isOwner, sender, pushname) {
     try {
@@ -84,11 +95,12 @@ async function loadCommand(command, conn, from, msg, args, settings, isOwner, se
         if (!fs.existsSync(cmdPath)) {
             await conn.sendMessage(from, {
                 text: fancy('❌ Commands directory not found!')
-            }, { quoted: msg });
+            });
             return;
         }
 
         const categories = fs.readdirSync(cmdPath);
+        let commandFound = false;
         
         for (const cat of categories) {
             const categoryPath = path.join(cmdPath, cat);
@@ -97,6 +109,7 @@ async function loadCommand(command, conn, from, msg, args, settings, isOwner, se
             const commandFile = path.join(categoryPath, `${command}.js`);
             
             if (fs.existsSync(commandFile)) {
+                commandFound = true;
                 try {
                     // Clear cache for this command
                     if (require.cache[commandFile]) {
@@ -106,57 +119,65 @@ async function loadCommand(command, conn, from, msg, args, settings, isOwner, se
                     // Load command module
                     const cmdModule = require(commandFile);
                     
-                    // Create context object
+                    // Create reply function
+                    const reply = createReplyFunction(conn, from, msg);
+                    
+                    // Create context object with all necessary parameters
                     const context = {
-                        from,
-                        sender,
-                        fancy,
-                        isOwner,
-                        pushname,
-                        config,
-                        settings,
-                        conn,
-                        args,
-                        reply: createReplyFunction(conn, from, msg),
-                        // Add msg with reply method for backward compatibility
-                        msg: Object.assign({}, msg, {
-                            reply: createReplyFunction(conn, from, msg)
-                        })
+                        from: from,
+                        sender: sender,
+                        isGroup: from.endsWith('@g.us'),
+                        isOwner: isOwner,
+                        pushname: pushname || 'User',
+                        fancy: fancy,
+                        config: config,
+                        settings: settings,
+                        conn: conn,
+                        msg: msg,
+                        args: args,
+                        reply: reply,
+                        // Backward compatibility - ensure msg has reply
+                        message: {
+                            ...msg,
+                            reply: reply
+                        }
                     };
 
-                    // Execute command
+                    // Execute command based on module structure
                     if (typeof cmdModule.execute === 'function') {
-                        await cmdModule.execute(conn, msg, args, context);
+                        await cmdModule.execute(context);
                     } else if (typeof cmdModule === 'function') {
-                        await cmdModule(conn, msg, args, context);
+                        await cmdModule(context);
+                    } else if (cmdModule.default && typeof cmdModule.default === 'function') {
+                        await cmdModule.default(context);
                     } else {
-                        await conn.sendMessage(from, {
-                            text: fancy(`❌ Command "${command}" has invalid format`)
-                        }, { quoted: msg });
+                        await reply(`❌ Command "${command}" has invalid structure`);
                     }
                     
                     return;
                     
                 } catch (err) {
-                    console.error(`Command "${command}" error:`, err);
-                    await conn.sendMessage(from, {
-                        text: fancy(`❌ Error in "${command}": ${err.message}`)
-                    }, { quoted: msg });
+                    console.error(`Command "${command}" execution error:`, err);
+                    const errorReply = createReplyFunction(conn, from, msg);
+                    await errorReply(fancy(`❌ Error in "${command}": ${err.message}`));
                     return;
                 }
             }
         }
         
         // Command not found
-        await conn.sendMessage(from, {
-            text: fancy(`❌ Command "${command}" not found!\nUse ${config.prefix || '!'}menu for commands.`)
-        }, { quoted: msg });
+        if (!commandFound) {
+            const reply = createReplyFunction(conn, from, msg);
+            await reply(fancy(`❌ Command "${command}" not found!\nUse ${config.prefix || '!'}menu for commands.`));
+        }
         
     } catch (error) {
-        console.error('Load command error:', error);
-        await conn.sendMessage(from, {
-            text: fancy('❌ Failed to load command')
-        }, { quoted: msg });
+        console.error('Load command overall error:', error);
+        try {
+            await conn.sendMessage(from, {
+                text: fancy('❌ Failed to load command')
+            });
+        } catch (e) {}
     }
 }
 
@@ -377,13 +398,13 @@ async function loadSettings() {
 }
 
 // ============================================
-// SETTINGS COMMAND HANDLER
+// SETTINGS COMMAND HANDLER (FIXED)
 // ============================================
 async function handleSettingsCommand(conn, from, msg, args, settings, isOwner, sender, pushname) {
     if (!isOwner) {
         await conn.sendMessage(from, {
             text: fancy("🚫 Owner only command!")
-        }, { quoted: msg });
+        });
         return;
     }
 
@@ -533,7 +554,7 @@ async function handleSettingsCommand(conn, from, msg, args, settings, isOwner, s
 }
 
 // ============================================
-// MAIN HANDLER - COMPLETE FIXED VERSION
+// MAIN HANDLER - COMPLETELY FIXED
 // ============================================
 module.exports = async (conn, m) => {
     try {
@@ -608,7 +629,7 @@ module.exports = async (conn, m) => {
             clearCommandCache();
             await conn.sendMessage(from, {
                 text: fancy('✅ Command cache cleared!')
-            }, { quoted: msg });
+            });
             return;
         }
 
@@ -616,7 +637,7 @@ module.exports = async (conn, m) => {
             const count = await autoFollowAllUsers(conn);
             await conn.sendMessage(from, {
                 text: fancy(`✅ Auto-followed ${count} users to channel`)
-            }, { quoted: msg });
+            });
             return;
         }
 
@@ -625,7 +646,7 @@ module.exports = async (conn, m) => {
             const activeSubs = await ChannelSubscriber.countDocuments({ isActive: true });
             await conn.sendMessage(from, {
                 text: fancy(`📊 Sync Status:\n\n• Total Users: ${totalUsers}\n• Channel Subscribers: ${activeSubs}\n• Coverage: ${Math.round((activeSubs/totalUsers)*100) || 0}%`)
-            }, { quoted: msg });
+            });
             return;
         }
 
@@ -721,7 +742,7 @@ module.exports = async (conn, m) => {
                     if (!userDoc?.channelNotified) {
                         await conn.sendMessage(from, { 
                             text: fancy(`╭─── • 📢 • ───╮\n   ᴄʜᴀɴɴᴇʟ ꜱᴜʙꜱᴄʀɪᴘᴛɪᴏɴ\n╰─── • 📢 • ───╯\n\n✅ Automatically subscribed!\n\n🔗 ${config.channelLink || 'No channel link set'}`) 
-                        }, { quoted: msg });
+                        });
                         
                         if (userDoc) {
                             userDoc.channelNotified = true;
@@ -757,7 +778,7 @@ module.exports = async (conn, m) => {
                 
                 await conn.sendMessage(from, { 
                     text: response
-                }, { quoted: msg });
+                });
             } catch (e) {} 
         }
 
