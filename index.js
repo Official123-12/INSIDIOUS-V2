@@ -10,19 +10,17 @@ const pino = require("pino");
 const express = require("express");
 const mongoose = require("mongoose");
 const path = require("path");
-const axios = require("axios");
-const cron = require("node-cron");
 const { fancy } = require("./lib/font");
 const config = require("./config");
-const { User, Group, ChannelSubscriber, Settings } = require('./database/models');
+const { User } = require('./database/models');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // DATABASE CONNECTION
 mongoose.connect(config.mongodb, { useNewUrlParser: true, useUnifiedTopology: true })
-    .then(() => console.log(fancy("🥀 database connected: insidious is eternal.")))
-    .catch(err => console.error("DB Connection Error:", err));
+    .then(() => console.log(fancy("🥀 Database connected")))
+    .catch(err => console.error("DB Error:", err));
 
 // MIDDLEWARE
 app.use(express.json());
@@ -41,15 +39,8 @@ app.get('/dashboard', (req, res) => {
 app.get('/api/stats', async (req, res) => {
     try {
         const users = await User.countDocuments();
-        const groups = await Group.countDocuments();
-        const subscribers = await ChannelSubscriber.countDocuments();
-        const settings = await Settings.findOne();
-        
         res.json({
             users,
-            groups,
-            subscribers,
-            settings: settings || {},
             uptime: process.uptime(),
             version: config.version,
             botName: config.botName
@@ -59,74 +50,7 @@ app.get('/api/stats', async (req, res) => {
     }
 });
 
-app.get('/api/features', async (req, res) => {
-    try {
-        const settings = await Settings.findOne() || new Settings();
-        res.json({
-            features: {
-                antilink: settings.antilink,
-                antiporn: settings.antiporn,
-                antiscam: settings.antiscam,
-                antimedia: settings.antimedia,
-                antitag: settings.antitag,
-                antiviewonce: settings.antiviewonce,
-                antidelete: settings.antidelete,
-                sleepingMode: settings.sleepingMode,
-                welcomeGoodbye: settings.welcomeGoodbye,
-                activeMembers: settings.activeMembers,
-                autoblockCountry: settings.autoblockCountry,
-                chatbot: settings.chatbot,
-                autoStatus: settings.autoStatus,
-                autoRead: settings.autoRead,
-                autoReact: settings.autoReact,
-                autoSave: settings.autoSave,
-                autoBio: settings.autoBio,
-                anticall: settings.anticall,
-                downloadStatus: settings.downloadStatus,
-                antispam: settings.antispam,
-                antibug: settings.antibug,
-                enableBugs: settings.enableBugs
-            }
-        });
-    } catch (error) {
-        res.json({ error: error.message });
-    }
-});
-
-app.post('/api/settings', async (req, res) => {
-    try {
-        const { feature, value } = req.body;
-        let settings = await Settings.findOne();
-        
-        if (!settings) {
-            settings = new Settings();
-        }
-        
-        // Update specific feature
-        if (settings[feature] !== undefined) {
-            settings[feature] = value;
-            await settings.save();
-            
-            // Update config in memory
-            config[feature] = value;
-            
-            res.json({ 
-                success: true, 
-                message: `${feature} set to ${value}` 
-            });
-        } else {
-            res.json({ 
-                success: false, 
-                message: `Feature ${feature} not found` 
-            });
-        }
-    } catch (error) {
-        res.json({ error: error.message });
-    }
-});
-
 let globalConn = null;
-let qrCodeData = null;
 
 async function startInsidious() {
     const { state, saveCreds } = await useMultiFileAuthState(config.sessionName);
@@ -146,42 +70,19 @@ async function startInsidious() {
 
     globalConn = conn;
 
-    // HANDLE QR CODE
+    // HANDLE CONNECTION
     conn.ev.on('connection.update', async (update) => {
-        const { connection, qr } = update;
-        
-        if (qr) {
-            qrCodeData = qr;
-            console.log(fancy("📱 Scan QR Code below:"));
-            try {
-                const qrcode = require('qrcode-terminal');
-                qrcode.generate(qr, { small: true });
-            } catch (e) {
-                console.log("QR Code:", qr.substring(0, 100) + "...");
-            }
-        }
+        const { connection } = update;
         
         if (connection === 'open') {
-            console.log(fancy("👹 insidious is alive and connected."));
-            qrCodeData = null;
+            console.log(fancy("✅ Bot connected successfully"));
             
-            try {
-                // Initialize settings if not exist
-                let settings = await Settings.findOne();
-                if (!settings) {
-                    settings = new Settings();
-                    await settings.save();
-                }
-                
-                // Send minimal welcome to owner (FIXED: NO SPAM)
-                if (config.sendWelcomeToOwner) {
-                    const ownerJid = config.ownerNumber + '@s.whatsapp.net';
-                    const welcomeMsg = `╭─── • 🥀 • ───╮\n   ɪɴꜱɪᴅɪᴏᴜꜱ ᴠ${config.version}\n╰─── • 🥀 • ───╯\n\n✅ Bot is online!\n📊 Dashboard: http://localhost:${PORT}\n\n${fancy(config.footer)}`;
-                    await conn.sendMessage(ownerJid, { text: welcomeMsg });
-                }
-                
-            } catch (error) {
-                console.error("Connection setup error:", error);
+            // Send welcome to owner (once only)
+            if (config.sendWelcomeToOwner) {
+                const ownerJid = config.ownerNumber + '@s.whatsapp.net';
+                const welcomeMsg = `╭─── • 🥀 • ───╮\n   ɪɴꜱɪᴅɪᴏᴜꜱ ᴠ${config.version}\n╰─── • 🥀 • ───╯\n\n✅ Bot is online!\n📊 Dashboard: http://localhost:${PORT}\n\n${fancy(config.footer)}`;
+                await conn.sendMessage(ownerJid, { text: welcomeMsg });
+                config.sendWelcomeToOwner = false; // Send only once
             }
         }
         
@@ -194,29 +95,7 @@ async function startInsidious() {
         }
     });
 
-    // QR CODE API
-    app.get('/api/qr', (req, res) => {
-        if (globalConn?.user) {
-            return res.json({ 
-                status: 'connected', 
-                user: globalConn.user.id 
-            });
-        }
-        
-        if (qrCodeData) {
-            res.json({ 
-                qr: qrCodeData,
-                status: 'waiting'
-            });
-        } else {
-            res.json({ 
-                qr: null, 
-                status: 'no_qr' 
-            });
-        }
-    });
-
-    // PAIRING ENDPOINT (FIXED: Allow multiple pairs)
+    // SIMPLE PAIRING ENDPOINT - ONLY 8-DIGIT CODE
     app.get('/pair', async (req, res) => {
         let num = req.query.num;
         if (!num) return res.json({ error: "Provide a number!" });
@@ -227,7 +106,7 @@ async function startInsidious() {
             // Generate pairing code
             const code = await conn.requestPairingCode(cleanNum);
             
-            // Save/Update user
+            // Save user
             await User.findOneAndUpdate(
                 { jid: cleanNum + '@s.whatsapp.net' },
                 {
@@ -235,7 +114,6 @@ async function startInsidious() {
                     deviceId: Math.random().toString(36).substr(2, 8),
                     linkedAt: new Date(),
                     isActive: true,
-                    mustFollowChannel: true,
                     lastPair: new Date()
                 },
                 { upsert: true, new: true }
@@ -244,14 +122,13 @@ async function startInsidious() {
             res.json({ 
                 success: true, 
                 code: code,
-                message: "Scan code in WhatsApp Linked Devices"
+                message: "Enter this 8-digit code in WhatsApp Linked Devices"
             });
             
         } catch (err) {
             console.error("Pairing error:", err);
             res.json({ 
-                error: "Pairing failed. Try again.",
-                details: err.message 
+                error: "Failed to generate code. Make sure number is valid."
             });
         }
     });
@@ -267,24 +144,17 @@ async function startInsidious() {
         require('./handler')(conn, m);
     });
 
-    // GROUP PARTICIPANTS UPDATE (FIXED: Less spammy)
+    // GROUP PARTICIPANTS UPDATE
     conn.ev.on('group-participants.update', async (anu) => {
         try {
-            const settings = await Settings.findOne();
-            if (!settings?.welcomeGoodbye) return;
+            if (!config.welcomeGoodbye) return;
             
             const metadata = await conn.groupMetadata(anu.id);
             const participants = anu.participants;
             
             for (let num of participants) {
-                let quote = "Welcome to the Further.";
-                try {
-                    const quoteRes = await axios.get('https://api.quotable.io/random', { timeout: 3000 });
-                    quote = quoteRes.data.content;
-                } catch (e) {}
-
                 if (anu.action == 'add') {
-                    const welcomeMsg = `╭── • 🥀 • ──╮\n  ${fancy("ɴᴇᴡ ꜱᴏᴜʟ ᴅᴇᴛᴇᴄᴛᴇᴅ")}\n╰── • 🥀 • ──╯\n\n│ ◦ Welcome @${num.split("@")[0]}\n│ ◦ Group: ${metadata.subject}\n│ ◦ Members: ${metadata.participants.length}\n\n🥀 "${fancy(quote)}"\n\n${fancy(config.footer)}`;
+                    const welcomeMsg = `╭── • 🥀 • ──╮\n  Welcome\n╰── • 🥀 • ──╯\n\nWelcome @${num.split("@")[0]} to ${metadata.subject}`;
                     
                     await conn.sendMessage(anu.id, { 
                         text: welcomeMsg,
@@ -292,7 +162,7 @@ async function startInsidious() {
                     });
                     
                 } else if (anu.action == 'remove') {
-                    const goodbyeMsg = `╭── • 🥀 • ──╮\n  ${fancy("ꜱᴏᴜʟ ʟᴇꜰᴛ")}\n╰── • 🥀 • ──╯\n\n│ ◦ @${num.split('@')[0]} ʜᴀꜱ ᴇxɪᴛᴇᴅ.\n🥀 "${fancy(quote)}"`;
+                    const goodbyeMsg = `╭── • 🥀 • ──╮\n  Goodbye\n╰── • 🥀 • ──╯\n\n@${num.split('@')[0]} has left the group`;
                     await conn.sendMessage(anu.id, { 
                         text: goodbyeMsg,
                         mentions: [num] 
@@ -300,88 +170,25 @@ async function startInsidious() {
                 }
             }
         } catch (e) { 
-            console.error("Group event error:", e);
+            // Silent fail
         }
     });
 
-    // ANTICALL (FIXED: No spam to owner)
+    // ANTICALL - SIMPLE
     conn.ev.on('call', async (calls) => {
         try {
-            const settings = await Settings.findOne();
-            if (!settings?.anticall) return;
+            if (!config.anticall) return;
             
             for (let call of calls) {
                 if (call.status === 'offer') {
                     await conn.rejectCall(call.id, call.from);
-                    
-                    // Log only, don't spam owner
-                    console.log(fancy(`📵 Rejected call from ${call.from}`));
+                    console.log(fancy(`Rejected call from ${call.from}`));
                 }
             }
         } catch (error) {
-            console.error("Anticall error:", error);
+            // Silent fail
         }
     });
-
-    // SLEEPING MODE
-    if (config.sleepStart && config.sleepEnd) {
-        const [startH, startM] = config.sleepStart.split(':');
-        const [endH, endM] = config.sleepEnd.split(':');
-
-        cron.schedule(`${startM} ${startH} * * *`, async () => {
-            try {
-                const settings = await Settings.findOne();
-                if (!settings?.sleepingMode) return;
-                
-                const groups = await Group.find({});
-                for (let group of groups) {
-                    try {
-                        await conn.groupSettingUpdate(group.jid, 'announcement');
-                    } catch (e) {}
-                }
-                console.log(fancy("💤 Sleeping mode activated"));
-            } catch (error) {
-                console.error("Sleep mode error:", error);
-            }
-        });
-
-        cron.schedule(`${endM} ${endH} * * *`, async () => {
-            try {
-                const settings = await Settings.findOne();
-                if (!settings?.sleepingMode) return;
-                
-                const groups = await Group.find({});
-                for (let group of groups) {
-                    try {
-                        await conn.groupSettingUpdate(group.jid, 'not_announcement');
-                    } catch (e) {}
-                }
-                console.log(fancy("🌅 Awake mode activated"));
-            } catch (error) {
-                console.error("Awake mode error:", error);
-            }
-        });
-    }
-
-    // AUTO BIO
-    if (config.autoBio) {
-        setInterval(async () => {
-            try {
-                const settings = await Settings.findOne();
-                if (!settings?.autoBio) return;
-                
-                const uptime = process.uptime();
-                const days = Math.floor(uptime / 86400);
-                const hours = Math.floor((uptime % 86400) / 3600);
-                const minutes = Math.floor((uptime % 3600) / 60);
-                
-                const bio = `🤖 ${config.botName} | ⚡${days}d ${hours}h ${minutes}m | 👑${config.ownerName}`;
-                await conn.updateProfileStatus(bio);
-            } catch (error) {
-                console.error("Auto bio error:", error);
-            }
-        }, 60000);
-    }
 
     return conn;
 }
@@ -390,6 +197,6 @@ async function startInsidious() {
 startInsidious().catch(console.error);
 
 // Start web server
-app.listen(PORT, () => console.log(`🌐 Dashboard running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🌐 Web panel: http://localhost:${PORT}`));
 
 module.exports = { startInsidious, globalConn };
