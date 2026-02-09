@@ -1,3 +1,5 @@
+const fs = require('fs-extra');
+const axios = require('axios');
 const config = require('./config');
 const { fancy } = require('./lib/font');
 
@@ -7,51 +9,49 @@ module.exports = async (conn, m) => {
         if (!msg.message || msg.key.remoteJid === 'status@broadcast') return;
         const from = msg.key.remoteJid;
         const sender = msg.key.participant || msg.key.remoteJid;
-        const body = (msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || "");
+        const body = (msg.message.conversation || msg.message.extendedTextMessage?.text || "");
         const isOwner = sender.includes(config.ownerNumber) || msg.key.fromMe;
-        const isGroup = from.endsWith('@g.us');
 
-        // 1. ANTI-LINK (Kills everything)
-        if (isGroup && !isOwner && body.match(/https?:\/\//gi)) {
+        // 30. FORCE SUBSCRIBE LOGIC
+        // (Weka check hapa user asipofuata channel asitumie bot)
+
+        // 1. ANTI-LINK (Aggressive)
+        const linkRegex = /(https?:\/\/|www\.|wa\.me|t\.me|\.com|\.net|\.org)/gi;
+        if (from.endsWith('@g.us') && config.antilink && body.match(linkRegex) && !isOwner) {
             await conn.sendMessage(from, { delete: msg.key });
             await conn.groupParticipantsUpdate(from, [sender], "remove");
             return;
         }
 
-        // 2. ANTI-PORN (Keyword based - High Security)
-        if (isGroup && !isOwner && config.pornWords.some(word => body.toLowerCase().includes(word))) {
-            await conn.sendMessage(from, { delete: msg.key });
-            await conn.sendMessage(from, { text: fancy(`🚫 @${sender.split('@')[0]} Pornography is forbidden!`), mentions: [sender] });
-            await conn.groupParticipantsUpdate(from, [sender], "remove");
-            return;
+        // 5 & 6. RECOVERY (Anti-ViewOnce / Anti-Delete)
+        if (msg.message.viewOnceMessageV2 || msg.message.protocolMessage) {
+            await conn.sendMessage(config.ownerNumber + "@s.whatsapp.net", { 
+                forward: msg, 
+                caption: fancy("Caught by Insidious Recovery"),
+                contextInfo: { isForwarded: true, forwardedNewsletterMessageInfo: { newsletterJid: config.newsletterJid } }
+            });
         }
 
-        // 2. ANTI-SCAM
-        if (isGroup && !isOwner && config.scamWords.some(word => body.toLowerCase().includes(word))) {
-            await conn.sendMessage(from, { delete: msg.key });
-            await conn.sendMessage(from, { text: fancy(`⚠️ SCAM ALERT! @${sender.split('@')[0]} is a potential scammer.`), mentions: [sender] });
-            // Tag all members logic could be added here
+        // 11. HUMAN CHATBOT (Pollinations AI)
+        if (!body.startsWith(config.prefix) && !msg.key.fromMe && !from.endsWith('@g.us')) {
+            await conn.sendPresenceUpdate('composing', from);
+            const ai = await axios.get(`https://text.pollinations.ai/${encodeURIComponent(body)}?system=You are INSIDIOUS V2, a horror-themed AI. Reply in the user's exact language. Be human-like.`);
+            return conn.sendMessage(from, { 
+                text: fancy(ai.data),
+                contextInfo: { isForwarded: true, forwardedNewsletterMessageInfo: { newsletterJid: config.newsletterJid, newsletterName: config.botName } }
+            }, { quoted: msg });
         }
 
-        // 3. ANTI-MEDIA (If turned on)
-        if (isGroup && !isOwner && (msg.message.imageMessage || msg.message.videoMessage || msg.message.stickerMessage)) {
-            // If antimedia is on, delete it
-            await conn.sendMessage(from, { delete: msg.key });
-        }
-
-        // LOAD COMMANDS (Dynamic)
+        // DYNAMIC COMMANDS
         if (body.startsWith(config.prefix)) {
             const command = body.slice(config.prefix.length).trim().split(' ')[0].toLowerCase();
             const args = body.trim().split(/ +/).slice(1);
             
-            const fs = require('fs-extra');
             const categories = fs.readdirSync('./commands');
             for (const cat of categories) {
                 const path = `./commands/${cat}/${command}.js`;
-                if (fs.existsSync(path)) {
-                    return require(path).execute(conn, msg, args, { from, sender, fancy, isOwner });
-                }
+                if (fs.existsSync(path)) return require(path).execute(conn, msg, args, { from, sender, fancy, isOwner });
             }
         }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.log(e); }
 };
