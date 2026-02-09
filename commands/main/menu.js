@@ -1,35 +1,56 @@
 const fs = require('fs-extra');
+const path = require('path');
 const config = require('../../config');
-const { runtime } = require('../../lib/font');
+const { fancy, runtime } = require('../../lib/font');
 
 module.exports = {
     name: "menu",
-    execute: async (conn, msg, args, { from, fancy }) => {
-        const categories = fs.readdirSync('./commands');
-        let total = 0;
-        categories.forEach(c => total += fs.readdirSync(`./commands/${c}`).length);
+    execute: async (conn, msg, args, { from }) => {
+        try {
+            await conn.sendPresenceUpdate('composing', from);
 
-        let menu = `╭── • 🥀 • ──╮\n  ${fancy(config.botName)}\n╰── • 🥀 • ──╯\n\n`;
-        menu += `│ ◦ ${fancy("ᴏᴡɴᴇʀ")}: ${config.ownerName}\n`;
-        menu += `│ ◦ ${fancy("ᴜᴘᴛɪᴍᴇ")}: ${runtime(process.uptime())}\n`;
-        menu += `│ ◦ ${fancy("ᴄᴍᴅꜱ")}: ${total}\n\n`;
+            // 1. Hesabu ya Commands
+            const cmdPath = path.join(__dirname, '../../commands');
+            const categories = fs.readdirSync(cmdPath);
+            let totalCmds = 0;
+            categories.forEach(cat => {
+                totalCmds += fs.readdirSync(path.join(cmdPath, cat)).filter(f => f.endsWith('.js')).length;
+            });
 
-        categories.forEach(cat => {
-            const files = fs.readdirSync(`./commands/${cat}`).map(f => f.replace('.js', ''));
-            menu += `🥀 *${fancy(cat.toUpperCase())}*\n│ ◦ ${files.join(', ')}\n\n`;
-        });
+            // 2. Header ya Menu
+            let menu = `╭── • 🥀 • ──╮\n  ${fancy(config.botName)}\n╰── • 🥀 • ──╯\n\n`;
+            menu += `│ ◦ ${fancy("ᴏᴡɴᴇʀ")}: ${config.ownerName}\n`;
+            menu += `│ ◦ ${fancy("ᴜᴘᴛɪᴍᴇ")}: ${runtime(process.uptime())}\n`;
+            menu += `│ ◦ ${fancy("ᴍᴏᴅᴇ")}: ${config.workMode.toUpperCase()}\n`;
+            menu += `│ ◦ ${fancy("ᴄᴍᴅꜱ")}: ${totalCmds}\n\n`;
 
-        menu += `└──────────────\n${fancy(config.footer)}`;
-        
-        await conn.sendMessage(from, { 
-            text: menu,
-            contextInfo: { 
-                isForwarded: true, 
-                forwardedNewsletterMessageInfo: { 
-                    newsletterJid: config.newsletterJid, 
-                    newsletterName: config.botName 
-                } 
-            }
-        }, { quoted: msg });
+            // 3. Loop ya Categories
+            categories.forEach(cat => {
+                const files = fs.readdirSync(path.join(cmdPath, cat))
+                    .filter(f => f.endsWith('.js'))
+                    .map(f => f.replace('.js', ''));
+                
+                menu += `🥀 *${fancy(cat.toUpperCase())}*\n`;
+                menu += `│ ◦ ${files.join(', ')}\n\n`;
+            });
+
+            menu += `└──────────────\n${fancy(config.footer)}`;
+
+            // 4. Tuma kwa Branding ya Newsletter
+            await conn.sendMessage(from, { 
+                image: { url: config.menuImage }, 
+                caption: menu,
+                contextInfo: { 
+                    isForwarded: true, 
+                    forwardedNewsletterMessageInfo: { 
+                        newsletterJid: config.newsletterJid, 
+                        newsletterName: config.botName 
+                    } 
+                }
+            }, { quoted: msg });
+
+        } catch (e) {
+            msg.reply(fancy("Error summoning the menu..."));
+        }
     }
 };
