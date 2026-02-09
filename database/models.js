@@ -1,130 +1,191 @@
+// database/models.js
 const mongoose = require('mongoose');
+const { connectDB, isDBConnected } = require('./connection');
 
-// User Schema
-const UserSchema = new mongoose.Schema({
+// Create schemas
+const userSchema = new mongoose.Schema({
     jid: { type: String, required: true, unique: true },
-    name: String,
-    pushname: String,
-    deviceId: String,
-    linkedAt: { type: Date, default: Date.now },
-    lastActive: { type: Date, default: Date.now },
+    name: { type: String, default: 'Unknown' },
+    pushname: { type: String },
     messageCount: { type: Number, default: 0 },
-    warnings: { type: Number, default: 0 },
-    isActive: { type: Boolean, default: true },
-    isBlocked: { type: Boolean, default: false },
-    mustFollowChannel: { type: Boolean, default: true },
+    lastActive: { type: Date, default: Date.now },
+    joinedAt: { type: Date, default: Date.now },
     channelNotified: { type: Boolean, default: false },
-    lastPair: Date,
-    joinedGroups: [String],
-    spamCount: { type: Number, default: 0 },
-    lastMessageTime: Number
+    isBanned: { type: Boolean, default: false },
+    banReason: { type: String },
+    warnings: { type: Number, default: 0 }
 }, { timestamps: true });
 
-// Group Schema
-const GroupSchema = new mongoose.Schema({
+const channelSubscriberSchema = new mongoose.Schema({
     jid: { type: String, required: true, unique: true },
-    name: String,
-    subject: String,
-    description: String,
-    created: Date,
-    owner: String,
-    participants: [{
-        jid: String,
-        isAdmin: Boolean,
-        isSuperAdmin: Boolean
-    }],
+    name: { type: String, default: 'Unknown' },
+    subscribedAt: { type: Date, default: Date.now },
+    isActive: { type: Boolean, default: true },
+    autoFollow: { type: Boolean, default: false },
+    lastActive: { type: Date, default: Date.now },
+    source: { type: String, default: 'manual' }
+}, { timestamps: true });
+
+const groupSchema = new mongoose.Schema({
+    jid: { type: String, required: true, unique: true },
+    name: { type: String, default: 'Unknown Group' },
+    description: { type: String },
+    adminJids: [{ type: String }],
+    memberCount: { type: Number, default: 0 },
+    isActive: { type: Boolean, default: true },
     settings: {
         antilink: { type: Boolean, default: true },
-        antiporn: { type: Boolean, default: true },
-        antiscam: { type: Boolean, default: true },
-        antimedia: { type: String, default: 'off' }, // 'all', 'photo', 'video', 'sticker', 'off'
-        antitag: { type: Boolean, default: true },
-        antiviewonce: { type: Boolean, default: true },
-        antidelete: { type: Boolean, default: true },
-        sleeping: { type: Boolean, default: false }
+        welcome: { type: Boolean, default: true },
+        nsfw: { type: Boolean, default: false },
+        commands: { type: Boolean, default: true }
     },
-    sleeping: { type: Boolean, default: false },
-    isActive: { type: Boolean, default: true }
+    joinedAt: { type: Date, default: Date.now },
+    lastActive: { type: Date, default: Date.now }
 }, { timestamps: true });
 
-// Channel Subscriber Schema
-const ChannelSubscriberSchema = new mongoose.Schema({
-    jid: { type: String, required: true, unique: true },
-    name: String,
-    subscribedAt: { type: Date, default: Date.now },
-    lastActive: { type: Date, default: Date.now },
-    isActive: { type: Boolean, default: true },
-    autoFollow: { type: Boolean, default: true },
-    messagesReceived: { type: Number, default: 0 }
-}, { timestamps: true });
-
-// Settings Schema (For Bot Owner)
-const SettingsSchema = new mongoose.Schema({
-    // Security Features
+const settingsSchema = new mongoose.Schema({
+    // Security
     antilink: { type: Boolean, default: true },
     antiporn: { type: Boolean, default: true },
     antiscam: { type: Boolean, default: true },
-    antimedia: { type: String, default: 'off' }, // 'all', 'photo', 'video', 'sticker', 'audio', 'off'
+    antimedia: { type: String, default: 'off' }, // 'all', 'photo', 'video', 'sticker', 'audio', 'document', 'off'
     antitag: { type: Boolean, default: true },
+    antispam: { type: Boolean, default: true },
+    antibug: { type: Boolean, default: true },
+    anticall: { type: Boolean, default: true },
+    
+    // Recovery
     antiviewonce: { type: Boolean, default: true },
     antidelete: { type: Boolean, default: true },
     
-    // Group Features
-    sleepingMode: { type: Boolean, default: false },
-    welcomeGoodbye: { type: Boolean, default: true },
-    activeMembers: { type: Boolean, default: true },
-    
-    // User Features
-    autoblockCountry: { type: Boolean, default: false },
-    blockedCountries: [{ type: String }],
+    // Automation
+    workMode: { type: String, default: 'public' }, // 'public', 'private'
+    autoRead: { type: Boolean, default: true },
+    autoReact: { type: Boolean, default: true },
+    autoSave: { type: Boolean, default: true },
+    autoBio: { type: Boolean, default: true },
+    autoTyping: { type: Boolean, default: true },
     chatbot: { type: Boolean, default: true },
-    autoStatus: { 
+    
+    // Channel
+    channelSubscription: { type: Boolean, default: true },
+    autoReactChannel: { type: Boolean, default: true },
+    
+    // Status
+    autoStatus: {
         view: { type: Boolean, default: true },
-        like: { type: Boolean, default: false },
-        reply: { type: Boolean, default: false }
+        like: { type: Boolean, default: true },
+        reply: { type: Boolean, default: true },
+        emoji: { type: String, default: '🥀' }
     },
     
-    // Automation
-    autoRead: { type: Boolean, default: true },
-    autoReact: { type: Boolean, default: false },
-    autoSave: { type: Boolean, default: false },
-    autoBio: { type: Boolean, default: true },
-    autoTyping: { type: Boolean, default: false },
+    // Sleep mode
+    sleepStart: { type: String, default: '22:00' },
+    sleepEnd: { type: String, default: '06:00' },
     
-    // Protection
-    anticall: { type: Boolean, default: true },
-    downloadStatus: { type: Boolean, default: false },
-    antispam: { type: Boolean, default: true },
-    antibug: { type: Boolean, default: true },
-    
-    // Special Features
-    enableBugs: { type: Boolean, default: false },
-    bugsTargets: [{ type: String }],
-    
-    // Configuration
-    workMode: { type: String, default: 'public' }, // 'public', 'private'
-    commandPrefix: { type: String, default: '.' },
-    allowEmojiPrefix: { type: Boolean, default: true },
-    
-    // Channel Enforcement
-    forceChannelSubscription: { type: Boolean, default: true },
-    
-    // Custom Lists
-    scamWordsList: [{ type: String, default: ['free money', 'lottery', 'win', 'click here', 'urgent'] }],
-    pornWordsList: [{ type: String, default: ['porn', 'xxx', 'adult', 'nsfw', '18+'] }],
-    allowedMedia: [{ type: String }],
-    
-    // Inactive Members
-    removeInactiveDays: { type: Number, default: 7 },
-    
-    // Sleeping Mode Times
-    sleepStart: { type: String, default: '23:00' },
-    sleepEnd: { type: String, default: '06:00' }
+    // Last updated
+    lastUpdated: { type: Date, default: Date.now }
 }, { timestamps: true });
 
-const User = mongoose.model('User', UserSchema);
-const Group = mongoose.model('Group', GroupSchema);
-const ChannelSubscriber = mongoose.model('ChannelSubscriber', ChannelSubscriberSchema);
-const Settings = mongoose.model('Settings', SettingsSchema);
+// Create models with connection check
+function createModel(name, schema) {
+    return mongoose.model(name, schema);
+}
 
-module.exports = { User, Group, ChannelSubscriber, Settings };
+// Initialize models
+const User = createModel('User', userSchema);
+const ChannelSubscriber = createModel('ChannelSubscriber', channelSubscriberSchema);
+const Group = createModel('Group', groupSchema);
+const Settings = createModel('Settings', settingsSchema);
+
+// Ensure database connection before operations
+async function ensureConnection() {
+    if (!isDBConnected()) {
+        await connectDB();
+    }
+}
+
+// Enhanced find functions with timeout
+async function safeFindOne(model, query, options = {}) {
+    try {
+        await ensureConnection();
+        
+        return await model.findOne(query).maxTimeMS(5000).exec();
+    } catch (error) {
+        console.error(`Database error in ${model.modelName}.findOne:`, error.message);
+        return null;
+    }
+}
+
+async function safeFind(model, query = {}, options = {}) {
+    try {
+        await ensureConnection();
+        
+        return await model.find(query).maxTimeMS(5000).exec();
+    } catch (error) {
+        console.error(`Database error in ${model.modelName}.find:`, error.message);
+        return [];
+    }
+}
+
+async function safeCount(model, query = {}) {
+    try {
+        await ensureConnection();
+        
+        return await model.countDocuments(query).maxTimeMS(5000).exec();
+    } catch (error) {
+        console.error(`Database error in ${model.modelName}.count:`, error.message);
+        return 0;
+    }
+}
+
+async function safeUpdate(model, query, update, options = {}) {
+    try {
+        await ensureConnection();
+        
+        return await model.findOneAndUpdate(query, update, {
+            new: true,
+            upsert: options.upsert || false,
+            maxTimeMS: 5000
+        }).exec();
+    } catch (error) {
+        console.error(`Database error in ${model.modelName}.update:`, error.message);
+        return null;
+    }
+}
+
+async function safeCreate(model, data) {
+    try {
+        await ensureConnection();
+        
+        return await model.create(data);
+    } catch (error) {
+        console.error(`Database error in ${model.modelName}.create:`, error.message);
+        return null;
+    }
+}
+
+// Export enhanced models and functions
+module.exports = {
+    // Models
+    User,
+    ChannelSubscriber,
+    Group,
+    Settings,
+    
+    // Connection
+    connectDB,
+    isDBConnected,
+    getConnection: () => mongoose.connection,
+    closeDB: require('./connection').closeDB,
+    
+    // Safe operations
+    safeFindOne,
+    safeFind,
+    safeCount,
+    safeUpdate,
+    safeCreate,
+    
+    // Direct mongoose for complex operations
+    mongoose
+};
