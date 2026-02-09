@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INSIDIOUS V2.1.1 | PAIRING PANEL</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* HORROR THEME STYLING */
+        body {
+            background: radial-gradient(circle, #1a0000 0%, #000000 100%);
+            color: #ff0000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        .container {
+            background: rgba(10, 0, 0, 0.9);
+            border: 2px solid #ff0000;
+            box-shadow: 0 0 30px #ff0000;
+            padding: 40px;
+            border-radius: 15px;
+            max-width: 450px;
+            width: 90%;
+            text-align: center;
+            position: relative;
+        }
+
+        h1 {
+            font-size: 28px;
+            letter-spacing: 3px;
+            text-shadow: 2px 2px 10px #ff0000;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #ccc;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+
+        input {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 20px;
+            background: #111;
+            border: 1px solid #ff0000;
+            color: #fff;
+            font-size: 18px;
+            text-align: center;
+            border-radius: 8px;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        input:focus {
+            box-shadow: 0 0 15px #ff0000;
+        }
+
+        button {
+            background: #ff0000;
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            font-weight: bold;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: 0.3s;
+            text-transform: uppercase;
+        }
+
+        button:hover {
+            background: #fff;
+            box-shadow: 0 0 20px #fff;
+        }
+
+        /* PAIRING CODE BOX */
+        #pair-container {
+            margin-top: 30px;
+            display: none;
+        }
+
+        #code-display {
+            font-size: 40px;
+            font-weight: bold;
+            letter-spacing: 10px;
+            background: #222;
+            padding: 20px;
+            border-radius: 10px;
+            color: #fff;
+            border: 1px dashed #ff0000;
+            margin: 20px 0;
+        }
+
+        /* INSTRUCTIONS */
+        .instructions {
+            text-align: left;
+            background: rgba(255, 0, 0, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #ddd;
+            margin-top: 20px;
+        }
+
+        .instructions b { color: #ff0000; }
+
+        /* SUCCESS STATUS */
+        #status-container {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            background: #004d00;
+            color: #fff;
+            border: 1px solid #00ff00;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0px #00ff00; }
+            50% { box-shadow: 0 0 20px #00ff00; }
+            100% { box-shadow: 0 0 0px #00ff00; }
+        }
+
+        .loading-dots:after {
+            content: '.';
+            animation: dots 1s steps(5, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60% { content: '...'; }
+            80%, 100% { content: ''; }
+        }
+    </style>
+</head>
+<body oncontextmenu="return false;"> <!-- DISABLE RIGHT CLICK -->
+
+    <div class="container">
+        <h1><i class="fas fa-ghost"></i> INSIDIOUS V2</h1>
+        <div class="subtitle">THE LAST KEY | WHATSAPP AUTOMATION</div>
+
+        <div id="input-area">
+            <p style="font-size: 14px;">Enter phone number with country code</p>
+            <input type="number" id="phoneNum" placeholder="e.g 255712345678">
+            <button id="submitBtn">Generate Pairing Code</button>
+        </div>
+
+        <!-- PAIRING CODE DISPLAY -->
+        <div id="pair-container">
+            <p>Your Link Code is Ready:</p>
+            <div id="code-display">--------</div>
+            
+            <div class="instructions">
+                <b>HOW TO PAIR:</b><br>
+                1. Open WhatsApp on your phone.<br>
+                2. Go to <b>Linked Devices</b> menu.<br>
+                3. Tap on <b>Link with Phone Number</b>.<br>
+                4. Enter the 8-digit code shown above.
+            </div>
+            <p style="font-size: 12px; margin-top: 15px;" class="loading-dots">Waiting for connection</p>
+        </div>
+
+        <!-- SUCCESS MESSAGE -->
+        <div id="status-container">
+            <i class="fas fa-check-circle"></i> <br>
+            <b>CONNECTED SUCCESSFULLY!</b> <br>
+            <span id="connected-num"></span> <br>
+            <small>Insidious is now guarding your account.</small>
+        </div>
+
+        <p style="font-size: 10px; color: #444; margin-top: 30px;">DEVELOPED BY STANYTZ &copy; 2025</p>
+    </div>
+
+    <script>
+        const submitBtn = document.getElementById('submitBtn');
+        const phoneInput = document.getElementById('phoneNum');
+        const pairContainer = document.getElementById('pair-container');
+        const inputArea = document.getElementById('input-area');
+        const codeDisplay = document.getElementById('code-display');
+        const statusContainer = document.getElementById('status-container');
+        const connectedNum = document.getElementById('connected-num');
+
+        submitBtn.onclick = async () => {
+            const num = phoneInput.value;
+            if (!num || num.length < 10) {
+                alert("Please enter a valid number!");
+                return;
+            }
+
+            submitBtn.innerText = "GENERATING...";
+            submitBtn.disabled = true;
+
+            try {
+                const response = await fetch(`/pair?num=${num}`);
+                const data = await response.json();
+
+                if (data.code) {
+                    inputArea.style.display = "none";
+                    pairContainer.style.display = "block";
+                    codeDisplay.innerText = data.code;
+                    
+                    // Start checking for connection (Polling)
+                    checkConnection(num);
+                } else {
+                    alert("Error: " + (data.error || "Server Busy"));
+                    submitBtn.innerText = "Generate Pairing Code";
+                    submitBtn.disabled = false;
+                }
+            } catch (err) {
+                alert("Failed to connect to server.");
+                submitBtn.innerText = "Generate Pairing Code";
+                submitBtn.disabled = false;
+            }
+        };
+
+        // Simulating connection check (In real index.js, the bot will send a msg when linked)
+        function checkConnection(num) {
+            // This is a UI simulation. In production, 
+            // index.js will handle the actual WhatsApp connection.
+            // You can also use WebSockets for real status.
+            console.log("Monitoring connection for: " + num);
+        }
+
+        // Logic to disable keyboard shortcuts for Inspect Element
+        document.onkeydown = function(e) {
+            if (e.ctrlKey && (e.keyCode === 67 || e.keyCode === 86 || e.keyCode === 85 || e.keyCode === 73)) {
+                return false;
+            }
+        };
+    </script>
+</body>
+</html>
