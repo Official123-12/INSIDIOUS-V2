@@ -1,4 +1,3 @@
-// config.js
 const fs = require('fs');
 const { fancy } = require('./lib/font');
 
@@ -33,9 +32,9 @@ module.exports = {
     // BOT METADATA - UPDATED
     // ============================================
     botName: getConfig('BOT_NAME', "ɪɴꜱɪᴅɪᴏᴜꜱ"),
-    developerName: getConfig('DEVELOPER_NAME', "STANY"), // NEW: Developer is STANY
-    ownerName: getConfig('BOT_OWNER', "STANY"), // Bot owner name
-    ownerNumber: [getConfig('OWNER_NUMBER', "255000000000")], // Your number here
+    developerName: getConfig('DEVELOPER_NAME', "STANY"),
+    ownerName: getConfig('BOT_OWNER', "STANY"),
+    ownerNumber: [getConfig('OWNER_NUMBER', "255000000000")],
     version: "2.1.1",
     year: "2025",
     updated: "2026",
@@ -57,64 +56,66 @@ module.exports = {
     // ============================================
     // DATABASE
     // ============================================
-    mongodbUri: getConfig('MONGODB_URI', "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious"),
+    mongodb: getConfig('MONGODB_URI', "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious"),
     sessionName: getConfig('SESSION_NAME', "insidious_session"),
 
     // ============================================
-    // ANTI FEATURES
+    // ANTI FEATURES - ALL TRUE BY DEFAULT
     // ============================================
-    antilink: getConfig('ANTILINK', true),
-    antiporn: getConfig('ANTIPORN', true),
-    antiscam: getConfig('ANTISCAM', true),
-    antimedia: getConfig('ANTIMEDIA', "off"),
-    antitag: getConfig('ANTITAG', true),
-    antispam: getConfig('ANTISPAM', true),
-    antibug: getConfig('ANTIBUG', true),
-    anticall: getConfig('ANTICALL', false),
+    antilink: true,
+    antiporn: true,
+    antiscam: true,
+    antimedia: false,
+    antitag: true,
+    antispam: true,
+    antibug: true,
+    anticall: true,
 
     // ============================================
-    // RECOVERY FEATURES
+    // RECOVERY FEATURES - UPDATED FOR POLLINATIONS
     // ============================================
-    antiviewonce: getConfig('ANTIVIEWONCE', true),
-    antidelete: getConfig('ANTIDELETE', true),
+    antiviewonce: true,
+    antidelete: true,
 
     // ============================================
     // SLEEPING MODE
     // ============================================
     sleepStart: getConfig('SLEEP_START', "22:00"),
     sleepEnd: getConfig('SLEEP_END', "06:00"),
-    sleepingMode: getConfig('SLEEPING_MODE', false),
+    sleepingMode: false,
 
     // ============================================
     // WELCOME/GOODBYE SETTINGS
     // ============================================
-    welcomeGoodbye: getConfig('WELCOME_GOODBYE', true),
+    welcomeGoodbye: true,
 
     // ============================================
     // AUTOBLOCK COUNTRIES (OPTIONAL)
     // ============================================
-    autoblock: ['92', '212', '234'],
+    blockedCountries: ['92', '212', '234'],
 
     // ============================================
     // AUTOMATION SETTINGS
     // ============================================
-    autoRead: getConfig('AUTO_READ', true),
-    autoReact: getConfig('AUTO_REACT', true),
-    autoSave: getConfig('AUTO_SAVE', true),
-    autoBio: getConfig('AUTO_BIO', true),
-    autoTyping: getConfig('AUTO_TYPING', true),
+    autoRead: true,
+    autoReact: true,
+    autoSave: true,
+    autoBio: true,
+    autoTyping: true,
 
     // ============================================
-    // STATUS AUTO INTERACTION
+    // STATUS AUTO INTERACTION - UPDATED
     // ============================================
-    autoStatusView: getConfig('AUTO_STATUS_VIEW', true),
-    autoStatusLike: getConfig('AUTO_STATUS_LIKE', true),
-    autoStatusReply: getConfig('AUTO_STATUS_REPLY', true),
+    autoStatus: true,
+    autoStatusView: true,
+    autoStatusLike: true,
+    autoStatusReply: true,
 
     // ============================================
-    // AI CHATBOT
+    // AI CHATBOT - UPDATED FOR POLLINATIONS
     // ============================================
-    aiModel: getConfig('AI_API_URL', "https://gpt.aliali.dev/api/v1?text="),
+    chatbot: true,
+    aiModel: "https://text.pollinations.ai/",
     
     // ============================================
     // DOWNLOADERS
@@ -124,7 +125,7 @@ module.exports = {
     // ============================================
     // SCAM KEYWORDS
     // ============================================
-    scamWords: [
+    scamKeywords: [
         'investment', 'bitcoin', 'crypto', 'ashinde', 'zawadi', 
         'gift card', 'telegram.me', 'pata pesa', 'ajira'
     ],
@@ -132,7 +133,7 @@ module.exports = {
     // ============================================
     // PORNO KEYWORDS
     // ============================================
-    pornWords: [
+    pornKeywords: [
         'porn', 'sex', 'xxx', 'ngono', 'video za kikubwa', 
         'hentai', 'malaya', 'pussy', 'dick'
     ],
@@ -154,9 +155,20 @@ module.exports = {
     // CHANNEL & SUBSCRIPTION SETTINGS
     // ============================================
     channelReactions: ["❤️", "🔥", "⭐", "👍", "🎉"],
-    channelSubscription: getConfig('CHANNEL_SUBSCRIPTION', true),
-    autoReactChannel: getConfig('AUTO_REACT_CHANNEL', true),
-    chatbot: getConfig('CHATBOT', true),
+    channelSubscription: true,
+    autoReactChannel: true,
+    
+    // ============================================
+    // NEW FEATURES FOR INDEX.JS
+    // ============================================
+    sendWelcomeToOwner: true,
+    
+    // ============================================
+    // FEATURES FOR HANDLER.JS
+    // ============================================
+    activeMembers: false,
+    autoblockCountry: false,
+    downloadStatus: false,
     
     // ============================================
     // ADMIN NUMBERS (OPTIONAL)
