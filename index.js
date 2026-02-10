@@ -2,9 +2,6 @@ const express = require('express');
 const { default: makeWASocket, useMultiFileAuthState, Browsers, delay, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const mongoose = require("mongoose");
-const axios = require("axios");
-const cron = require("node-cron");
-const config = require("./config");
 const { fancy } = require("./lib/font");
 const path = require("path");
 const fs = require('fs');
@@ -12,7 +9,7 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// DATABASE CONNECTION - FIXED DEPRECATED WARNINGS
+// DATABASE CONNECTION
 console.log(fancy("🔗 Connecting to database..."));
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
 
@@ -43,88 +40,28 @@ app.get('/dashboard', (req, res) => {
 // API ENDPOINTS
 app.get('/api/stats', async (req, res) => {
     try {
-        const { User, Group, ChannelSubscriber, Settings } = require('./database/models');
+        const { User, Group, Settings } = require('./database/models');
         const users = await User.countDocuments();
         const groups = await Group.countDocuments();
-        const subscribers = await ChannelSubscriber.countDocuments();
         const settings = await Settings.findOne();
         
         res.json({
             users,
             groups,
-            subscribers,
             settings: settings || {},
             uptime: process.uptime(),
-            version: config.version || "2.1.1",
-            botName: config.botName || "Insidious"
+            version: "2.1.1",
+            botName: "INSIDIOUS: THE LAST KEY"
         });
     } catch (error) {
-        res.json({ error: "Database not available", stats: { users: 0, groups: 0, subscribers: 0 } });
-    }
-});
-
-app.get('/api/features', async (req, res) => {
-    try {
-        const { Settings } = require('./database/models');
-        const settings = await Settings.findOne() || {};
-        res.json({
-            features: {
-                antilink: settings.antilink || config.antilink || true,
-                antiporn: settings.antiporn || config.antiporn || true,
-                antiscam: settings.antiscam || config.antiscam || true,
-                antimedia: settings.antimedia || config.antimedia || false,
-                antitag: settings.antitag || config.antitag || true,
-                antiviewonce: settings.antiviewonce || config.antiviewonce || true,
-                antidelete: settings.antidelete || config.antidelete || true,
-                sleepingMode: settings.sleepingMode || config.sleepingMode || false,
-                welcomeGoodbye: settings.welcomeGoodbye || config.welcomeGoodbye || true,
-                activeMembers: settings.activeMembers || config.activeMembers || false,
-                autoblockCountry: settings.autoblockCountry || config.autoblockCountry || false,
-                chatbot: settings.chatbot || config.chatbot || true,
-                autoStatus: settings.autoStatus || config.autoStatus || true,
-                autoRead: settings.autoRead || config.autoRead || true,
-                autoReact: settings.autoReact || config.autoReact || true,
-                autoSave: settings.autoSave || config.autoSave || false,
-                autoBio: settings.autoBio || config.autoBio || true,
-                anticall: settings.anticall || config.anticall || true,
-                downloadStatus: settings.downloadStatus || config.downloadStatus || false,
-                antispam: settings.antispam || config.antispam || true,
-                antibug: settings.antibug || config.antibug || true,
-                autoStatusReply: settings.autoStatusReply || config.autoStatusReply || true,
-                autoRecording: settings.autoRecording || config.autoRecording || true
-            }
-        });
-    } catch (error) {
-        res.json({ error: "Settings not available", features: {} });
-    }
-});
-
-app.post('/api/settings', async (req, res) => {
-    try {
-        const { feature, value } = req.body;
-        const { Settings } = require('./database/models');
-        
-        let settings = await Settings.findOne();
-        if (!settings) {
-            settings = new Settings();
-        }
-        
-        if (settings[feature] !== undefined) {
-            settings[feature] = value;
-            await settings.save();
-            res.json({ success: true, message: `${feature} updated to ${value}` });
-        } else {
-            res.json({ success: false, message: `Feature ${feature} not found` });
-        }
-    } catch (error) {
-        res.json({ error: error.message });
+        res.json({ error: "Database not available", stats: { users: 0, groups: 0 } });
     }
 });
 
 let globalConn = null;
 let isConnected = false;
 let reconnectCount = 0;
-const MAX_RECONNECT = 10;
+const MAX_RECONNECT = 15;
 
 async function start() {
     try {
@@ -139,14 +76,15 @@ async function start() {
             },
             logger: pino({ level: "silent" }),
             browser: Browsers.macOS("Safari"),
-            syncFullHistory: false
+            syncFullHistory: false,
+            printQRInTerminal: false
         });
 
         globalConn = conn;
 
         // CONNECTION HANDLER
         conn.ev.on('connection.update', async (update) => {
-            const { connection, qr } = update;
+            const { connection } = update;
             
             if (connection === 'open') {
                 console.log(fancy("👹 INSIDIOUS V2.1.1 ACTIVATED"));
@@ -164,37 +102,42 @@ async function start() {
                             name: conn.user.name,
                             deviceId: conn.user.id.split(':')[0],
                             isActive: true,
-                            linkedAt: new Date(),
-                            isFollowingChannel: true
+                            linkedAt: new Date()
                         }).save();
                     }
                 } catch (e) {}
                 
-                // SIMPLE CONNECTION MESSAGE TO OWNER
+                // CONNECTION MESSAGE TO OWNER
                 try {
-                    const uniqueEmoji = ["👑", "🌟", "✨", "⚡", "🔥", "💫"];
-                    const randomEmoji = uniqueEmoji[Math.floor(Math.random() * uniqueEmoji.length)];
-                    
+                    const config = require('./config');
                     const connectionMsg = `
 ╭─── • 🥀 • ───╮
-   ɪɴꜱɪᴅɪᴏᴜꜱ ᴠ2.1.1
+   INSIDIOUS: THE LAST KEY
 ╰─── • 🥀 • ───╯
 
 ✅ *Bot Connected Successfully!*
-${randomEmoji} Session: Active
 👤 User: ${conn.user?.name || "Insidious"}
 🆔 ID: ${conn.user?.id?.split(':')[0] || "Unknown"}
 🕐 Time: ${new Date().toLocaleTimeString()}
+📱 Device: WhatsApp Web
 
-⚙️ *Features Ready:*
+⚙️ *Features Active:*
+🛡️ Anti Link: ✅
+🚫 Anti Porn: ✅
+⚠️ Anti Scam: ✅
+📷 Anti Media: ✅
+#️⃣ Anti Tag: ✅
+👁️ Anti View Once: ✅
+🗑️ Anti Delete: ✅
+💤 Sleeping Mode: ✅
+🎉 Welcome/Goodbye: ✅
 🤖 AI Chatbot: ✅
-👁️ Anti-Viewonce: ✅
-🗑️ Anti-Delete: ✅
-📱 Auto Recording: ✅
-💕 Human Emotions: ✅
-🛡️ All Anti Features: ✅
+👀 Auto Read: ✅
+❤️ Auto React: ✅
+📼 Auto Recording: ✅
+📞 Anti Call: ✅
 
-${fancy("Ready with love & feelings... ❤️")}`;
+${fancy("Ready with all security features... 🔐")}`;
                     
                     // Send to bot owner
                     if (config.ownerNumber && config.ownerNumber.length > 0) {
@@ -215,21 +158,6 @@ ${fancy("Ready with love & feelings... ❤️")}`;
                 } catch (e) {
                     console.error("Handler init error:", e.message);
                 }
-                
-                // AUTO FOLLOW CHANNEL FOR ALL SESSIONS
-                try {
-                    const { ChannelSubscriber } = require('./database/models');
-                    const existing = await ChannelSubscriber.findOne({ jid: conn.user.id });
-                    if (!existing) {
-                        await new ChannelSubscriber({
-                            jid: conn.user.id,
-                            name: conn.user.name,
-                            subscribedAt: new Date(),
-                            isActive: true
-                        }).save();
-                        console.log(fancy("✅ Auto-followed channel for session"));
-                    }
-                } catch (e) {}
             }
             
             if (connection === 'close') {
@@ -239,21 +167,16 @@ ${fancy("Ready with love & feelings... ❤️")}`;
                 
                 if (shouldReconnect && reconnectCount < MAX_RECONNECT) {
                     reconnectCount++;
-                    const delayTime = Math.min(3000 * reconnectCount, 30000);
+                    const delayTime = Math.min(2000 * reconnectCount, 20000);
                     console.log(fancy(`🔄 Reconnecting in ${delayTime/1000}s... (Attempt ${reconnectCount}/${MAX_RECONNECT})`));
                     setTimeout(start, delayTime);
                 } else if (reconnectCount >= MAX_RECONNECT) {
                     console.log(fancy("❌ Max reconnection attempts reached"));
                 }
             }
-            
-            // AUTO PAIRING FOR MULTIPLE DEVICES
-            if (qr) {
-                console.log(fancy("📱 QR Code generated for pairing"));
-            }
         });
 
-        // PAIRING ENDPOINT - ALLOWS MULTIPLE PAIRING
+        // PAIRING ENDPOINT - 8-DIGIT CODE ONLY
         app.get('/pair', async (req, res) => {
             try {
                 let num = req.query.num;
@@ -266,33 +189,39 @@ ${fancy("Ready with love & feelings... ❤️")}`;
                     return res.json({ error: "Invalid number" });
                 }
                 
-                console.log(fancy(`🔑 Generating pairing code for: ${cleanNum}`));
-                const code = await conn.requestPairingCode(cleanNum);
+                console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum}`));
                 
-                res.json({ 
-                    success: true, 
-                    code: code,
-                    message: `8-digit code: ${code}`,
-                    instructions: "Open WhatsApp → Settings → Linked Devices → Link a Device → Enter 8-digit Code"
-                });
+                try {
+                    const code = await conn.requestPairingCode(cleanNum);
+                    
+                    res.json({ 
+                        success: true, 
+                        code: code,
+                        message: `8-digit pairing code: ${code}`,
+                        instructions: "Open WhatsApp → Settings → Linked Devices → Link a Device → Enter 8-digit Code",
+                        validFor: "Code valid for 20 seconds",
+                        note: "Multiple devices can use the same number"
+                    });
+                    
+                } catch (err) {
+                    if (err.message.includes("already paired") || err.message.includes("duplicate")) {
+                        res.json({ 
+                            success: true, 
+                            message: "Number already paired with bot",
+                            note: "You can use the bot on multiple devices"
+                        });
+                    } else {
+                        throw err;
+                    }
+                }
                 
             } catch (err) {
                 console.error("Pairing error:", err.message);
-                
-                // ALLOW MULTIPLE PAIRING - NO ERROR
-                if (err.message.includes("already paired") || err.message.includes("duplicate")) {
-                    res.json({ 
-                        success: true, 
-                        message: "Number already paired with bot",
-                        note: "You can use the bot on multiple devices simultaneously"
-                    });
-                } else {
-                    res.json({ success: false, error: "Failed: " + err.message });
-                }
+                res.json({ success: false, error: "Failed: " + err.message });
             }
         });
 
-        // HEALTH CHECK FOR RENDER/RAILWAY
+        // HEALTH CHECK
         app.get('/health', (req, res) => {
             res.json({
                 status: 'healthy',
@@ -307,10 +236,12 @@ ${fancy("Ready with love & feelings... ❤️")}`;
             res.json({
                 connected: isConnected,
                 owner: conn.user?.id?.split(':')[0] || 'Not connected',
-                name: conn.user?.name || 'Insidious',
+                name: conn.user?.name || 'INSIDIOUS',
                 uptime: process.uptime(),
-                sessions: countSessions(),
-                version: config.version
+                version: "2.1.1",
+                developer: "STANYTZ",
+                year: "2025",
+                updated: "2026"
             });
         });
 
@@ -329,7 +260,7 @@ ${fancy("Ready with love & feelings... ❤️")}`;
             }
         });
 
-        // GROUP PARTICIPANTS UPDATE
+        // GROUP UPDATES
         conn.ev.on('group-participants.update', async (update) => {
             try {
                 const handler = require('./handler');
@@ -341,30 +272,16 @@ ${fancy("Ready with love & feelings... ❤️")}`;
             }
         });
 
-        console.log(fancy("🚀 AI Bot ready for pairing"));
+        console.log(fancy("🚀 INSIDIOUS ready for 8-digit pairing"));
         
     } catch (error) {
         console.error("Start error:", error.message);
         if (reconnectCount < MAX_RECONNECT) {
             reconnectCount++;
-            const delayTime = Math.min(5000 * reconnectCount, 30000);
+            const delayTime = Math.min(3000 * reconnectCount, 25000);
             console.log(fancy(`🔄 Restarting in ${delayTime/1000}s...`));
             setTimeout(start, delayTime);
         }
-    }
-}
-
-// COUNT ACTIVE SESSIONS
-function countSessions() {
-    try {
-        const sessionDir = 'insidious_session';
-        if (fs.existsSync(sessionDir)) {
-            const files = fs.readdirSync(sessionDir);
-            return files.filter(f => f.endsWith('.json')).length;
-        }
-        return 0;
-    } catch {
-        return 0;
     }
 }
 
@@ -374,9 +291,12 @@ start();
 // START SERVER
 app.listen(PORT, () => {
     console.log(fancy(`🌐 Web Interface: http://localhost:${PORT}`));
-    console.log(fancy(`🔗 Pairing: http://localhost:${PORT}/pair?num=255XXXXXXXXX`));
+    console.log(fancy(`🔗 8-digit Pairing: http://localhost:${PORT}/pair?num=255XXXXXXXXX`));
     console.log(fancy(`❤️ Health: http://localhost:${PORT}/health`));
     console.log(fancy(`📊 Status: http://localhost:${PORT}/status`));
+    console.log(fancy("👑 Developer: STANYTZ"));
+    console.log(fancy("📅 Year: 2025 | Updated: 2026"));
+    console.log(fancy("🙏 Special Thanks: REDTECH"));
 });
 
 // KEEP ALIVE FOR RENDER/RAILWAY
@@ -385,22 +305,22 @@ const keepAlive = () => {
     setInterval(() => {
         http.get(`http://localhost:${PORT}/health`, (res) => {
             if (res.statusCode === 200) {
-                console.log(fancy(`❤️ Keep-alive ping successful`));
+                console.log(fancy(`❤️ Keep-alive ping successful at ${new Date().toLocaleTimeString()}`));
             }
         }).on('error', (err) => {
             console.log(fancy(`⚠️ Keep-alive failed: ${err.message}`));
         });
-    }, 300000); // Every 5 minutes
+    }, 240000); // Every 4 minutes
 };
 
 keepAlive();
 
-// AUTO RECONNECT IF DISCONNECTED
+// AUTO RECONNECT
 setInterval(() => {
     if (!isConnected && reconnectCount < MAX_RECONNECT) {
         console.log(fancy("🔌 Connection lost, attempting auto-reconnect..."));
         start();
     }
-}, 60000); // Check every minute
+}, 30000); // Check every 30 seconds
 
 module.exports = app;
