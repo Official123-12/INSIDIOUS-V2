@@ -9,7 +9,6 @@ const {
 const pino = require("pino");
 const express = require("express");
 const path = require("path");
-const fs = require("fs-extra");
 const { fancy } = require("./lib/font");
 
 // LOAD YOUR EXISTING FILES
@@ -33,21 +32,26 @@ app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
-app.get('/pairing', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'pairing.html'));
-});
-
 // API ENDPOINTS
 app.get('/api/stats', (req, res) => {
+    const uptime = process.uptime();
+    const days = Math.floor(uptime / 86400);
+    const hours = Math.floor((uptime % 86400) / 3600);
+    const minutes = Math.floor((uptime % 3600) / 60);
+    const seconds = Math.floor(uptime % 60);
+    
     res.json({
         success: true,
-        uptime: process.uptime(),
+        uptime: uptime,
+        uptimeFormatted: `${days}d ${hours}h ${minutes}m ${seconds}s`,
         version: config.version,
         botName: config.botName,
         developer: config.developerName || "STANY",
         connectionStatus: connectionStatus,
         sleepingMode: sleepingMode,
-        readyForPairing: isConnectionReady
+        readyForPairing: isConnectionReady,
+        owner: botOwnerJid ? botOwnerJid.split('@')[0] : "Not connected",
+        timestamp: new Date().toISOString()
     });
 });
 
@@ -69,18 +73,30 @@ let sleepInterval = null;
 // ============================================
 function waitForConnection(timeout = 45000) {
     return new Promise((resolve, reject) => {
+        // If already connected, resolve immediately
         if (isConnectionReady && globalConn) {
             return resolve(true);
         }
         
         const startTime = Date.now();
+        let attempts = 0;
+        
         const checkInterval = setInterval(() => {
+            attempts++;
+            
             if (isConnectionReady && globalConn) {
                 clearInterval(checkInterval);
+                console.log(fancy(`✅ Connection ready after ${attempts} seconds`));
                 resolve(true);
             } else if (Date.now() - startTime > timeout) {
                 clearInterval(checkInterval);
-                reject(new Error(`Bot not ready. Status: ${connectionStatus}`));
+                console.log(fancy(`❌ Connection timeout after ${timeout}ms`));
+                reject(new Error(`Connection timeout. Status: ${connectionStatus}`));
+            } else {
+                // Show progress every 5 seconds
+                if (attempts % 5 === 0) {
+                    console.log(fancy(`⏳ Still connecting... ${attempts}s elapsed`));
+                }
             }
         }, 1000);
     });
@@ -94,11 +110,11 @@ function startSleepingMode() {
         if (!globalConn || sleepingMode) return;
         
         sleepingMode = true;
-        console.log(fancy("😴 Sleeping Mode Activated"));
+        console.log(fancy("😴 Sleeping Mode ACTIVATED"));
         
         if (botOwnerJid) {
             globalConn.sendMessage(botOwnerJid, {
-                text: fancy(`😴 *SLEEPING MODE ON*\n\nGroup functions paused until ${sleepEndTime}`)
+                text: fancy(`😴 *SLEEPING MODE ACTIVATED*\n\n⏰ Active: ${sleepStartTime} - ${sleepEndTime}\n📵 Group functions paused\n\nBot will resume at ${sleepEndTime}`)
             });
         }
         
@@ -112,11 +128,11 @@ function stopSleepingMode() {
         if (!globalConn || !sleepingMode) return;
         
         sleepingMode = false;
-        console.log(fancy("🌅 Sleeping Mode Deactivated"));
+        console.log(fancy("🌅 Sleeping Mode DEACTIVATED"));
         
         if (botOwnerJid) {
             globalConn.sendMessage(botOwnerJid, {
-                text: fancy(`🌅 *SLEEPING MODE OFF*\n\nAll functions active!`)
+                text: fancy(`🌅 *SLEEPING MODE DEACTIVATED*\n\n✅ All functions ACTIVE\n⚡ Bot is fully operational`)
             });
         }
         
@@ -164,16 +180,20 @@ async function handleAntiCall(conn, call) {
         
         const caller = callData.from;
         const callId = callData.id;
+        const isVideo = callData.isVideo || false;
         
+        // Reject the call immediately
         await conn.rejectCall(callId, caller);
         
+        // Log it
+        console.log(fancy(`📵 Rejected ${isVideo ? 'Video' : 'Voice'} call from: ${caller.split('@')[0]}`));
+        
+        // Send notification to owner
         if (botOwnerJid) {
             await conn.sendMessage(botOwnerJid, {
-                text: fancy(`📵 *CALL REJECTED*\n\nFrom: ${caller}\nTime: ${new Date().toLocaleString()}`)
+                text: fancy(`📵 *CALL REJECTED*\n\n📞 From: ${caller}\n⏰ Time: ${new Date().toLocaleString()}\n🎥 Type: ${isVideo ? 'Video Call' : 'Voice Call'}\n\n⚠️ Call was automatically rejected`)
             });
         }
-        
-        console.log(fancy(`📵 Rejected call from: ${caller.split('@')[0]}`));
         
     } catch (error) {
         console.error("Anti-call error:", error.message);
@@ -205,7 +225,9 @@ async function startInsidious() {
 
         globalConn = conn;
 
+        // ============================================
         // CALL EVENT HANDLER
+        // ============================================
         conn.ev.on('call', async (call) => {
             try {
                 if (config.anticall) {
@@ -216,40 +238,59 @@ async function startInsidious() {
             }
         });
 
-        // CONNECTION HANDLER
+        // ============================================
+        // CONNECTION UPDATE HANDLER
+        // ============================================
         conn.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update;
             
             if (connection === 'open') {
                 console.log(fancy("✅ WhatsApp connected successfully!"));
+                console.log(fancy("🎉 Bot is now ready for pairing!"));
                 connectionStatus = 'connected';
                 isConnectionReady = true;
                 
+                // Set bot owner (person who linked)
                 if (conn.user && conn.user.id) {
                     botOwnerJid = conn.user.id;
-                    console.log(fancy(`👑 Bot Owner: ${botOwnerJid.split('@')[0]}`));
+                    const ownerNumber = botOwnerJid.split('@')[0];
+                    console.log(fancy(`👑 Bot Owner: ${ownerNumber}`));
+                    console.log(fancy(`👨‍💻 Developer: ${config.developerName || "STANY"}`));
                     
-                    // Send welcome to owner
-                    const welcomeMsg = `
-╔═══════════════════╗
+                    // Send welcome message to owner
+                    const welcomeMsg = `╔═══════════════════╗
    🥀 *ɪɴꜱɪᴅɪᴏᴜꜱ ᴠ${config.version}*
 ╚═══════════════════╝
 
-✅ *Bot Online*
-👑 *Owner:* ${botOwnerJid.split('@')[0]}
+✅ *Bot Online Successfully!*
+👑 *Owner:* ${ownerNumber}
 👨‍💻 *Developer:* ${config.developerName || "STANY"}
+🕐 *Start Time:* ${new Date().toLocaleString()}
 
-📢 *Bot is ready for pairing!*
-🔗 Use: /pair?num=YOUR_NUMBER
+📢 *Bot Features:*
+• Anti-Link Protection ✓
+• Anti-Scam Protection ✓  
+• Welcome/Goodbye Messages ✓
+• Sleeping Mode ✓
+• Anti-Call System ✓
+• Channel Auto-React ✓
+• Status Download ✓
+• AI Chatbot ✓
+• 30+ More Features!
 
-${fancy(config.footer || "© 2025 ɪɴꜱɪᴅɪᴏᴜꜱ")}`;
+🔗 *Pairing URL:*
+http://localhost:${PORT}?num=${ownerNumber}
+
+${fancy(config.footer || "© 2025 ɪɴꜱɪᴅɪᴏᴜꜱ | STANY")}`;
                     
                     await conn.sendMessage(botOwnerJid, { text: welcomeMsg });
                     
-                    // Start sleeping mode
+                    // Start sleeping mode checker
                     if (sleepInterval) clearInterval(sleepInterval);
                     sleepInterval = setInterval(checkSleepingMode, 60000);
                     checkSleepingMode();
+                    
+                    console.log(fancy(`📱 Owner can pair at: http://localhost:${PORT}`));
                 }
                 
                 // Initialize handler
@@ -269,9 +310,10 @@ ${fancy(config.footer || "© 2025 ɪɴꜱɪᴅɪᴏᴜꜱ")}`;
             
             if (connection === 'close') {
                 console.log(fancy("🔌 Connection closed"));
-                isConnectionReady = false;
                 connectionStatus = 'disconnected';
+                isConnectionReady = false;
                 
+                // Clear sleeping mode interval
                 if (sleepInterval) {
                     clearInterval(sleepInterval);
                     sleepInterval = null;
@@ -281,6 +323,8 @@ ${fancy(config.footer || "© 2025 ɪɴꜱɪᴅɪᴏᴜꜱ")}`;
                 if (shouldReconnect) {
                     console.log(fancy("🔄 Reconnecting in 3 seconds..."));
                     setTimeout(startInsidious, 3000);
+                } else {
+                    console.log(fancy("❌ Logged out - Manual login required"));
                 }
             }
             
@@ -290,12 +334,17 @@ ${fancy(config.footer || "© 2025 ɪɴꜱɪᴅɪᴏᴜꜱ")}`;
             }
         });
 
+        // ============================================
         // CREDENTIALS UPDATE
+        // ============================================
         conn.ev.on('creds.update', saveCreds);
 
+        // ============================================
         // MESSAGE HANDLER
+        // ============================================
         conn.ev.on('messages.upsert', async (m) => {
             try {
+                // Check sleeping mode before processing
                 if (sleepingMode) {
                     const from = m.messages[0]?.key?.remoteJid;
                     if (from && from.endsWith('@g.us')) {
@@ -312,7 +361,9 @@ ${fancy(config.footer || "© 2025 ɪɴꜱɪᴅɪᴏᴜꜱ")}`;
             }
         });
 
+        // ============================================
         // GROUP PARTICIPANTS UPDATE
+        // ============================================
         conn.ev.on('group-participants.update', async (anu) => {
             try {
                 if (sleepingMode) {
@@ -336,6 +387,7 @@ ${fancy(config.footer || "© 2025 ɪɴꜱɪᴅɪᴏᴜꜱ")}`;
 👋 *Hello* @${userNum}!
 📛 *Group:* ${metadata.subject}
 👥 *Members:* ${metadata.participants.length}
+🕐 *Joined:* ${new Date().toLocaleString()}
 
 ⚡ *Enjoy your stay!*
 
@@ -346,6 +398,8 @@ ${fancy(config.footer || "© 2025 ɪɴꜱɪᴅɪᴏᴜꜱ")}`;
                             mentions: [num] 
                         });
                         
+                        console.log(fancy(`🎉 Welcomed new member: ${userNum}`));
+                        
                     } else if (anu.action == 'remove') {
                         const goodbyeMsg = `
 ╭─── • 👋 • ───╮
@@ -354,6 +408,7 @@ ${fancy(config.footer || "© 2025 ɪɴꜱɪᴅɪᴏᴜꜱ")}`;
 
 📛 *Group:* ${metadata.subject}
 👥 *Remaining:* ${metadata.participants.length}
+🕐 *Left:* ${new Date().toLocaleString()}
 
 😔 @${userNum} has left.
 
@@ -363,6 +418,8 @@ ${fancy(config.footer || "© 2025 ɪɴꜱɪᴅɪᴏᴜꜱ")}`;
                             text: goodbyeMsg,
                             mentions: [num] 
                         });
+                        
+                        console.log(fancy(`👋 Said goodbye to: ${userNum}`));
                     }
                 }
             } catch (e) {
@@ -390,11 +447,12 @@ async function updateBio(conn) {
         const hours = Math.floor((uptime % 86400) / 3600);
         const minutes = Math.floor((uptime % 3600) / 60);
         
-        const bioText = `🤖 ${config.botName} | ⚡ ${days}d ${hours}h ${minutes}m | 👑 ${config.developerName || "STANY"}`;
+        const bioText = `🤖 ${config.botName} | ⚡ ${days}d ${hours}h ${minutes}m | 👑 ${config.developerName || "STANY"} | 🎯 V${config.version}`;
         
         await conn.updateProfileStatus(bioText);
-        console.log(fancy(`📝 Bio updated`));
+        console.log(fancy(`📝 Bio updated: ${bioText}`));
         
+        // Update every minute
         setInterval(async () => {
             try {
                 const uptime = process.uptime();
@@ -402,9 +460,11 @@ async function updateBio(conn) {
                 const hours = Math.floor((uptime % 86400) / 3600);
                 const minutes = Math.floor((uptime % 3600) / 60);
                 
-                const bioText = `🤖 ${config.botName} | ⚡ ${days}d ${hours}h ${minutes}m | 👑 ${config.developerName || "STANY"}`;
+                const bioText = `🤖 ${config.botName} | ⚡ ${days}d ${hours}h ${minutes}m | 👑 ${config.developerName || "STANY"} | 🎯 V${config.version}`;
                 await conn.updateProfileStatus(bioText);
-            } catch (e) {}
+            } catch (e) {
+                // Silent fail
+            }
         }, 60000);
         
     } catch (error) {
@@ -413,11 +473,11 @@ async function updateBio(conn) {
 }
 
 // ============================================
-// PAIRING ENDPOINT - AUTOMATIC & FAST
+// PAIRING ENDPOINT - FOR YOUR WEB
 // ============================================
 app.get('/pair', async (req, res) => {
     try {
-        console.log(fancy("🔐 Pairing request"));
+        console.log(fancy("🔐 Pairing request received"));
         
         let num = req.query.num;
         if (!num) {
@@ -439,21 +499,22 @@ app.get('/pair', async (req, res) => {
         
         // Wait for connection if needed
         if (!isConnectionReady || !globalConn) {
-            console.log(fancy("⏳ Waiting for connection..."));
+            console.log(fancy("⏳ Bot not ready, waiting for connection..."));
             
             try {
                 await waitForConnection(45000);
-                console.log(fancy("✅ Connection ready!"));
+                console.log(fancy("✅ Connection ready for pairing!"));
             } catch (waitError) {
                 return res.json({ 
                     success: false, 
                     error: "Bot is starting up. Please wait 30 seconds and try again.",
-                    tip: "Bot takes 30-45 seconds to connect to WhatsApp"
+                    details: "WhatsApp connection takes 30-45 seconds",
+                    tip: "Refresh page and try again in 30 seconds"
                 });
             }
         }
         
-        console.log(fancy(`📱 Pairing: ${cleanNum}`));
+        console.log(fancy(`📱 Generating pairing code for: ${cleanNum}`));
         
         try {
             // Generate pairing code
@@ -462,33 +523,29 @@ app.get('/pair', async (req, res) => {
             if (!code) {
                 return res.json({ 
                     success: false, 
-                    error: "Failed to generate code. Check number format." 
+                    error: "Failed to generate pairing code. Please check the number format." 
                 });
             }
             
             // Format to 8 digits
             const formattedCode = code.toString().padStart(8, '0').slice(0, 8);
             
-            console.log(fancy(`✅ Pairing code: ${formattedCode}`));
+            console.log(fancy(`✅ Pairing code generated: ${formattedCode} for ${cleanNum}`));
             
-            // Send success response
+            // Send success response (FORMAT FOR YOUR WEB)
             res.json({ 
                 success: true, 
                 code: formattedCode,
-                message: `🎉 Pairing code generated successfully!`,
+                message: "Pairing code generated successfully!",
+                timestamp: new Date().toISOString(),
+                expiresIn: "60 seconds",
                 instructions: [
                     "1. Open WhatsApp on your phone",
                     "2. Go to Settings → Linked Devices",
                     "3. Tap 'Link a Device'",
-                    `4. Enter code: ${formattedCode}`,
-                    "5. You're now the bot owner!"
-                ],
-                note: "Code expires in 60 seconds. First person to link becomes bot owner.",
-                botInfo: {
-                    name: config.botName,
-                    version: config.version,
-                    developer: config.developerName || "STANY"
-                }
+                    "4. Enter the 8-digit code",
+                    "5. You will become the bot owner!"
+                ]
             });
             
         } catch (pairError) {
@@ -496,9 +553,11 @@ app.get('/pair', async (req, res) => {
             
             let errorMsg = "Pairing failed. ";
             if (pairError.message.includes("not registered")) {
-                errorMsg += "Number not registered on WhatsApp.";
+                errorMsg += "This number may not be registered on WhatsApp.";
             } else if (pairError.message.includes("rate limit")) {
-                errorMsg += "Too many attempts. Wait 1 minute.";
+                errorMsg += "Too many attempts. Wait 1 minute before trying again.";
+            } else if (pairError.message.includes("timed out")) {
+                errorMsg += "Request timed out. Try again.";
             } else {
                 errorMsg += "Please check your number and try again.";
             }
@@ -513,46 +572,24 @@ app.get('/pair', async (req, res) => {
         console.error("Pairing endpoint error:", err.message);
         res.json({ 
             success: false, 
-            error: "Server error. Try again.",
+            error: "Server error occurred. Please try again.",
             details: err.message 
         });
     }
 });
 
 // ============================================
-// SIMPLE STATUS CHECK
+// SIMPLE STATUS CHECK (FOR WEB)
 // ============================================
-app.get('/api/status', (req, res) => {
-    const uptime = process.uptime();
-    const days = Math.floor(uptime / 86400);
-    const hours = Math.floor((uptime % 86400) / 3600);
-    const minutes = Math.floor((uptime % 3600) / 60);
-    
+app.get('/api/check', (req, res) => {
     res.json({ 
-        success: true,
+        online: isConnectionReady,
         status: connectionStatus,
-        ready: isConnectionReady,
-        owner: botOwnerJid ? botOwnerJid.split('@')[0] : "Not paired yet",
         botName: config.botName,
         version: config.version,
         developer: config.developerName || "STANY",
-        uptime: `${days}d ${hours}h ${minutes}m`,
-        sleepingMode: sleepingMode,
-        pairingReady: isConnectionReady,
-        message: isConnectionReady ? "✅ Bot ready for pairing!" : "⏳ Bot connecting..."
-    });
-});
-
-// ============================================
-// TEST CONNECTION
-// ============================================
-app.get('/api/test', (req, res) => {
-    res.json({ 
-        ready: isConnectionReady,
-        status: connectionStatus,
-        message: isConnectionReady ? 
-            "✅ Bot is connected! Use /pair?num=YOUR_NUMBER" : 
-            "⏳ Bot is connecting... Wait 30 seconds"
+        message: isConnectionReady ? "✅ Bot is ready for pairing!" : "⏳ Bot is connecting...",
+        timestamp: new Date().toISOString()
     });
 });
 
@@ -569,19 +606,22 @@ app.get('/api/sleep', (req, res) => {
         
         res.json({ 
             success: true, 
-            message: `Sleeping mode set: ${start} to ${end}`,
-            sleepingMode 
+            message: `Sleeping mode updated: ${start} to ${end}`,
+            sleepingMode: sleepingMode,
+            currentStatus: sleepingMode ? "😴 ACTIVE" : "🌅 INACTIVE"
         });
     } else if (action === 'status') {
         res.json({ 
             sleepingMode,
             sleepStartTime,
-            sleepEndTime
+            sleepEndTime,
+            currentTime: new Date().toLocaleTimeString()
         });
     } else {
         res.json({ 
             success: false, 
-            error: "Use: /api/sleep?action=set&start=22:00&end=06:00"
+            error: "Invalid parameters",
+            example: "/api/sleep?action=set&start=22:00&end=06:00"
         });
     }
 });
@@ -601,30 +641,72 @@ app.get('/health', (req, res) => {
 });
 
 // ============================================
-// START EVERYTHING
+// 404 HANDLER
+// ============================================
+app.use((req, res) => {
+    res.status(404).json({ 
+        success: false, 
+        error: "Endpoint not found",
+        availableEndpoints: [
+            "/ - Pairing page",
+            "/pair?num=255xxxx - Get pairing code",
+            "/api/stats - Bot statistics",
+            "/api/check - Quick status check",
+            "/health - Health check"
+        ]
+    });
+});
+
+// ============================================
+// START BOT
 // ============================================
 console.log(fancy("╔══════════════════════════════════════╗"));
 console.log(fancy(`          🥀 ${config.botName} V${config.version} 🥀          `));
 console.log(fancy("╚══════════════════════════════════════╝"));
 console.log(fancy(`👨‍💻 Developer: ${config.developerName || "STANY"}`));
-console.log(fancy(`🔗 Starting bot...`));
+console.log(fancy(`⚡ Starting INSIDIOUS V2...`));
 
 startInsidious();
 
-// Start server
-app.listen(PORT, () => {
-    console.log(fancy(`🌐 Server: http://localhost:${PORT}`));
-    console.log(fancy(`🔐 Pairing: http://localhost:${PORT}/pair?num=255618558502`));
-    console.log(fancy(`📊 Status: http://localhost:${PORT}/api/status`));
+// ============================================
+// START EXPRESS SERVER
+// ============================================
+const server = app.listen(PORT, () => {
+    console.log(fancy(`🌐 Web Server: http://localhost:${PORT}`));
+    console.log(fancy(`🔐 Pairing: http://localhost:${PORT}?num=YOUR_NUMBER`));
+    console.log(fancy(`📊 Stats: http://localhost:${PORT}/api/stats`));
+    console.log(fancy(`🩺 Health: http://localhost:${PORT}/health`));
     console.log(fancy("⏳ Connecting to WhatsApp... (30-45 seconds)"));
-    console.log(fancy("💡 TIP: Wait for '✅ WhatsApp connected' then use pairing"));
+    console.log(fancy("💡 Wait for '✅ WhatsApp connected' message"));
+    console.log(fancy("🎯 Then use the pairing page to link your device"));
 });
 
-// Error handling
+// ============================================
+// GRACEFUL SHUTDOWN
+// ============================================
+process.on('SIGTERM', () => {
+    console.log(fancy('🔄 SIGTERM received, shutting down'));
+    server.close(() => {
+        console.log(fancy('✅ Server closed'));
+        process.exit(0);
+    });
+});
+
+process.on('SIGINT', () => {
+    console.log(fancy('🔄 SIGINT received, shutting down'));
+    server.close(() => {
+        console.log(fancy('✅ Server closed'));
+        process.exit(0);
+    });
+});
+
+// ============================================
+// ERROR HANDLING
+// ============================================
 process.on('uncaughtException', (error) => {
-    console.error(fancy("⚠️ Error:"), error.message);
+    console.error(fancy("⚠️ Uncaught Exception:"), error.message);
 });
 
 process.on('unhandledRejection', (error) => {
-    console.error(fancy("⚠️ Rejection:"), error.message);
+    console.error(fancy("⚠️ Unhandled Rejection:"), error.message);
 });
