@@ -106,9 +106,10 @@ async function start() {
                 
                 // Connection message
                 try {
+                    const config = require('./config');
                     const connectionMsg = `
 ╭─── • 🥀 • ───╮
- ɪɴꜱɪᴅɪᴏᴜꜱ ᴠ2.1.1
+   ɪɴꜱɪᴅɪᴏᴜꜱ ᴠ2.1.1
 ╰─── • 🥀 • ───╯
 
 ✅ *Bot Connected Successfully!*
@@ -126,7 +127,6 @@ async function start() {
 Ready with love & feelings... ❤️`;
                     
                     // Send to bot owner
-                    const config = require('./config');
                     if (config.ownerNumber && config.ownerNumber.length > 0) {
                         const ownerJid = config.ownerNumber[0] + '@s.whatsapp.net';
                         await conn.sendMessage(ownerJid, { text: connectionMsg });
