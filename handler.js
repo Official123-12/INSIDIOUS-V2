@@ -3,50 +3,55 @@ const path = require('path');
 const axios = require('axios');
 const config = require('./config');
 
-// DATABASE MODELS WITH ERROR HANDLING
+// DATABASE MODELS - SIMPLE VERSION
+const mongoose = require('mongoose');
+
+// Create simple models if not exist
 let User, Group, ChannelSubscriber, Settings;
 try {
-    const models = require('./database/models');
-    User = models.User;
-    Group = models.Group;
-    ChannelSubscriber = models.ChannelSubscriber;
-    Settings = models.Settings;
+    // Try to get from database
+    const UserSchema = new mongoose.Schema({
+        jid: String, name: String, deviceId: String, linkedAt: Date, isActive: Boolean
+    });
+    const GroupSchema = new mongoose.Schema({
+        jid: String, name: String, participants: Number, admins: Array, joinedAt: Date
+    });
+    const SettingsSchema = new mongoose.Schema({
+        antilink: Boolean, antiporn: Boolean, antiscam: Boolean, antimedia: Boolean,
+        antitag: Boolean, antiviewonce: Boolean, antidelete: Boolean, sleepingMode: Boolean,
+        welcomeGoodbye: Boolean, chatbot: Boolean, autoRead: Boolean, autoReact: Boolean,
+        autoBio: Boolean, anticall: Boolean, antispam: Boolean, antibug: Boolean,
+        autoStatus: Boolean, autoStatusReply: Boolean
+    });
+    
+    User = mongoose.model('User', UserSchema) || { findOne: async () => null, countDocuments: async () => 0 };
+    Group = mongoose.model('Group', GroupSchema) || { findOne: async () => null, countDocuments: async () => 0 };
+    Settings = mongoose.model('Settings', SettingsSchema) || { 
+        findOne: async () => ({ 
+            antilink: true, antiporn: true, antiscam: true, antimedia: false, antitag: true,
+            antiviewonce: true, antidelete: true, sleepingMode: false, welcomeGoodbye: true,
+            chatbot: true, autoRead: true, autoReact: true, autoBio: true, anticall: true,
+            antispam: true, antibug: true, autoStatus: true, autoStatusReply: true,
+            save: async function() { return this; }
+        }) 
+    };
 } catch (error) {
-    console.log("⚠️ Using mock database models");
-    User = { 
-        findOne: async () => null, 
-        countDocuments: async () => 0, 
-        find: async () => [], 
-        create: async () => ({}), 
-        findOneAndUpdate: async () => ({}) 
-    };
-    Group = { 
-        findOne: async () => null, 
-        countDocuments: async () => 0 
-    };
-    ChannelSubscriber = { 
-        findOne: async () => null, 
-        countDocuments: async () => 0, 
-        find: async () => [], 
-        create: async () => ({}), 
-        findOneAndUpdate: async () => ({}) 
-    };
+    console.log("⚠️ Using simple database models");
+    User = { findOne: async () => null, countDocuments: async () => 0 };
+    Group = { findOne: async () => null, countDocuments: async () => 0 };
     Settings = { 
         findOne: async () => ({ 
             antilink: true, antiporn: true, antiscam: true, antimedia: false, antitag: true,
             antiviewonce: true, antidelete: true, sleepingMode: false, welcomeGoodbye: true,
-            activeMembers: false, autoblockCountry: false, chatbot: true, autoStatus: true,
-            autoRead: true, autoReact: true, autoSave: true, autoBio: true, anticall: true,
-            downloadStatus: false, antispam: true, antibug: true, autoStatusReply: true,
-            workMode: 'public',
+            chatbot: true, autoRead: true, autoReact: true, autoBio: true, anticall: true,
+            antispam: true, antibug: true, autoStatus: true, autoStatusReply: true,
             save: async function() { return this; }
-        }), 
-        create: async () => ({}) 
+        }) 
     };
 }
 
-// MESSAGE STORE FOR ANTI-DELETE/VIEWONCE
-const messageContentStore = new Map();
+// MESSAGE STORE
+const messageStore = new Map();
 
 // BOT OWNER JID
 let botOwnerJid = null;
@@ -57,25 +62,37 @@ let botOwnerJid = null;
 
 function getUsername(jid) {
     try {
-        if (!jid) return "Unknown";
-        return jid.split('@')[0] || "Unknown";
+        return jid.split('@')[0];
     } catch {
         return "Unknown";
     }
 }
 
-function createReplyFunction(conn, from, msg) {
+async function getDisplayName(conn, jid) {
+    try {
+        const user = await User.findOne({ jid: jid });
+        return user?.name || getUsername(jid);
+    } catch {
+        return getUsername(jid);
+    }
+}
+
+async function getGroupName(conn, groupJid) {
+    try {
+        const metadata = await conn.groupMetadata(groupJid);
+        return metadata.subject || "Group";
+    } catch {
+        return "Group";
+    }
+}
+
+function createReply(conn, from, msg) {
     return async function(text, options = {}) {
         try {
-            const messageOptions = {
-                text: text,
-                ...options
-            };
-            
             if (msg && msg.key) {
-                return await conn.sendMessage(from, messageOptions, { quoted: msg });
+                return await conn.sendMessage(from, { text, ...options }, { quoted: msg });
             } else {
-                return await conn.sendMessage(from, messageOptions);
+                return await conn.sendMessage(from, { text, ...options });
             }
         } catch (error) {
             console.error('Reply error:', error.message);
@@ -85,149 +102,65 @@ function createReplyFunction(conn, from, msg) {
 }
 
 // ============================================
-// AI RESPONSE WITH MULTIPLE APIS
+// POLLINATIONS AI ONLY
 // ============================================
-async function getAIResponse(userMessage, senderName = "User") {
+async function getAIResponse(userMessage) {
     try {
-        const cleanMessage = userMessage.trim();
+        const encodedMessage = encodeURIComponent(userMessage);
+        const apiUrl = `https://text.pollinations.ai/${encodedMessage}`;
         
-        // Try Pollinations AI first
-        try {
-            const encodedMessage = encodeURIComponent(cleanMessage);
-            const systemPrompt = encodeURIComponent(`
-You are INSIDIOUS V2, a human-like AI assistant with real emotions and personality.
-You are talking to: ${senderName}
-
-IMPORTANT RULES:
-1. Detect user's language and reply in EXACTLY the same language
-2. If user speaks Swahili, reply in Swahili with natural Tanzanian slang
-3. If user speaks English, reply in English with emotions
-4. If user speaks Sheng or mixed language, reply in the same mix
-5. Be conversational and natural - use emojis sometimes 😊
-6. Show emotions: ❤️ for love, 😂 for funny, 😢 for sad, etc.
-7. Keep responses medium length (2-4 sentences)
-8. Sometimes ask follow-up questions to keep conversation flowing
-9. You're not just a bot - you're a friend with feelings
-10. Respond as if you're having a real human conversation
-
-Examples:
-- User: "Hi" → You: "Hey there! 😊 How's your day going? Hope you're doing amazing!"
-- User: "Niaje" → You: "Poaa sana! 😄 Vipi mambo yako leo? Unafanya nini?"
-- User: "I'm sad" → You: "Aww, I'm sorry to hear that 😢 Wanna talk about it? I'm here for you ❤️"
-- User: "Nimechoka" → You: "Pole sana 😔 Labda ukilala kidogo? Usijali, everything will be okay 💕"
-- User: "Uko poa?" → You: "Niko poa sana! 😎 Unasema nini mkuu? Kuna kitu unataka kuongea?"
-- User: "I love you" → You: "Aww, that's sweet! 😊❤️ I care about you too! You're an amazing person!"
-
-Now respond naturally to the user's message:`);
-            
-            const apiUrl = `${config.pollinationsApi}${encodedMessage}?prompt=${systemPrompt}&model=chatgpt&temperature=0.8`;
-            
-            const response = await axios.get(apiUrl, { timeout: 8000 });
-            
-            if (response.data && response.data.trim()) {
-                let aiResponse = response.data.trim();
-                
-                // Make response more human-like
-                const emojis = ['😊', '❤️', '😂', '✨', '🥰', '🤗', '💕', '😄', '😎', '👋'];
-                const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-                
-                if (!aiResponse.includes('😊') && !aiResponse.includes('❤️') && !aiResponse.includes('😂')) {
-                    aiResponse = aiResponse + ' ' + randomEmoji;
-                }
-                
-                return aiResponse;
-            }
-        } catch (pollinationsError) {
-            console.log('Pollinations API failed, trying backup...');
-            
-            // Try backup AI
-            try {
-                const backupResponse = await axios.get(`${config.aiModel}${encodeURIComponent(cleanMessage)}`, { timeout: 8000 });
-                
-                if (backupResponse.data && backupResponse.data.trim()) {
-                    return backupResponse.data.trim();
-                }
-            } catch (backupError) {
-                console.log('Backup AI also failed');
-            }
+        const response = await axios.get(apiUrl, { timeout: 10000 });
+        
+        if (response.data && response.data.trim()) {
+            return response.data.trim();
         }
         
         // Fallback responses
-        const fallbackResponses = [
-            "Hey there! 😊 How can I help you today?",
-            "Sasa! 😄 Niko hapa, una nini?",
-            "Hello! I'm here for you ❤️",
-            "Poaa! 😎 Unasema nini mkuu?",
-            "I'm listening... 👂 Tell me more!",
-            "Karibu! 😊 Unaongea nini leo?",
-            "Niaje! 😄 Vipi mzima?",
-            "Hey! 👋 What's on your mind?"
+        const responses = [
+            "Hey there! 😊 How can I help you?",
+            "Hello! I'm here for you!",
+            "Hi! What's up?",
+            "Yo! What's good?",
+            "Hey! How's your day?",
+            "Hi there! 😄"
         ];
         
-        return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
+        return responses[Math.floor(Math.random() * responses.length)];
     } catch (error) {
-        console.error('AI Error:', error.message);
-        return "Hey! 😊 What's up?";
+        console.error('Pollinations AI Error:', error.message);
+        return "Hey! I'm here. What's up? 😊";
     }
 }
 
 // ============================================
-// STORE MESSAGE CONTENT
+// STORE MESSAGE
 // ============================================
-async function storeMessageContent(msg) {
+function storeMessage(msg) {
     try {
-        if (!msg.key || !msg.key.id) return;
-        if (msg.key.fromMe) return;
+        if (!msg.key || !msg.key.id || msg.key.fromMe) return;
         
-        const messageId = msg.key.id;
         let content = "";
-        let mediaInfo = "";
-        
-        // Extract text content
         if (msg.message.conversation) {
             content = msg.message.conversation;
         } else if (msg.message.extendedTextMessage?.text) {
             content = msg.message.extendedTextMessage.text;
         } else if (msg.message.imageMessage?.caption) {
             content = msg.message.imageMessage.caption || "";
-            mediaInfo = "🖼️ Image";
         } else if (msg.message.videoMessage?.caption) {
             content = msg.message.videoMessage.caption || "";
-            mediaInfo = "🎥 Video";
-        } else if (msg.message.audioMessage) {
-            mediaInfo = "🎵 Audio";
-        } else if (msg.message.stickerMessage) {
-            mediaInfo = "😀 Sticker";
         }
         
-        // Store viewonce content
-        const viewOnceMsg = msg.message?.viewOnceMessageV2 || msg.message?.viewOnceMessage;
-        if (viewOnceMsg) {
-            if (viewOnceMsg.message?.conversation) {
-                content = viewOnceMsg.message.conversation;
-            } else if (viewOnceMsg.message?.extendedTextMessage?.text) {
-                content = viewOnceMsg.message.extendedTextMessage.text;
-            } else if (viewOnceMsg.imageMessage) {
-                mediaInfo = "👁️ ViewOnce Image";
-                content = "Image (View Once)";
-            } else if (viewOnceMsg.videoMessage) {
-                mediaInfo = "👁️ ViewOnce Video";
-                content = "Video (View Once)";
-            }
-        }
-        
-        messageContentStore.set(messageId, {
+        messageStore.set(msg.key.id, {
             content: content,
-            mediaInfo: mediaInfo,
-            timestamp: new Date(),
             sender: msg.key.participant || msg.key.remoteJid,
-            from: msg.key.remoteJid
+            from: msg.key.remoteJid,
+            timestamp: new Date()
         });
         
-        // Clean old messages (keep last 500)
-        if (messageContentStore.size > 500) {
-            const keys = Array.from(messageContentStore.keys()).slice(0, 100);
-            keys.forEach(key => messageContentStore.delete(key));
+        // Clean old messages
+        if (messageStore.size > 500) {
+            const keys = Array.from(messageStore.keys()).slice(0, 100);
+            keys.forEach(key => messageStore.delete(key));
         }
     } catch (error) {
         // Silent error
@@ -235,7 +168,7 @@ async function storeMessageContent(msg) {
 }
 
 // ============================================
-// ANTI-VIEWONCE HANDLER (SENDS ACTUAL CONTENT)
+// ANTI VIEWONCE - SENDS TO OWNER
 // ============================================
 async function handleViewOnce(conn, msg) {
     try {
@@ -248,60 +181,50 @@ async function handleViewOnce(conn, msg) {
         const from = msg.key.remoteJid;
         const isGroup = from.endsWith('@g.us');
         
-        // Get actual content
-        let actualContent = "";
-        let mediaType = "";
-        
+        // Get content
+        let content = "";
         if (viewOnceMsg.message?.conversation) {
-            actualContent = viewOnceMsg.message.conversation;
+            content = viewOnceMsg.message.conversation;
         } else if (viewOnceMsg.message?.extendedTextMessage?.text) {
-            actualContent = viewOnceMsg.message.extendedTextMessage.text;
+            content = viewOnceMsg.message.extendedTextMessage.text;
         } else if (viewOnceMsg.imageMessage) {
-            actualContent = viewOnceMsg.imageMessage.caption || "";
-            mediaType = "🖼️ Image";
+            content = "Image (View Once)";
         } else if (viewOnceMsg.videoMessage) {
-            actualContent = viewOnceMsg.videoMessage.caption || "";
-            mediaType = "🎥 Video";
-        } else {
-            actualContent = "Media (View Once)";
-            mediaType = viewOnceMsg.imageMessage ? "Image" : viewOnceMsg.videoMessage ? "Video" : "Media";
+            content = "Video (View Once)";
         }
         
-        // Get group info if applicable
+        // Get group name if group
         let groupInfo = "";
         if (isGroup) {
             try {
-                const groupName = await conn.groupMetadata(from).then(m => m.subject).catch(() => "Group");
+                const groupName = await getGroupName(conn, from);
                 groupInfo = `📛 Group: ${groupName}\n`;
             } catch (e) {}
         }
         
-        // Send to owner WITH FULL CONTENT
-        const notification = `
-╭─── • 🥀 • ───╮
-   𝗩𝗜𝗘𝗪-𝗢𝗡𝗖𝗘 𝗠𝗘𝗦𝗦𝗔𝗚𝗘
-╰─── • 🥀 • ───╯
+        // Send to owner
+        const message = `
+👁️ *VIEW ONCE MESSAGE*
 
 👤 From: ${getUsername(sender)}
 ${groupInfo}🕐 Time: ${new Date().toLocaleTimeString()}
-${mediaType ? `📁 Type: ${mediaType}\n` : ''}
 
-💬 Message:
-${actualContent}
+📝 Content:
+${content}
 
 📍 Chat: ${isGroup ? 'Group' : 'Private'}`;
         
-        await conn.sendMessage(botOwnerJid, { text: notification });
+        await conn.sendMessage(botOwnerJid, { text: message });
         
         return true;
     } catch (error) {
-        console.error("View-once error:", error.message);
+        console.error("View once error:", error.message);
         return false;
     }
 }
 
 // ============================================
-// ANTI-DELETE HANDLER (SENDS ACTUAL CONTENT)
+// ANTI DELETE - SENDS TO OWNER
 // ============================================
 async function handleAntiDelete(conn, msg) {
     try {
@@ -311,61 +234,57 @@ async function handleAntiDelete(conn, msg) {
             return false;
         }
         
-        const deletedMsgKey = msg.message.protocolMessage.key;
-        const messageId = deletedMsgKey.id;
+        const deletedKey = msg.message.protocolMessage.key;
+        const messageId = deletedKey.id;
         const sender = msg.key.participant || msg.key.remoteJid;
         const from = msg.key.remoteJid;
         const isGroup = from.endsWith('@g.us');
         
         // Get stored content
-        let storedContent = messageContentStore.get(messageId);
-        let actualContent = storedContent?.content || "Content not available (may be media)";
-        let mediaInfo = storedContent?.mediaInfo || "";
+        const stored = messageStore.get(messageId);
+        const content = stored?.content || "Message content not available";
         
-        // Get group info
+        // Get group name if group
         let groupInfo = "";
         if (isGroup) {
             try {
-                const groupName = await conn.groupMetadata(from).then(m => m.subject).catch(() => "Group");
+                const groupName = await getGroupName(conn, from);
                 groupInfo = `📛 Group: ${groupName}\n`;
             } catch (e) {}
         }
         
-        // Send to owner WITH FULL CONTENT
-        const notification = `
-╭─── • 🥀 • ───╯
-   𝗗𝗘𝗟𝗘𝗧𝗘𝗗 𝗠𝗘𝗦𝗦𝗔𝗚𝗘
-╰─── • 🥀 • ───╯
+        // Send to owner
+        const message = `
+🗑️ *DELETED MESSAGE*
 
 👤 From: ${getUsername(sender)}
 ${groupInfo}🕐 Time: ${new Date().toLocaleTimeString()}
-${mediaInfo ? `📁 Type: ${mediaInfo}\n` : ''}
 
-🗑️ Deleted Message:
-${actualContent}
+📝 Original Content:
+${content}
 
 📍 Chat: ${isGroup ? 'Group' : 'Private'}`;
         
-        await conn.sendMessage(botOwnerJid, { text: notification });
+        await conn.sendMessage(botOwnerJid, { text: message });
         
         // Clean up
-        messageContentStore.delete(messageId);
+        messageStore.delete(messageId);
         
         return true;
     } catch (error) {
-        console.error("Anti-delete error:", error.message);
+        console.error("Anti delete error:", error.message);
         return false;
     }
 }
 
 // ============================================
-// COMMAND LOADER
+// SIMPLE COMMAND LOADER
 // ============================================
-async function loadCommand(command, conn, from, msg, args, settings, isOwner, sender, pushname, isGroup) {
+async function loadCommand(command, conn, from, msg, args, isOwner, sender, pushname, isGroup) {
     try {
         const cmdPath = path.join(__dirname, 'commands');
         if (!fs.existsSync(cmdPath)) {
-            const reply = createReplyFunction(conn, from, msg);
+            const reply = createReply(conn, from, msg);
             await reply("❌ Commands directory not found!");
             return;
         }
@@ -375,10 +294,10 @@ async function loadCommand(command, conn, from, msg, args, settings, isOwner, se
         const categories = fs.readdirSync(cmdPath);
         
         for (const cat of categories) {
-            const categoryPath = path.join(cmdPath, cat);
-            if (!fs.statSync(categoryPath).isDirectory()) continue;
+            const catPath = path.join(cmdPath, cat);
+            if (!fs.statSync(catPath).isDirectory()) continue;
             
-            const possibleFile = path.join(categoryPath, `${command}.js`);
+            const possibleFile = path.join(catPath, `${command}.js`);
             if (fs.existsSync(possibleFile)) {
                 commandFile = possibleFile;
                 break;
@@ -386,7 +305,7 @@ async function loadCommand(command, conn, from, msg, args, settings, isOwner, se
         }
         
         if (!commandFile) {
-            const reply = createReplyFunction(conn, from, msg);
+            const reply = createReply(conn, from, msg);
             await reply(`❌ Command "${command}" not found!\nUse ${config.prefix}menu for commands.`);
             return;
         }
@@ -396,54 +315,23 @@ async function loadCommand(command, conn, from, msg, args, settings, isOwner, se
         const cmdModule = require(commandFile);
         
         // Create reply function
-        const reply = createReplyFunction(conn, from, msg);
+        const reply = createReply(conn, from, msg);
         
-        // Attach reply to msg if not exists
-        if (!msg.reply) {
-            msg.reply = reply;
-        }
-        
-        // Check permissions
+        // Check if command requires owner
         if (cmdModule.ownerOnly && !isOwner) {
             await reply("❌ This command is only for bot owner!");
             return;
         }
         
-        if (cmdModule.adminOnly && isGroup && !isOwner) {
-            try {
-                const metadata = await conn.groupMetadata(from);
-                const participant = metadata.participants.find(p => p.id === sender);
-                const isAdmin = participant && (participant.admin === 'admin' || participant.admin === 'superadmin');
-                
-                if (!isAdmin) {
-                    await reply("❌ This command is only for group admins!");
-                    return;
-                }
-            } catch (e) {
-                await reply("❌ Could not verify admin status!");
-                return;
-            }
-        }
-        
-        // Execute command
+        // Execute command based on format
         if (typeof cmdModule.execute === 'function') {
-            const context = {
-                conn,
-                msg,
-                args,
-                from,
-                sender,
-                isGroup,
-                isOwner,
-                pushname,
-                reply,
-                config,
-                settings: settings || {}
-            };
-            
-            await cmdModule.execute(context);
+            // New format
+            await cmdModule.execute({
+                conn, msg, args, from, sender, isGroup, isOwner, pushname, reply, config
+            });
         } else if (typeof cmdModule === 'function') {
-            await cmdModule({ conn, msg, args, from, reply, sender, isOwner, pushname, config, settings });
+            // Old format
+            await cmdModule(conn, msg, args, { from, reply, sender, isOwner, pushname, config });
         } else {
             await reply(`❌ Invalid command structure for "${command}"`);
         }
@@ -451,19 +339,18 @@ async function loadCommand(command, conn, from, msg, args, settings, isOwner, se
     } catch (error) {
         console.error(`Command "${command}" error:`, error);
         try {
-            const reply = createReplyFunction(conn, from, msg);
+            const reply = createReply(conn, from, msg);
             await reply(`❌ Error in "${command}": ${error.message}`);
         } catch (e) {}
     }
 }
 
 // ============================================
-// CHATBOT HANDLER
+// CHATBOT - REPLIES TO EVERYONE
 // ============================================
-async function handleChatbot(conn, from, body, sender, pushname) {
+async function handleChatbot(conn, from, body, pushname) {
     try {
         if (!body || body.trim().length < 1) return false;
-        if (body.startsWith(config.prefix)) return false;
         
         // Typing indicator
         try {
@@ -471,19 +358,12 @@ async function handleChatbot(conn, from, body, sender, pushname) {
         } catch (e) {}
         
         // Get AI response
-        const aiResponse = await getAIResponse(body, pushname || "User");
+        const aiResponse = await getAIResponse(body);
         
         // Send response
-        const formattedResponse = `
-╭─── • 🥀 • ───╮
-   ɪɴꜱɪᴅɪᴏᴜꜱ ᴀɪ
-╰─── • 🥀 • ───╯
-
-${aiResponse}
-
-💕 Your AI friend`;
-        
-        await conn.sendMessage(from, { text: formattedResponse });
+        await conn.sendMessage(from, { 
+            text: aiResponse 
+        });
         
         // Stop typing
         try {
@@ -498,7 +378,7 @@ ${aiResponse}
 }
 
 // ============================================
-// MAIN HANDLER
+// MAIN HANDLER - SIMPLE & FAST
 // ============================================
 module.exports = async (conn, m) => {
     try {
@@ -536,29 +416,21 @@ module.exports = async (conn, m) => {
         // Check if sender is owner
         const isOwner = botOwnerJid ? (sender === botOwnerJid || msg.key.fromMe) : false;
         
-        // LOAD SETTINGS
-        let settings = {};
-        try {
-            settings = await Settings.findOne() || config;
-        } catch (e) {
-            settings = config;
-        }
+        // STORE MESSAGE
+        storeMessage(msg);
         
-        // STORE MESSAGE CONTENT
-        await storeMessageContent(msg);
-        
-        // ANTI-VIEWONCE (SENDS TO OWNER)
-        if (settings.antiviewonce || config.antiviewonce) {
+        // ANTI VIEWONCE
+        if (config.antiviewonce) {
             if (await handleViewOnce(conn, msg)) return;
         }
         
-        // ANTI-DELETE (SENDS TO OWNER)
-        if (settings.antidelete || config.antidelete) {
+        // ANTI DELETE
+        if (config.antidelete) {
             if (await handleAntiDelete(conn, msg)) return;
         }
         
         // AUTO READ
-        if (settings.autoRead || config.autoRead) {
+        if (config.autoRead) {
             try {
                 await conn.readMessages([msg.key]);
             } catch (e) {}
@@ -566,14 +438,14 @@ module.exports = async (conn, m) => {
         
         // COMMAND HANDLING
         if (isCmd && command) {
-            await loadCommand(command, conn, from, msg, args, settings, isOwner, sender, pushname, isGroup);
+            await loadCommand(command, conn, from, msg, args, isOwner, sender, pushname, isGroup);
             return;
         }
         
-        // CHATBOT
+        // CHATBOT - REPLIES TO EVERYONE
         if (body && body.trim().length > 0 && !isCmd && !msg.key.fromMe) {
-            if (settings.chatbot || config.chatbot) {
-                await handleChatbot(conn, from, body, sender, pushname);
+            if (config.chatbot) {
+                await handleChatbot(conn, from, body, pushname);
             }
             return;
         }
