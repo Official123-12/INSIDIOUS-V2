@@ -121,7 +121,6 @@ app.post('/api/settings', async (req, res) => {
 });
 
 let globalConn = null;
-let botOwnerJid = null;
 
 async function start() {
     try {
@@ -142,12 +141,6 @@ async function start() {
 
         globalConn = conn;
 
-        // SET BOT OWNER JID
-        if (conn.user && conn.user.id) {
-            botOwnerJid = conn.user.id;
-            console.log(fancy(`👑 Bot Owner: ${botOwnerJid}`));
-        }
-
         // CONNECTION HANDLER
         conn.ev.on('connection.update', async (update) => {
             const { connection, qr } = update;
@@ -156,43 +149,33 @@ async function start() {
                 console.log(fancy("👹 INSIDIOUS V2.1.1 ACTIVATED"));
                 console.log(fancy("✅ Bot is now online"));
                 
-                // IMPROVED CONNECTION MESSAGE TO OWNER
+                // SIMPLE CONNECTION MESSAGE TO OWNER
                 try {
-                    if (botOwnerJid) {
-                        const connectionMsg = `
+                    const botId = conn.user?.id || "bot";
+                    const uniqueCode = Math.random().toString(36).substring(2, 6).toUpperCase();
+                    
+                    const connectionMsg = `
 ╭─── • 🥀 • ───╮
    ɪɴꜱɪᴅɪᴏᴜꜱ ᴠ2.1.1
 ╰─── • 🥀 • ───╯
 
-✅ *Bot Successfully Connected!*
-📊 Dashboard: http://localhost:${PORT}
-🔗 Health: http://localhost:${PORT}/health
-👤 User: ${conn.user?.name || conn.user?.id || "Bot User"}
-🆔 ID: ${conn.user?.id || "Unknown"}
-🕐 Connected: ${new Date().toLocaleTimeString()}
+✅ *Bot Connected Successfully!*
+🔐 Session: ${botId.substring(0, 10)}...
+🆔 Code: ${uniqueCode}
+👥 User: ${conn.user?.name || "Insidious"}
+🕐 Time: ${new Date().toLocaleTimeString()}
 
-⚙️ *Features Active:*
-🔒 Antidelete: ✅
-👁️ Antiviewonce: ✅
-📵 Anticall: ✅
-🛡️ Antilink: ✅
-🤖 Chatbot: ✅
-
-${fancy("The darkness is watching...")}`;
-                        
-                        await conn.sendMessage(botOwnerJid, { text: connectionMsg });
+${fancy("Ready to serve...")}`;
+                    
+                    // Send to bot owner
+                    if (config.ownerNumber) {
+                        const ownerJid = config.ownerNumber + '@s.whatsapp.net';
+                        await conn.sendMessage(ownerJid, { text: connectionMsg });
                     }
+                    
                 } catch (e) {
                     console.log("Connection message error:", e.message);
                 }
-                
-                // INITIALIZE HANDLER
-                try {
-                    const handler = require('./handler');
-                    if (handler.init) {
-                        handler.init(conn);
-                    }
-                } catch (e) {}
             }
             
             if (connection === 'close') {
@@ -250,19 +233,6 @@ ${fancy("The darkness is watching...")}`;
             }
         });
 
-        // SIMPLE STATUS CHECK
-        app.get('/api/conn-status', (req, res) => {
-            if (conn.user) {
-                res.json({ 
-                    status: 'connected', 
-                    user: conn.user.id,
-                    name: conn.user.name || conn.user.id 
-                });
-            } else {
-                res.json({ status: 'disconnected' });
-            }
-        });
-
         // CONNECTION STATUS API
         app.get('/health', (req, res) => {
             res.json({ 
@@ -288,8 +258,6 @@ start();
 // START SERVER
 app.listen(PORT, () => {
     console.log(fancy(`🌐 Web Interface: http://localhost:${PORT}`));
-    console.log(fancy(`🔗 Pairing: http://localhost:${PORT}/`));
-    console.log(fancy(`📊 Dashboard: http://localhost:${PORT}/dashboard`));
 });
 
 module.exports = app;
