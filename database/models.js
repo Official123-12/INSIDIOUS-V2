@@ -24,9 +24,8 @@ const GroupSchema = new mongoose.Schema({
     joinedAt: { type: Date, default: Date.now }
 });
 
-// SETTINGS SCHEMA - SIMPLIFIED
+// SETTINGS SCHEMA
 const SettingsSchema = new mongoose.Schema({
-    // Anti Features
     antilink: { type: Boolean, default: true },
     antiporn: { type: Boolean, default: true },
     antiscam: { type: Boolean, default: true },
@@ -34,8 +33,6 @@ const SettingsSchema = new mongoose.Schema({
     antitag: { type: Boolean, default: true },
     antiviewonce: { type: Boolean, default: true },
     antidelete: { type: Boolean, default: true },
-    
-    // Other Features
     sleepingMode: { type: Boolean, default: false },
     welcomeGoodbye: { type: Boolean, default: true },
     chatbot: { type: Boolean, default: true },
@@ -45,18 +42,48 @@ const SettingsSchema = new mongoose.Schema({
     anticall: { type: Boolean, default: true },
     antispam: { type: Boolean, default: true },
     antibug: { type: Boolean, default: true },
-    
-    // Timestamp
     updatedAt: { type: Date, default: Date.now }
+});
+
+// ✅ **NEW: SESSION SCHEMA FOR MONGODB STORAGE**
+const SessionSchema = new mongoose.Schema({
+    sessionId: { 
+        type: String, 
+        required: true, 
+        unique: true,
+        default: 'insidious_main'
+    },
+    sessionData: { 
+        type: mongoose.Schema.Types.Mixed, 
+        default: {} 
+    },
+    creds: { 
+        type: mongoose.Schema.Types.Mixed, 
+        default: {} 
+    },
+    keys: { 
+        type: mongoose.Schema.Types.Mixed, 
+        default: {} 
+    },
+    createdAt: { 
+        type: Date, 
+        default: Date.now 
+    },
+    updatedAt: { 
+        type: Date, 
+        default: Date.now 
+    }
 });
 
 // Create models
 const User = mongoose.model('User', UserSchema);
 const Group = mongoose.model('Group', GroupSchema);
 const Settings = mongoose.model('Settings', SettingsSchema);
+const Session = mongoose.model('Session', SessionSchema);
 
 module.exports = {
     User,
     Group,
-    Settings
+    Settings,
+    Session  // ✅ Exported for index.js
 };
