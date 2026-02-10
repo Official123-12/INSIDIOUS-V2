@@ -1,5 +1,5 @@
 const fs = require('fs');
-const { fancy } = require('./lib/font');
+const path = require('path');
 
 // Load .env file manually
 let envConfig = {};
@@ -14,10 +14,10 @@ try {
                 }
             }
         });
-        console.log(fancy('[CONFIG] ✅ Loaded .env file'));
+        console.log('✅ Loaded .env file');
     }
 } catch (e) {
-    console.log(fancy('[CONFIG] ⚠️ No .env file found'));
+    console.log('⚠️ No .env file found');
 }
 
 // Helper to get config with fallbacks
@@ -72,7 +72,7 @@ module.exports = {
     anticall: true,
 
     // ============================================
-    // RECOVERY FEATURES - UPDATED FOR POLLINATIONS
+    // RECOVERY FEATURES - UPDATED
     // ============================================
     antiviewonce: true,
     antidelete: true,
@@ -90,7 +90,7 @@ module.exports = {
     welcomeGoodbye: true,
 
     // ============================================
-    // AUTOBLOCK COUNTRIES (OPTIONAL)
+    // AUTOBLOCK COUNTRIES
     // ============================================
     blockedCountries: ['92', '212', '234'],
 
@@ -104,7 +104,7 @@ module.exports = {
     autoTyping: true,
 
     // ============================================
-    // STATUS AUTO INTERACTION - UPDATED
+    // STATUS AUTO INTERACTION
     // ============================================
     autoStatus: true,
     autoStatusView: true,
@@ -112,7 +112,7 @@ module.exports = {
     autoStatusReply: true,
 
     // ============================================
-    // AI CHATBOT - UPDATED FOR POLLINATIONS
+    // AI CHATBOT - POLLINATIONS
     // ============================================
     chatbot: true,
     aiModel: "https://text.pollinations.ai/",
@@ -159,19 +159,15 @@ module.exports = {
     autoReactChannel: true,
     
     // ============================================
-    // NEW FEATURES FOR INDEX.JS
+    // NEW FEATURES
     // ============================================
     sendWelcomeToOwner: true,
-    
-    // ============================================
-    // FEATURES FOR HANDLER.JS
-    // ============================================
     activeMembers: false,
     autoblockCountry: false,
     downloadStatus: false,
     
     // ============================================
-    // ADMIN NUMBERS (OPTIONAL)
+    // ADMIN NUMBERS
     // ============================================
     adminNumbers: []
 };
