@@ -1,37 +1,26 @@
-# WRONG TURN 6 - WORLDWIDE WHATSAPP BOT 🌍🥀
+# INSIDIOUS: THE LAST KEY 🤖
+### Version 2.1.1 | Developer: STANYTZ
 
-Advanced WhatsApp Bot with worldwide support, ready for deployment on any platform.
+## 🚀 FEATURES
+✅ **70+ Advanced Features**
+✅ **Anti-System Complete**
+✅ **Auto Recovery**
+✅ **AI Chatbot**
+✅ **Multi-Platform Support**
 
-## Features:
-- 🌍 Works worldwide (all countries)
-- 🥀 Beautiful flower theme
-- 🔗 Easy pairing system
-- 🔒 Advanced security
-- 🤖 Auto AI responses
-- 🛡️ Anti-delete, anti-viewonce
-- ⚡ Fast & reliable
+## 📦 INSTALLATION
 
-## Deployment:
-1. **Heroku**: Just push to Heroku
-2. **Railway**: Import GitHub repo
-3. **Render**: Deploy from Git
-4. **Vercel**: Deploy as serverless
-5. **Any VPS**: Node.js 18+
+```bash
+# 1. Clone repository
+git clone https://github.com/your-repo/insidious-bot.git
+cd insidious-bot
 
-## Setup:
-1. Clone this repo
-2. Run `npm install`
-3. Set up Firebase (optional)
-4. Run `node index.js`
-5. Visit `/pair` to pair your number
+# 2. Install dependencies
+npm install
 
-## Commands:
-- `.ping` - Check latency
-- `.help` - Show all commands
-- More in commands folder
+# 3. Configure environment
+cp .env.example .env
+# Edit .env with your settings
 
-## Developer:
-**STANYTZ** - Worldwide Bot Specialist
-
-## Support:
-Join: https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y
+# 4. Start the bot
+npm start
