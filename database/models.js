@@ -1,81 +1,78 @@
-// database/models.js
 const mongoose = require('mongoose');
 
+// User Schema
 const userSchema = new mongoose.Schema({
-    jid: String,
+    jid: { type: String, required: true, unique: true },
     name: String,
     deviceId: String,
-    linkedAt: { type: Date, default: Date.now },
+    linkedAt: Date,
     isActive: { type: Boolean, default: true },
     mustFollowChannel: { type: Boolean, default: true },
-    lastActive: Date,
+    lastPair: Date,
     messageCount: { type: Number, default: 0 },
-    channelNotified: { type: Boolean, default: false },
-    followingChannel: { type: Boolean, default: true },
-    pairingCode: String
+    lastActive: Date
 });
 
+// Group Schema
 const groupSchema = new mongoose.Schema({
-    jid: String,
+    jid: { type: String, required: true, unique: true },
     name: String,
-    description: String,
     participants: Number,
-    lastActivity: Date
+    admins: [String],
+    settings: Object,
+    joinedAt: Date,
+    lastActive: Date
 });
 
+// Channel Subscriber Schema
 const channelSubscriberSchema = new mongoose.Schema({
-    jid: String,
+    jid: { type: String, required: true, unique: true },
     name: String,
-    subscribedAt: { type: Date, default: Date.now },
+    subscribedAt: Date,
     isActive: { type: Boolean, default: true },
-    autoFollow: { type: Boolean, default: true },
+    autoFollow: { type: Boolean, default: false },
     lastActive: Date,
     source: String
 });
 
+// Settings Schema
 const settingsSchema = new mongoose.Schema({
     antilink: { type: Boolean, default: true },
     antiporn: { type: Boolean, default: true },
     antiscam: { type: Boolean, default: true },
-    antimedia: { type: String, default: "off" },
+    antimedia: { type: Boolean, default: false },
     antitag: { type: Boolean, default: true },
     antiviewonce: { type: Boolean, default: true },
     antidelete: { type: Boolean, default: true },
+    sleepingMode: { type: Boolean, default: false },
+    welcomeGoodbye: { type: Boolean, default: true },
+    activeMembers: { type: Boolean, default: false },
+    autoblockCountry: { type: Boolean, default: false },
     chatbot: { type: Boolean, default: true },
-    workMode: { type: String, default: "public" },
+    autoStatus: { type: Boolean, default: true },
     autoRead: { type: Boolean, default: true },
     autoReact: { type: Boolean, default: true },
     autoSave: { type: Boolean, default: true },
-    autoTyping: { type: Boolean, default: true },
-    antibug: { type: Boolean, default: true },
-    antispam: { type: Boolean, default: true },
-    channelSubscription: { type: Boolean, default: true },
-    autoReactChannel: { type: Boolean, default: true },
-    sleepingMode: { type: Boolean, default: false },
-    welcomeGoodbye: { type: Boolean, default: true },
     autoBio: { type: Boolean, default: true },
-    anticall: { type: Boolean, default: false },
-    autoStatusView: { type: Boolean, default: true },
-    autoStatusLike: { type: Boolean, default: true },
+    anticall: { type: Boolean, default: true },
+    downloadStatus: { type: Boolean, default: false },
+    antispam: { type: Boolean, default: true },
+    antibug: { type: Boolean, default: true },
     autoStatusReply: { type: Boolean, default: true },
+    workMode: { type: String, default: 'public' },
+    commandPrefix: { type: String, default: '.' },
     updatedAt: { type: Date, default: Date.now }
 });
 
-const sessionSchema = new mongoose.Schema({
-    sessionId: String,
-    jid: String,
-    deviceId: String,
-    isActive: { type: Boolean, default: true },
-    connectedAt: { type: Date, default: Date.now },
-    lastPing: Date,
-    deviceInfo: Object,
-    botName: String
-});
+// Create models
+const User = mongoose.model('User', userSchema);
+const Group = mongoose.model('Group', groupSchema);
+const ChannelSubscriber = mongoose.model('ChannelSubscriber', channelSubscriberSchema);
+const Settings = mongoose.model('Settings', settingsSchema);
 
 module.exports = {
-    User: mongoose.models.User || mongoose.model('User', userSchema),
-    Group: mongoose.models.Group || mongoose.model('Group', groupSchema),
-    ChannelSubscriber: mongoose.models.ChannelSubscriber || mongoose.model('ChannelSubscriber', channelSubscriberSchema),
-    Settings: mongoose.models.Settings || mongoose.model('Settings', settingsSchema),
-    Session: mongoose.models.Session || mongoose.model('Session', sessionSchema)
+    User,
+    Group,
+    ChannelSubscriber,
+    Settings
 };
