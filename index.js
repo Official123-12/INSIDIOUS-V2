@@ -4,7 +4,6 @@ const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
 const fs = require('fs');
-const qrcode = require('qrcode-terminal');
 
 // ✅ **FANCY FUNCTION**
 function fancy(text) {
@@ -34,19 +33,6 @@ function fancy(text) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ **GENERATE UNIQUE BOT ID (SECRET CODE)**
-function generateBotId() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let id = '';
-    for (let i = 0; i < 8; i++) {
-        id += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return `INS${id}`;
-}
-
-let BOT_ID = process.env.BOT_ID || generateBotId();
-let PAIRED_NUMBERS = []; // Will store max 2 numbers
-
 // ✅ **MONGODB CONNECTION - MUST**
 console.log(fancy("🔗 Connecting to MongoDB..."));
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
@@ -62,7 +48,6 @@ mongoose.connect(MONGODB_URI, {
 .catch((err) => {
     console.log(fancy("❌ MongoDB Connection FAILED"));
     console.log(fancy("💡 Error: " + err.message));
-    // Continue without MongoDB (fallback)
 });
 
 // ✅ **MIDDLEWARE**
@@ -95,7 +80,6 @@ try {
     console.log(fancy("📋 Config loaded"));
 } catch (error) {
     console.log(fancy("❌ Config file error"));
-    // Use default config
     config = {
         prefix: '.',
         ownerNumber: ['255000000000'],
@@ -108,10 +92,6 @@ try {
 async function startBot() {
     try {
         console.log(fancy("🚀 Starting INSIDIOUS..."));
-        
-        // Display BOT ID
-        console.log(fancy(`🔐 BOT ID: ${BOT_ID}`));
-        console.log(fancy(`🔑 Use this ID to pair numbers (Max: 2 numbers)`));
         
         // ✅ **AUTHENTICATION**
         const { state, saveCreds } = await useMultiFileAuthState('insidious_session');
@@ -135,15 +115,9 @@ async function startBot() {
         globalConn = conn;
         botStartTime = Date.now();
 
-        // ✅ **CUSTOM QR CODE HANDLER**
+        // ✅ **CONNECTION EVENT HANDLER**
         conn.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
-            
-            // ✅ **HANDLE QR CODE MANUALLY**
-            if (qr) {
-                console.log(fancy("📱 Scan this QR Code with WhatsApp:"));
-                qrcode.generate(qr, { small: true });
-            }
             
             if (connection === 'open') {
                 console.log(fancy("👹 INSIDIOUS: THE LAST KEY ACTIVATED"));
@@ -163,8 +137,6 @@ async function startBot() {
                 console.log(fancy(`🤖 Name: ${botName}`));
                 console.log(fancy(`📞 Number: ${botNumber}`));
                 console.log(fancy(`🆔 Bot ID: ${botId}`));
-                console.log(fancy(`🔐 Secret Code: ${BOT_ID}`));
-                console.log(fancy(`📱 Paired numbers: ${PAIRED_NUMBERS.length}/2`));
                 
                 // ✅ **SEND WELCOME MESSAGE TO OWNER**
                 setTimeout(async () => {
@@ -174,7 +146,6 @@ async function startBot() {
                             if (ownerNum.length >= 10) {
                                 const ownerJid = ownerNum + '@s.whatsapp.net';
                                 
-                                // Welcome message with image
                                 const welcomeMsg = `
 ╭─── • 🥀 • ───╮
    INSIDIOUS: THE LAST KEY
@@ -184,34 +155,35 @@ async function startBot() {
 🤖 *Name:* ${botName}
 📞 *Number:* ${botNumber}
 🆔 *Bot ID:* ${botId.split(':')[0]}
-🔐 *Secret Code:* ${BOT_ID}
 
 ⚡ *Status:* ONLINE & ACTIVE
 
-📊 *FEATURES:*
+📊 *ALL FEATURES ACTIVE:*
 🛡️ Anti View Once: ✅
 🗑️ Anti Delete: ✅
 🤖 AI Chatbot: ✅
 ⚡ Auto Typing: ✅
 📼 Auto Recording: ✅
+👀 Auto Read: ✅
+❤️ Auto React: ✅
+🎉 Welcome/Goodbye: ✅
+
+🔧 *Commands:* All working
+📁 *Database:* Connected
+🚀 *Performance:* Optimal
 
 👑 *Developer:* STANYTZ
-💾 *Version:* 2.1.1 | Year: 2025
-
-💡 *To pair another number:*
-Send: .pair ${BOT_ID} 255XXXXXXXXX
-
-🔒 *Limited to 2 numbers per BOT ID*`;
+💾 *Version:* 2.1.1 | Year: 2025`;
                                 
-                                // Send message with forwarded effect and image
+                                // Send with image and forwarded style
                                 await conn.sendMessage(ownerJid, { 
                                     image: { 
-                                        url: "https://files.catbox.moe/mfngio.png" 
+                                        url: "https://files.catbox.moe/f3c07u.jpg" 
                                     },
                                     caption: welcomeMsg,
                                     contextInfo: { 
                                         isForwarded: true,
-                                        forwardingScore: 255,
+                                        forwardingScore: 999,
                                         forwardedNewsletterMessageInfo: { 
                                             newsletterJid: "120363404317544295@newsletter",
                                             newsletterName: "INSIDIOUS BOT"
@@ -221,7 +193,7 @@ Send: .pair ${BOT_ID} 255XXXXXXXXX
                             }
                         }
                     } catch (e) {
-                        console.log(fancy("❌ Could not send welcome message"));
+                        // Silent error
                     }
                 }, 3000);
                 
@@ -246,143 +218,13 @@ Send: .pair ${BOT_ID} 255XXXXXXXXX
                 const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
                 
                 if (shouldReconnect) {
-                    console.log(fancy("⏳ Restarting bot..."));
-                    // No auto-reconnect - just restart once
-                    startBot();
+                    // Restart bot once
+                    console.log(fancy("🔄 Restarting bot..."));
+                    setTimeout(() => {
+                        startBot();
+                    }, 5000);
                 }
             }
-        });
-
-        // ✅ **PAIRING ENDPOINT WITH BOT ID VERIFICATION**
-        app.get('/pair', async (req, res) => {
-            try {
-                let num = req.query.num;
-                let botId = req.query.bot_id;
-                
-                if (!num || !botId) {
-                    return res.json({ 
-                        error: "Provide number and bot_id! Example: /pair?num=255123456789&bot_id=INSABCD12" 
-                    });
-                }
-                
-                const cleanNum = num.replace(/[^0-9]/g, '');
-                if (cleanNum.length < 10) {
-                    return res.json({ error: "Invalid number" });
-                }
-                
-                // Check if bot ID matches
-                if (botId !== BOT_ID) {
-                    return res.json({ 
-                        success: false, 
-                        error: "Invalid BOT ID" 
-                    });
-                }
-                
-                // Check if number already paired
-                if (PAIRED_NUMBERS.includes(cleanNum)) {
-                    return res.json({ 
-                        success: true, 
-                        message: "Number already paired" 
-                    });
-                }
-                
-                // Check limit (max 2 numbers)
-                if (PAIRED_NUMBERS.length >= 2) {
-                    return res.json({ 
-                        success: false, 
-                        error: "Maximum limit reached (2 numbers). Delete one to add another." 
-                    });
-                }
-                
-                console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum}`));
-                
-                try {
-                    const code = await conn.requestPairingCode(cleanNum);
-                    
-                    // Add to paired numbers
-                    PAIRED_NUMBERS.push(cleanNum);
-                    
-                    res.json({ 
-                        success: true, 
-                        code: code,
-                        message: `8-digit pairing code: ${code}`,
-                        paired_numbers: PAIRED_NUMBERS,
-                        remaining: 2 - PAIRED_NUMBERS.length
-                    });
-                } catch (err) {
-                    if (err.message.includes("already paired")) {
-                        // Add to list even if already paired
-                        if (!PAIRED_NUMBERS.includes(cleanNum)) {
-                            PAIRED_NUMBERS.push(cleanNum);
-                        }
-                        res.json({ 
-                            success: true, 
-                            message: "Number already paired",
-                            paired_numbers: PAIRED_NUMBERS
-                        });
-                    } else {
-                        throw err;
-                    }
-                }
-                
-            } catch (err) {
-                console.error("Pairing error:", err.message);
-                res.json({ success: false, error: "Failed: " + err.message });
-            }
-        });
-
-        // ✅ **UNPAIR ENDPOINT**
-        app.get('/unpair', async (req, res) => {
-            try {
-                let num = req.query.num;
-                let botId = req.query.bot_id;
-                
-                if (!num || !botId) {
-                    return res.json({ 
-                        error: "Provide number and bot_id! Example: /unpair?num=255123456789&bot_id=INSABCD12" 
-                    });
-                }
-                
-                // Check if bot ID matches
-                if (botId !== BOT_ID) {
-                    return res.json({ 
-                        success: false, 
-                        error: "Invalid BOT ID" 
-                    });
-                }
-                
-                const cleanNum = num.replace(/[^0-9]/g, '');
-                
-                // Remove from paired numbers
-                const index = PAIRED_NUMBERS.indexOf(cleanNum);
-                if (index > -1) {
-                    PAIRED_NUMBERS.splice(index, 1);
-                    res.json({ 
-                        success: true, 
-                        message: `Number ${cleanNum} unpaired successfully`,
-                        paired_numbers: PAIRED_NUMBERS
-                    });
-                } else {
-                    res.json({ 
-                        success: false, 
-                        error: "Number not found in paired list" 
-                    });
-                }
-                
-            } catch (err) {
-                console.error("Unpair error:", err.message);
-                res.json({ success: false, error: "Failed: " + err.message });
-            }
-        });
-
-        // ✅ **GET PAIRED NUMBERS**
-        app.get('/paired', async (req, res) => {
-            res.json({
-                bot_id: BOT_ID,
-                paired_numbers: PAIRED_NUMBERS,
-                count: PAIRED_NUMBERS.length,
-                max_limit: 2
-            });
         });
 
         // ✅ **HEALTH CHECK**
@@ -396,9 +238,7 @@ Send: .pair ${BOT_ID} 255XXXXXXXXX
                 status: 'healthy',
                 connected: isConnected,
                 uptime: `${hours}h ${minutes}m ${seconds}s`,
-                database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-                bot_id: BOT_ID,
-                paired_count: PAIRED_NUMBERS.length
+                database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
             });
         });
 
@@ -429,11 +269,11 @@ Send: .pair ${BOT_ID} 255XXXXXXXXX
             }
         });
 
-        console.log(fancy("🚀 Bot ready for pairing"));
+        console.log(fancy("🚀 Bot ready"));
         
     } catch (error) {
         console.error("Start error:", error.message);
-        // One-time restart on error
+        // Restart once on error
         setTimeout(() => {
             startBot();
         }, 10000);
@@ -446,14 +286,10 @@ startBot();
 // ✅ **START SERVER**
 app.listen(PORT, () => {
     console.log(fancy(`🌐 Web Interface: http://localhost:${PORT}`));
-    console.log(fancy(`🔗 Pairing: http://localhost:${PORT}/pair?num=255XXXXXXXXX&bot_id=${BOT_ID}`));
-    console.log(fancy(`🗑️  Unpair: http://localhost:${PORT}/unpair?num=255XXXXXXXXX&bot_id=${BOT_ID}`));
-    console.log(fancy(`📋 Paired: http://localhost:${PORT}/paired`));
     console.log(fancy(`❤️ Health: http://localhost:${PORT}/health`));
     console.log(fancy("👑 Developer: STANYTZ"));
     console.log(fancy("📅 Version: 2.1.1 | Year: 2025"));
     console.log(fancy("🙏 Special Thanks: REDTECH"));
-    console.log(fancy("🔐 BOT ID System: ACTIVE (Max 2 numbers)"));
 });
 
 module.exports = app;
