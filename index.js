@@ -1,3 +1,6 @@
+// Ongeza hii mstari wa kwanza kabisa
+require('dotenv').config();
+
 const {
     default: makeWASocket,
     useMultiFileAuthState,
@@ -19,10 +22,46 @@ const { User, Group, ChannelSubscriber, Settings } = require('./database/models'
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// DATABASE CONNECTION
-mongoose.connect(config.mongodb, { useNewUrlParser: true, useUnifiedTopology: true })
-    .then(() => console.log(fancy("🥀 database connected: insidious is eternal.")))
-    .catch(err => console.error("DB Connection Error:", err));
+// HAKIKISHA DATABASE CONNECTION - NIMEONGEZA RETRY LOGIC
+async function connectDatabase() {
+    try {
+        // Hakikisha connection string iko sawa
+        const mongoURI = config.mongodb || process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
+        
+        console.log(fancy("🔗 Connecting to MongoDB Atlas..."));
+        
+        // Ongeza options za connection
+        const options = {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+            serverSelectionTimeoutMS: 5000,
+            socketTimeoutMS: 45000,
+        };
+        
+        await mongoose.connect(mongoURI, options);
+        console.log(fancy("✅ MongoDB Atlas connected successfully!"));
+        
+        // Set up connection event handlers
+        mongoose.connection.on('error', (err) => {
+            console.error('MongoDB connection error:', err);
+        });
+        
+        mongoose.connection.on('disconnected', () => {
+            console.log(fancy('MongoDB disconnected'));
+        });
+        
+    } catch (err) {
+        console.error(fancy("❌ MongoDB connection failed:"));
+        console.error("Error details:", err.message);
+        console.log(fancy("🔄 Retrying in 5 seconds..."));
+        
+        // Retry after 5 seconds
+        setTimeout(connectDatabase, 5000);
+    }
+}
+
+// Anza kusajili database
+connectDatabase();
 
 // MIDDLEWARE
 app.use(express.json());
@@ -394,10 +433,12 @@ async function startInsidious() {
     return conn;
 }
 
-// Start the bot
-startInsidious().catch(console.error);
+// START BOT AFTER DB CONNECTION
+setTimeout(() => {
+    startInsidious().catch(console.error);
+}, 2000); // Delay kidogo kwa ajili ya DB connection
 
 // Start web server
-app.listen(PORT, () => console.log(`🌐 Dashboard running on port ${PORT}`));
+app.listen(PORT, () => console.log(fancy(`🌐 Dashboard running on port ${PORT}`)));
 
 module.exports = { startInsidious, globalConn };
