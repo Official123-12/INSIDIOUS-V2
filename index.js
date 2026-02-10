@@ -82,15 +82,16 @@ app.get('/api/features', async (req, res) => {
                 activeMembers: settings.activeMembers || config.activeMembers || false,
                 autoblockCountry: settings.autoblockCountry || config.autoblockCountry || false,
                 chatbot: settings.chatbot || config.chatbot || true,
-                autoStatus: settings.autoStatus || config.autoStatus || false,
+                autoStatus: settings.autoStatus || config.autoStatus || true,
                 autoRead: settings.autoRead || config.autoRead || true,
-                autoReact: settings.autoReact || config.autoReact || false,
+                autoReact: settings.autoReact || config.autoReact || true,
                 autoSave: settings.autoSave || config.autoSave || false,
                 autoBio: settings.autoBio || config.autoBio || true,
                 anticall: settings.anticall || config.anticall || true,
                 downloadStatus: settings.downloadStatus || config.downloadStatus || false,
                 antispam: settings.antispam || config.antispam || true,
-                antibug: settings.antibug || config.antibug || true
+                antibug: settings.antibug || config.antibug || true,
+                autoStatusReply: settings.autoStatusReply || config.autoStatusReply || true
             }
         });
     } catch (error) {
@@ -151,8 +152,8 @@ async function start() {
                 
                 // SIMPLE CONNECTION MESSAGE TO OWNER
                 try {
-                    const botId = conn.user?.id || "bot";
-                    const uniqueCode = Math.random().toString(36).substring(2, 6).toUpperCase();
+                    const uniqueEmoji = ["👑", "🌟", "✨", "⚡", "🔥", "💫"];
+                    const randomEmoji = uniqueEmoji[Math.floor(Math.random() * uniqueEmoji.length)];
                     
                     const connectionMsg = `
 ╭─── • 🥀 • ───╮
@@ -160,12 +161,18 @@ async function start() {
 ╰─── • 🥀 • ───╯
 
 ✅ *Bot Connected Successfully!*
-🔐 Session: ${botId.substring(0, 10)}...
-🆔 Code: ${uniqueCode}
-👥 User: ${conn.user?.name || "Insidious"}
+${randomEmoji} Session: Active
+👤 User: ${conn.user?.name || "Insidious"}
 🕐 Time: ${new Date().toLocaleTimeString()}
 
-${fancy("Ready to serve...")}`;
+⚙️ *Features Ready:*
+🤖 AI Chatbot: ✅
+👁️ Anti-Viewonce: ✅
+🗑️ Anti-Delete: ✅
+📱 Status AI: ✅
+💕 Human Emotions: ✅
+
+${fancy("Ready with love & feelings... ❤️")}`;
                     
                     // Send to bot owner
                     if (config.ownerNumber) {
@@ -175,6 +182,16 @@ ${fancy("Ready to serve...")}`;
                     
                 } catch (e) {
                     console.log("Connection message error:", e.message);
+                }
+                
+                // INITIALIZE HANDLER
+                try {
+                    const handler = require('./handler');
+                    if (handler.init) {
+                        await handler.init(conn);
+                    }
+                } catch (e) {
+                    console.error("Handler init error:", e.message);
                 }
             }
             
@@ -233,18 +250,7 @@ ${fancy("Ready to serve...")}`;
             }
         });
 
-        // CONNECTION STATUS API
-        app.get('/health', (req, res) => {
-            res.json({ 
-                status: 'ok', 
-                bot: 'Insidious V2', 
-                database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-                connection: conn.user ? 'connected' : 'disconnected',
-                timestamp: new Date().toISOString()
-            });
-        });
-
-        console.log(fancy("🚀 Bot ready for pairing"));
+        console.log(fancy("🚀 AI Bot ready for pairing"));
         
     } catch (error) {
         console.error("Start error:", error.message);
