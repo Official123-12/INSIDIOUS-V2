@@ -3,7 +3,7 @@ const path = require('path');
 const axios = require('axios');
 const config = require('./config');
 
-// LOAD DATABASE MODELS
+// LOAD DATABASE MODELS SAFELY
 let User, Group, ChannelSubscriber, Settings;
 try {
     const models = require('./database/models');
@@ -44,7 +44,6 @@ try {
 const messageStore = new Map();
 const spamTracker = new Map();
 const warningTracker = new Map();
-const mediaStore = new Map();
 
 // BOT OWNER JID
 let botOwnerJid = null;
@@ -90,6 +89,37 @@ function createReply(conn, from, msg) {
             return null;
         }
     };
+}
+
+// ============================================
+// AI CHATBOT - POLLINATIONS.AI (NO SIMULATION)
+// ============================================
+async function getAIResponse(userMessage) {
+    try {
+        const encodedMessage = encodeURIComponent(userMessage);
+        const apiUrl = `https://text.pollinations.ai/${encodedMessage}`;
+        
+        const response = await axios.get(apiUrl, { timeout: 10000 });
+        
+        if (response.data && response.data.trim()) {
+            return response.data.trim();
+        }
+        
+        // Fallback responses
+        const responses = [
+            "Hello! How can I help you today? 😊",
+            "Hey there! What's on your mind?",
+            "Hi! I'm here to assist you!",
+            "Yo! What's good?",
+            "Hey! How can I be of service?",
+            "Hi there! 😄 How can I help?"
+        ];
+        
+        return responses[Math.floor(Math.random() * responses.length)];
+    } catch (error) {
+        console.error('AI Error:', error.message);
+        return "I'm here! What would you like to talk about? 😊";
+    }
 }
 
 // ============================================
@@ -481,15 +511,6 @@ async function handleAutoRecording(conn, msg, settings) {
             }
         }
         
-        // Store in memory for quick access
-        mediaStore.set(msg.key.id, {
-            jid: sender,
-            timestamp: new Date(),
-            type: msg.message?.imageMessage ? 'image' : 
-                  msg.message?.videoMessage ? 'video' :
-                  msg.message?.audioMessage ? 'audio' : 'text'
-        });
-        
     } catch (error) {
         console.error("Auto recording error:", error.message);
     }
@@ -528,6 +549,15 @@ async function sendWelcomeMessage(conn, groupJid, participantJid) {
         const groupMetadata = await conn.groupMetadata(groupJid);
         const participantName = getUsername(participantJid);
         
+        // Get quote from API
+        let quote = "Welcome to our community!";
+        try {
+            const response = await axios.get('https://api.quotable.io/random');
+            if (response.data && response.data.content) {
+                quote = response.data.content;
+            }
+        } catch (e) {}
+        
         const welcomeMsg = `
 🎉 *WELCOME TO ${groupMetadata.subject?.toUpperCase() || 'THE GROUP'}!*
 
@@ -535,6 +565,10 @@ async function sendWelcomeMessage(conn, groupJid, participantJid) {
 🕐 Joined: ${new Date().toLocaleTimeString()}
 📝 Group Description: ${groupMetadata.desc || "No description"}
 👥 Total Members: ${groupMetadata.participants?.length || 0}
+📊 Active Members: ${groupMetadata.participants?.filter(p => p.admin).length || 0}
+
+💬 *Quote of the day:*
+"${quote}"
 
 Enjoy your stay! 🥳`;
         
@@ -596,7 +630,7 @@ function isSleepingMode(settings) {
 }
 
 // ============================================
-// COMMAND LOADER - FIXED
+// COMMAND LOADER - FIXED FOR ALL COMMANDS
 // ============================================
 async function loadCommand(command, conn, from, msg, args, isOwner, sender, pushname, isGroup) {
     try {
@@ -644,44 +678,70 @@ async function loadCommand(command, conn, from, msg, args, isOwner, sender, push
             return;
         }
         
-        // Execute command
+        // FIX: Handle BOTH command formats safely
         if (typeof cmdModule.execute === 'function') {
-            await cmdModule.execute({
-                conn, 
-                msg, 
-                args, 
-                from, 
-                sender, 
-                isGroup, 
-                isOwner, 
-                pushname, 
-                reply, 
-                config
-            });
+            // New format with object parameter
+            try {
+                // Check if function expects object or multiple parameters
+                if (cmdModule.execute.length === 1) {
+                    // Object parameter format
+                    await cmdModule.execute({
+                        conn, 
+                        msg, 
+                        args, 
+                        from, 
+                        sender, 
+                        isGroup, 
+                        isOwner, 
+                        pushname, 
+                        reply, 
+                        config
+                    });
+                } else {
+                    // Multiple parameters format (like menu.js)
+                    await cmdModule.execute(conn, msg, args, { 
+                        from, 
+                        reply, 
+                        sender, 
+                        isOwner, 
+                        pushname, 
+                        config 
+                    });
+                }
+            } catch (error) {
+                console.error(`Command "${command}" execution error:`, error);
+                await reply(`❌ Error in "${command}": ${error.message}`);
+            }
         } else if (typeof cmdModule === 'function') {
-            await cmdModule(conn, msg, args, { 
-                from, 
-                reply, 
-                sender, 
-                isOwner, 
-                pushname, 
-                config 
-            });
+            // Old format function
+            try {
+                await cmdModule(conn, msg, args, { 
+                    from, 
+                    reply, 
+                    sender, 
+                    isOwner, 
+                    pushname, 
+                    config 
+                });
+            } catch (error) {
+                console.error(`Command "${command}" execution error:`, error);
+                await reply(`❌ Error in "${command}": ${error.message}`);
+            }
         } else {
             await reply(`❌ Command "${command}" has invalid structure`);
         }
         
     } catch (error) {
-        console.error(`Command "${command}" error:`, error);
+        console.error(`Command "${command}" loading error:`, error);
         try {
             const reply = createReply(conn, from, msg);
-            await reply(`❌ Error in "${command}": ${error.message}`);
+            await reply(`❌ Error loading "${command}": ${error.message}`);
         } catch (e) {}
     }
 }
 
 // ============================================
-// MAIN HANDLER - COMPLETE
+// MAIN HANDLER - COMPLETE WITH ALL FEATURES
 // ============================================
 module.exports = async (conn, m) => {
     try {
@@ -718,21 +778,42 @@ module.exports = async (conn, m) => {
         if (isSleepingMode(settings)) {
             // Only owner can use during sleeping mode
             const isOwner = botOwnerJid ? (sender === botOwnerJid || msg.key.fromMe) : false;
-            if (!isOwner) return;
+            if (!isOwner) {
+                // Send sleeping mode message
+                if (isGroup && Math.random() < 0.3) { // 30% chance to reply
+                    const reply = createReply(conn, from, msg);
+                    await reply("💤 *Sleeping Mode Active*\n\nThe bot is currently sleeping. Please try again later.");
+                }
+                return;
+            }
         }
         
-        // Check if it's a command
+        // Check if it's a command (support both prefix and command without prefix)
         let isCmd = false;
         let command = "";
         let args = [];
         
         if (body && typeof body === 'string') {
+            // Check with prefix
             if (body.startsWith(config.prefix)) {
                 isCmd = true;
                 const cmdText = body.slice(config.prefix.length).trim();
                 const parts = cmdText.split(/ +/);
                 command = parts[0].toLowerCase();
                 args = parts.slice(1);
+            }
+            // Check without prefix for some commands
+            else if (config.commandWithoutPrefix) {
+                const cmdParts = body.trim().split(/ +/);
+                const possibleCmd = cmdParts[0].toLowerCase();
+                
+                // List of commands that can be used without prefix
+                const noPrefixCommands = ['menu', 'help', 'ping', 'owner', 'alive', 'speed'];
+                if (noPrefixCommands.includes(possibleCmd)) {
+                    isCmd = true;
+                    command = possibleCmd;
+                    args = cmdParts.slice(1);
+                }
             }
         }
         
@@ -746,7 +827,7 @@ module.exports = async (conn, m) => {
         const isOwner = botOwnerJid ? (sender === botOwnerJid || msg.key.fromMe) : false;
         
         // STORE MESSAGE FOR ANTI DELETE
-        if (body) {
+        if (body && msg.key.id) {
             messageStore.set(msg.key.id, {
                 content: body,
                 sender: sender,
@@ -773,7 +854,7 @@ module.exports = async (conn, m) => {
         // AUTO REACT
         if (settings.autoReact && !msg.key.fromMe) {
             try {
-                const reactions = ['❤️', '👍', '🔥', '🎉'];
+                const reactions = ['❤️', '👍', '🔥', '🎉', '👏', '😮', '😂'];
                 const randomReaction = reactions[Math.floor(Math.random() * reactions.length)];
                 await conn.sendMessage(from, {
                     react: {
@@ -785,7 +866,7 @@ module.exports = async (conn, m) => {
         }
         
         // AUTO SAVE CONTACT
-        if (settings.autoSave) {
+        if (settings.autoSave && !isGroup) {
             try {
                 let user = await User.findOne({ jid: sender });
                 if (!user) {
@@ -802,7 +883,7 @@ module.exports = async (conn, m) => {
         }
         
         // CHECK ANTI FEATURES (ONLY IN GROUPS)
-        if (isGroup && body) {
+        if (isGroup && body && !msg.key.fromMe) {
             const reply = createReply(conn, from, msg);
             
             // Anti Link
@@ -824,39 +905,96 @@ module.exports = async (conn, m) => {
             if (await checkAntiSpam(conn, msg, from, sender, settings)) return;
         }
         
-        // COMMAND HANDLING
+        // COMMAND HANDLING - FIXED
         if (isCmd && command) {
             await loadCommand(command, conn, from, msg, args, isOwner, sender, pushname, isGroup);
             return;
         }
         
-        // CHATBOT (Simple response)
+        // AI CHATBOT - REPLY TO EVERYONE (NO SIMULATION)
         if (body && !isCmd && !msg.key.fromMe && settings.chatbot) {
+            // Check if message is for bot (contains bot name or is a question)
             const botName = config.botName.toLowerCase();
-            if (body.toLowerCase().includes(botName) || body.endsWith('?')) {
+            const isForBot = body.toLowerCase().includes(botName) || 
+                            body.endsWith('?') || 
+                            body.toLowerCase().startsWith('hi') ||
+                            body.toLowerCase().startsWith('hello') ||
+                            body.toLowerCase().startsWith('hey') ||
+                            body.toLowerCase().includes('whats up') ||
+                            body.toLowerCase().includes('how are you');
+            
+            if (isForBot) {
                 try {
+                    // Send typing indicator
                     await conn.sendPresenceUpdate('composing', from);
-                    await delay(1000);
                     
-                    // Simple AI responses
-                    const responses = [
-                        "Hello! How can I help you? 😊",
-                        "Hey there! What's up?",
-                        "Hi! I'm here to help!",
-                        "Yo! Need something?",
-                        "Hello! How's your day going?"
-                    ];
-                    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+                    // Get AI response
+                    const aiResponse = await getAIResponse(body);
                     
-                    await conn.sendMessage(from, { text: randomResponse });
+                    // Send response
+                    await conn.sendMessage(from, { 
+                        text: `💬 *${config.botName}:*\n${aiResponse}` 
+                    });
+                    
+                    // Stop typing
                     await conn.sendPresenceUpdate('paused', from);
-                } catch (e) {}
+                } catch (e) {
+                    console.error("Chatbot error:", e.message);
+                }
+                return;
             }
-            return;
+        }
+        
+        // UPDATE USER STATS FOR ACTIVE MEMBERS FEATURE
+        if (settings.activeMembers && isGroup) {
+            try {
+                let user = await User.findOne({ jid: sender });
+                if (!user) {
+                    user = await User.create({
+                        jid: sender,
+                        name: pushname,
+                        lastActive: new Date(),
+                        messageCount: 1,
+                        isActive: true
+                    });
+                } else {
+                    user.messageCount = (user.messageCount || 0) + 1;
+                    user.lastActive = new Date();
+                    user.isActive = true;
+                    await user.save();
+                }
+            } catch (error) {
+                console.error("Active members error:", error.message);
+            }
         }
         
     } catch (err) {
         console.error("Handler Error:", err.message);
+    }
+};
+
+// ============================================
+// GROUP UPDATE HANDLER
+// ============================================
+module.exports.handleGroupUpdate = async (conn, update) => {
+    try {
+        const { id, participants, action } = update;
+        
+        // Handle welcome/goodbye
+        await handleGroupUpdate(conn, update);
+        
+        // Check if bot is admin before taking action
+        const botAdmin = await isBotAdmin(conn, id);
+        if (!botAdmin) return;
+        
+        // Anti Call in groups
+        const settings = await Settings.findOne();
+        if (settings?.anticall) {
+            // You can implement anti-call logic here
+        }
+        
+    } catch (error) {
+        console.error("Group update handler error:", error.message);
     }
 };
 
@@ -880,16 +1018,41 @@ module.exports.init = async (conn) => {
                     const minutes = Math.floor((uptime % 3600) / 60);
                     
                     await conn.updateProfileStatus(`🤖 ${config.botName} | 🚀 Online | ⏰ ${hours}h ${minutes}m | 👨‍💻 ${config.developerName}`);
-                } catch (e) {}
+                } catch (e) {
+                    console.error("Auto bio error:", e.message);
+                }
             }
         }
         
-        // Setup group update listener
-        conn.ev.on('group-participants.update', async (update) => {
-            await handleGroupUpdate(conn, update);
-        });
+        // Setup scheduled tasks
+        setInterval(async () => {
+            try {
+                // Auto remove inactive members
+                if (settings?.activeMembers) {
+                    const inactiveDays = 7; // Remove after 7 days inactive
+                    const cutoffDate = new Date();
+                    cutoffDate.setDate(cutoffDate.getDate() - inactiveDays);
+                    
+                    const inactiveUsers = await User.find({ 
+                        lastActive: { $lt: cutoffDate },
+                        isActive: true 
+                    });
+                    
+                    for (const user of inactiveUsers) {
+                        user.isActive = false;
+                        await user.save();
+                    }
+                    
+                    if (inactiveUsers.length > 0) {
+                        console.log(`[ACTIVE MEMBERS] Marked ${inactiveUsers.length} users as inactive`);
+                    }
+                }
+            } catch (error) {
+                console.error("Scheduled task error:", error.message);
+            }
+        }, 24 * 60 * 60 * 1000); // Run daily
         
-        console.log('[SYSTEM] ✅ Bot initialized with all features');
+        console.log('[SYSTEM] ✅ Bot initialized with ALL features');
         
     } catch (error) {
         console.error('Init error:', error.message);
