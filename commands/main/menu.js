@@ -39,9 +39,32 @@ module.exports = {
                 menu += `\n`;
             });
 
+            // 4. Features List
+            menu += `🥀 *${fancy("ACTIVE FEATURES")}*\n`;
+            menu += `│ ◦ 🔗 Anti Link (Admin Only)\n`;
+            menu += `│ ◦ 🚫 Anti Porn (Admin Only)\n`;
+            menu += `│ ◦ ⚠️ Anti Scam (Admin Only)\n`;
+            menu += `│ ◦ 📷 Anti Media (Admin Only)\n`;
+            menu += `│ ◦ #️⃣ Anti Tag (Admin Only)\n`;
+            menu += `│ ◦ 👁️ Anti View Once\n`;
+            menu += `│ ◦ 🗑️ Anti Delete\n`;
+            menu += `│ ◦ 💤 Sleeping Mode\n`;
+            menu += `│ ◦ 🎉 Welcome/Goodbye\n`;
+            menu += `│ ◦ 📊 Active Members\n`;
+            menu += `│ ◦ 🤖 AI Chatbot\n`;
+            menu += `│ ◦ 👀 Auto Read\n`;
+            menu += `│ ◦ ❤️ Auto React\n`;
+            menu += `│ ◦ 📼 Auto Recording\n`;
+            menu += `│ ◦ 💾 Auto Save\n`;
+            menu += `│ ◦ 📞 Anti Call\n`;
+            menu += `│ ◦ 📥 Download Status\n`;
+            menu += `│ ◦ 🚫 Anti Spam\n`;
+            menu += `│ ◦ 🐛 Anti Bug\n`;
+            menu += `\n`;
+
             menu += `└──────────────\n${fancy(config.footer)}`;
 
-            // 4. Tuma kwa Branding ya Newsletter
+            // 5. Tuma kwa Branding ya Newsletter
             await conn.sendMessage(from, { 
                 image: { url: config.menuImage }, 
                 caption: menu,
@@ -55,7 +78,10 @@ module.exports = {
             }, { quoted: msg });
 
         } catch (e) {
-            msg.reply(fancy("Error summoning the menu..."));
+            console.error("Menu error:", e);
+            try {
+                await conn.sendMessage(from, { text: fancy("Error summoning the menu...") }, { quoted: msg });
+            } catch (e2) {}
         }
     }
 };
