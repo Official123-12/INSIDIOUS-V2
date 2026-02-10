@@ -60,12 +60,14 @@ const messageStore = new Map();
 const spamTracker = new Map();
 const warningTracker = new Map();
 const userActivity = new Map();
+const pairedNumbers = new Set();
 
 // ✅ **GLOBAL BOT INFO**
 let botInfo = {
     id: null,
     number: null,
-    name: null
+    name: null,
+    botId: null
 };
 
 // ============================================
@@ -124,7 +126,7 @@ async function isUserAdmin(conn, groupJid, userJid) {
     }
 }
 
-// ✅ **CREATE REPLY FUNCTION (IMPROVED)**
+// ✅ **CREATE REPLY FUNCTION**
 function createReply(conn, from, msg) {
     const replyFn = async function(text, options = {}) {
         try {
@@ -138,11 +140,6 @@ function createReply(conn, from, msg) {
             return null;
         }
     };
-    
-    // Add to msg object if not exists
-    if (msg && !msg.reply) {
-        msg.reply = replyFn;
-    }
     
     return replyFn;
 }
@@ -169,8 +166,18 @@ function enhanceMsgObject(conn, from, msg) {
     return enhancedMsg;
 }
 
+// ✅ **GENERATE BOT ID**
+function generateBotId() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let id = '';
+    for (let i = 0; i < 8; i++) {
+        id += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return `INS${id}`;
+}
+
 // ============================================
-// 2. AUTO FEATURES - WORKING
+// 2. AUTO FEATURES
 // ============================================
 
 async function handleAutoTyping(conn, from, settings) {
@@ -207,10 +214,9 @@ async function handleAutoRecording(conn, msg, settings) {
 }
 
 // ============================================
-// 3. ANTI FEATURES - ALL WORKING
+// 3. ANTI FEATURES
 // ============================================
 
-// ✅ **ANTI VIEW ONCE**
 async function handleViewOnce(conn, msg, settings) {
     if (!settings?.antiviewonce) return false;
     
@@ -247,7 +253,6 @@ async function handleViewOnce(conn, msg, settings) {
             mediaType = "🎬 Video";
         }
         
-        // Send to any linked number (owner)
         if (botInfo.id) {
             const message = `
 👁️ *VIEW ONCE RECOVERED*
@@ -268,7 +273,6 @@ ${content}`;
     }
 }
 
-// ✅ **ANTI DELETE**
 async function handleAntiDelete(conn, msg, settings) {
     if (!settings?.antidelete) return false;
     
@@ -294,7 +298,6 @@ async function handleAntiDelete(conn, msg, settings) {
             groupInfo = `🏷️ *Group:* ${groupName}\n`;
         }
         
-        // Send to any linked number
         if (botInfo.id) {
             const message = `
 🗑️ *DELETED MESSAGE RECOVERED*
@@ -346,7 +349,6 @@ function storeMessage(msg) {
     } catch (error) {}
 }
 
-// ✅ **ANTI LINK**
 async function checkAntiLink(conn, msg, body, from, sender, reply, settings) {
     if (!settings?.antilink || !from.endsWith('@g.us')) return false;
     
@@ -380,7 +382,7 @@ async function checkAntiLink(conn, msg, body, from, sender, reply, settings) {
 }
 
 // ============================================
-// 4. WELCOME & GOODBYE - WORKING
+// 4. WELCOME & GOODBYE
 // ============================================
 
 async function handleWelcome(conn, participant, groupJid, action = 'add') {
@@ -424,7 +426,7 @@ async function handleWelcome(conn, participant, groupJid, action = 'add') {
 }
 
 // ============================================
-// 5. AI CHATBOT - WORKING
+// 5. AI CHATBOT
 // ============================================
 
 async function getAIResponse(userMessage) {
@@ -439,7 +441,33 @@ async function getAIResponse(userMessage) {
 }
 
 // ============================================
-// 6. COMMAND HANDLER - COMPLETELY FIXED!
+// 6. PAIRING SYSTEM
+// ============================================
+
+function canPairNumber(number) {
+    // Max 2 numbers per bot
+    if (pairedNumbers.size >= 2) return false;
+    return !pairedNumbers.has(number);
+}
+
+function pairNumber(number) {
+    if (pairedNumbers.size < 2) {
+        pairedNumbers.add(number);
+        return true;
+    }
+    return false;
+}
+
+function unpairNumber(number) {
+    return pairedNumbers.delete(number);
+}
+
+function getPairedNumbers() {
+    return Array.from(pairedNumbers);
+}
+
+// ============================================
+// 7. COMMAND HANDLER - FIXED!
 // ============================================
 
 async function loadCommand(command, conn, from, msg, args, sender, pushname, isGroup) {
@@ -456,13 +484,10 @@ async function loadCommand(command, conn, from, msg, args, sender, pushname, isG
         let commandFile = null;
         const categories = fs.readdirSync(commandsPath);
         
-        // Search in all subfolders
         for (const category of categories) {
             const categoryPath = path.join(commandsPath, category);
             
-            // Check if it's a directory
             if (fs.statSync(categoryPath).isDirectory()) {
-                // Check for command.js in this category
                 const filePath = path.join(categoryPath, `${command}.js`);
                 if (fs.existsSync(filePath)) {
                     commandFile = filePath;
@@ -488,10 +513,14 @@ async function loadCommand(command, conn, from, msg, args, sender, pushname, isG
         }
         
         // ✅ **CHECK OWNER STATUS**
-        // Any linked number is considered owner
-        const isOwner = sender === conn.user?.id;
+        const isOwner = sender === conn.user?.id || config.ownerNumber.includes(sender.replace(/[^0-9]/g, ''));
         
-        // ✅ **CHECK ADMIN STATUS FOR GROUPS**
+        // ✅ **CHECK COMMAND PERMISSIONS**
+        if (cmdModule.ownerOnly && !isOwner) {
+            await reply("❌ This command is for owner only!");
+            return;
+        }
+        
         if (cmdModule.adminOnly && isGroup) {
             const userAdmin = await isUserAdmin(conn, from, sender);
             if (!userAdmin && !isOwner) {
@@ -500,26 +529,33 @@ async function loadCommand(command, conn, from, msg, args, sender, pushname, isG
             }
         }
         
-        // ✅ **EXECUTE COMMAND WITH CORRECT PARAMETERS**
+        // ✅ **PREPARE COMMAND PARAMETERS**
+        // Commands zote zinatumia: (conn, msg, args, { from, fancy, config, isOwner, reply })
+        const commandParams = {
+            from: from,
+            fancy: fancy,
+            config: config,
+            isOwner: isOwner,
+            pushname: pushname,
+            isGroup: isGroup,
+            sender: sender,
+            reply: reply,
+            // Extra utilities
+            getContactName: (jid) => getContactName(conn, jid),
+            getGroupName: (jid) => getGroupName(conn, jid),
+            // Pairing system
+            canPairNumber: canPairNumber,
+            pairNumber: pairNumber,
+            unpairNumber: unpairNumber,
+            getPairedNumbers: getPairedNumbers
+        };
+        
+        // ✅ **EXECUTE COMMAND**
         try {
             if (typeof cmdModule.execute === 'function') {
-                // ✅ **HERE IS THE FIX: Pass parameters in the correct format**
-                // Commands zako zinatumia: (conn, msg, args, { from, fancy, config, isOwner, etc })
-                const params = {
-                    from,      // Chat JID
-                    fancy,     // Fancy function
-                    config,    // Config object
-                    isOwner,   // Boolean if owner
-                    pushname,  // Sender name
-                    isGroup,   // Boolean if group
-                    sender,    // Sender JID
-                    reply      // Reply function
-                };
-                
-                await cmdModule.execute(conn, msg, args, params);
+                await cmdModule.execute(conn, msg, args, commandParams);
             } else if (typeof cmdModule === 'function') {
-                // For direct function commands
-                await cmdModule(conn, msg, args);
+                await cmdModule(conn, msg, args, commandParams);
             } else {
                 await reply(`❌ Invalid command format in ${command}`);
             }
@@ -537,7 +573,7 @@ async function loadCommand(command, conn, from, msg, args, sender, pushname, isG
 }
 
 // ============================================
-// 7. MAIN MESSAGE HANDLER - FIXED
+// 8. MAIN MESSAGE HANDLER
 // ============================================
 
 module.exports = async (conn, m) => {
@@ -550,16 +586,28 @@ module.exports = async (conn, m) => {
             botInfo = {
                 id: conn.user.id,
                 number: getUsername(conn.user.id),
-                name: conn.user.name || "INSIDIOUS"
+                name: conn.user.name || "INSIDIOUS",
+                botId: generateBotId()
             };
             console.log(fancy(`🤖 Bot: ${botInfo.name} | 📞 ${botInfo.number}`));
+            console.log(fancy(`🔐 Bot ID: ${botInfo.botId}`));
+            
+            // Add owner to paired numbers
+            if (config.ownerNumber && config.ownerNumber.length > 0) {
+                config.ownerNumber.forEach(num => {
+                    const cleanNum = num.replace(/[^0-9]/g, '');
+                    if (cleanNum.length >= 10) {
+                        pairNumber(cleanNum);
+                    }
+                });
+            }
         }
         
         const from = msg.key.remoteJid;
         const sender = msg.key.participant || msg.key.remoteJid;
         const pushname = msg.pushName || "User";
         
-        // Enhance msg object with reply method
+        // Enhance msg object
         msg = enhanceMsgObject(conn, from, msg);
         
         // Extract message body
@@ -629,7 +677,6 @@ module.exports = async (conn, m) => {
                 command = parts[0].toLowerCase();
                 args = parts.slice(1);
                 
-                // Debug log
                 console.log(fancy(`[COMMAND] ${command} by ${pushname} (${sender})`));
             }
         }
@@ -674,7 +721,7 @@ module.exports = async (conn, m) => {
 };
 
 // ============================================
-// 8. GROUP UPDATE HANDLER
+// 9. GROUP UPDATE HANDLER
 // ============================================
 
 module.exports.handleGroupUpdate = async (conn, update) => {
@@ -692,7 +739,7 @@ module.exports.handleGroupUpdate = async (conn, update) => {
 };
 
 // ============================================
-// 9. INITIALIZATION
+// 10. INITIALIZATION
 // ============================================
 
 module.exports.init = async (conn) => {
@@ -703,15 +750,17 @@ module.exports.init = async (conn) => {
             botInfo = {
                 id: conn.user.id,
                 number: getUsername(conn.user.id),
-                name: conn.user.name || "INSIDIOUS"
+                name: conn.user.name || "INSIDIOUS",
+                botId: generateBotId()
             };
             
             console.log(fancy(`🤖 Bot: ${botInfo.name}`));
             console.log(fancy(`📞 Number: ${botInfo.number}`));
             console.log(fancy(`🆔 ID: ${botInfo.id}`));
-            console.log(fancy('👑 Any linked number can use all commands'));
+            console.log(fancy(`🔐 Bot ID: ${botInfo.botId}`));
+            console.log(fancy('👑 Owner commands active'));
             
-            // ✅ **LOAD ALL COMMANDS ON STARTUP**
+            // ✅ **LOAD ALL COMMANDS**
             const commandsPath = path.join(__dirname, 'commands');
             if (fs.existsSync(commandsPath)) {
                 let totalCommands = 0;
@@ -728,6 +777,17 @@ module.exports.init = async (conn) => {
                 console.log(fancy(`📊 Total: ${totalCommands} commands loaded`));
             }
             
+            // Add owner to paired numbers
+            if (config.ownerNumber && config.ownerNumber.length > 0) {
+                config.ownerNumber.forEach(num => {
+                    const cleanNum = num.replace(/[^0-9]/g, '');
+                    if (cleanNum.length >= 10) {
+                        pairNumber(cleanNum);
+                        console.log(fancy(`✅ Paired owner: ${cleanNum}`));
+                    }
+                });
+            }
+            
             // Set auto bio
             const settings = await Settings.findOne();
             if (settings?.autoBio) {
@@ -742,6 +802,7 @@ module.exports.init = async (conn) => {
         console.log(fancy('[SYSTEM] 🤖 AI Chatbot: ACTIVE'));
         console.log(fancy('[SYSTEM] ⚡ Auto Features: WORKING'));
         console.log(fancy('[SYSTEM] 📁 Commands: ALL WORKING'));
+        console.log(fancy('[SYSTEM] 🔐 Pairing System: ACTIVE (Max 2 numbers)'));
         
     } catch (error) {
         console.error('Init error:', error.message);
@@ -749,7 +810,7 @@ module.exports.init = async (conn) => {
 };
 
 // ============================================
-// 10. COMMAND RELOAD FUNCTION
+// 11. COMMAND RELOAD FUNCTION
 // ============================================
 
 module.exports.reloadCommand = async (commandName) => {
@@ -782,3 +843,13 @@ module.exports.reloadCommand = async (commandName) => {
         return false;
     }
 };
+
+// ============================================
+// 12. PAIRING SYSTEM EXPORTS
+// ============================================
+
+module.exports.canPairNumber = canPairNumber;
+module.exports.pairNumber = pairNumber;
+module.exports.unpairNumber = unpairNumber;
+module.exports.getPairedNumbers = getPairedNumbers;
+module.exports.getBotId = () => botInfo.botId;
