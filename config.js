@@ -30,7 +30,7 @@ module.exports = {
     // ============================================
     // BOT METADATA
     // ============================================
-    botName: getConfig('BOT_NAME', "ɪɴꜱɪᴅɪᴏᴜꜱ: ᴛʜᴇ ʟᴀꜱᴛ ᴋᴇ"),
+    botName: getConfig('BOT_NAME', "INSIDIOUS"),
     developerName: getConfig('DEVELOPER_NAME', "STANYTZ"),
     ownerName: getConfig('BOT_OWNER', "STANY"),
     ownerNumber: getConfig('OWNER_NUMBER', "255000000000").split(','),
@@ -44,7 +44,6 @@ module.exports = {
     // ============================================
     prefix: getConfig('BOT_PREFIX', "."),
     workMode: getConfig('BOT_MODE', "public"),
-    commandWithoutPrefix: getConfig('COMMAND_WITHOUT_PREFIX', "true") === "true",
 
     // ============================================
     // NEWSLETTER & GROUP BRANDING
@@ -97,6 +96,7 @@ module.exports = {
     autoSave: getConfig('AUTO_SAVE', "false") === "true",
     autoBio: getConfig('AUTO_BIO', "true") === "true",
     autoTyping: getConfig('AUTO_TYPING', "true") === "true",
+    autoRecording: getConfig('AUTO_RECORDING', "true") === "true",
 
     // ============================================
     // STATUS AUTO INTERACTION
@@ -107,15 +107,15 @@ module.exports = {
     autoStatusReply: getConfig('AUTO_STATUS_REPLY', "true") === "true",
 
     // ============================================
-    // AI CHATBOT - POLLINATIONS ONLY
+    // AI CHATBOT
     // ============================================
     chatbot: getConfig('CHATBOT', "true") === "true",
-    aiModel: "https://text.pollinations.ai/",
     
     // ============================================
     // DOWNLOADERS
     // ============================================
     darlynApi: "https://api.darlyn.my.id/api/",
+    downloadStatus: getConfig('DOWNLOAD_STATUS', "false") === "true",
     
     // ============================================
     // SCAM KEYWORDS
@@ -124,8 +124,7 @@ module.exports = {
         'investment', 'bitcoin', 'crypto', 'ashinde', 'zawadi', 
         'gift card', 'telegram.me', 'pata pesa', 'ajira',
         'pesa haraka', 'mtaji', 'uwekezaji', 'double money',
-        'free money', 'won money', 'won prize', 'lottery',
-        'michango', 'mikopo', 'biashara', 'forex', 'stock'
+        'free money', 'won money', 'won prize', 'lottery'
     ],
 
     // ============================================
@@ -134,14 +133,8 @@ module.exports = {
     pornKeywords: [
         'porn', 'sex', 'xxx', 'ngono', 'video za kikubwa', 
         'hentai', 'malaya', 'pussy', 'dick', 'fuck',
-        'ass', 'boobs', 'nude', 'nudes', 'nsfw',
-        'kuma', 'mboro', 'tumbo', 'chuchu', 'mateke'
+        'ass', 'boobs', 'nude', 'nudes', 'nsfw'
     ],
-
-    // ============================================
-    // BLOCKED COUNTRIES
-    // ============================================
-    blockedCountries: getConfig('BLOCKED_COUNTRIES', '').split(',').filter(c => c),
 
     // ============================================
     // VISUALS
@@ -157,36 +150,13 @@ module.exports = {
     nodeEnv: getConfig('NODE_ENV', "development"),
     
     // ============================================
-    // CHANNEL & SUBSCRIPTION SETTINGS
-    // ============================================
-    channelReactions: ["❤️", "🔥", "⭐", "👍", "🎉"],
-    channelSubscription: getConfig('CHANNEL_SUBSCRIPTION', "true") === "true",
-    autoReactChannel: getConfig('AUTO_REACT_CHANNEL', "true") === "true",
-    
-    // ============================================
     // NEW FEATURES
     // ============================================
-    sendWelcomeToOwner: getConfig('SEND_WELCOME_TO_OWNER', "true") === "true",
     activeMembers: getConfig('ACTIVE_MEMBERS', "false") === "true",
     autoblockCountry: getConfig('AUTOBLOCK_COUNTRY', "false") === "true",
-    downloadStatus: getConfig('DOWNLOAD_STATUS', "false") === "true",
-    inactiveDays: parseInt(getConfig('INACTIVE_DAYS', 7)),
     
     // ============================================
     // ADMIN NUMBERS
     // ============================================
     adminNumbers: getConfig('ADMIN_NUMBERS', '').split(',').filter(n => n),
-
-    // ============================================
-    // SECURITY
-    // ============================================
-    maxWarnings: parseInt(getConfig('MAX_WARNINGS', 3)),
-    spamLimit: parseInt(getConfig('SPAM_LIMIT', 10)),
-
-    // ============================================
-    // API KEYS
-    // ============================================
-    quotesApi: getConfig('QUOTES_API', "https://api.quotable.io/random"),
-    weatherApi: getConfig('WEATHER_API', ""),
-    newsApi: getConfig('NEWS_API', "")
 };
