@@ -5,7 +5,7 @@ const mongoose = require("mongoose");
 const path = require("path");
 const fs = require('fs-extra');
 
-// -------------------- FANCY FUNCTION --------------------
+// FANCY FUNCTION (built-in)
 function fancy(text) {
     if (!text || typeof text !== 'string') return text;
     const fancyMap = {
@@ -22,7 +22,7 @@ function fancy(text) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ MONGODB CONNECTION (OPTIONAL)
+// ✅ MONGODB (optional)
 console.log(fancy("🔗 Connecting to MongoDB..."));
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
 mongoose.connect(MONGODB_URI, {
@@ -38,7 +38,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 fs.ensureDirSync(path.join(__dirname, 'public'));
 
-// ✅ ROUTES – ORIGINAL WEB TU
+// ✅ ROUTES – ORIGINAL TU
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
 
@@ -59,33 +59,14 @@ try {
         ownerNumber: ['255000000000'],
         ownerName: 'STANY',
         botName: 'INSIDIOUS',
-        workMode: 'public',
-        antilink: true,
-        antiporn: true,
-        antiscam: true,
-        antitag: true,
-        antiviewonce: true,
-        antidelete: true,
-        autoRead: true,
-        autoReact: true,
-        autoTyping: true,
-        autoRecording: true,
-        welcomeGoodbye: true,
-        chatbot: true,
-        scamKeywords: ['investment', 'bitcoin', 'crypto', 'ashinde', 'zawadi', 'gift card', 'telegram.me', 'pata pesa', 'ajira', 'pesa haraka', 'mtaji', 'uwekezaji', 'double money'],
-        pornKeywords: ['porn', 'sex', 'xxx', 'ngono', 'video za kikubwa', 'hentai', 'malaya', 'pussy', 'dick', 'fuck', 'ass', 'boobs', 'nude', 'nudes'],
-        newsletterJid: '120363404317544295@newsletter',
-        aliveImage: 'https://files.catbox.moe/insidious-alive.jpg',
-        menuImage: 'https://files.catbox.moe/irqrap.jpg',
-        autoFollowChannels: ['120363404317544295@newsletter'],
-        footer: '© 2025 INSIDIOUS V2.1.1 | Developer: STANYTZ'
+        workMode: 'public'
     };
 }
 
 // ✅ LOAD HANDLER
 const handler = require('./handler');
 
-// ✅ BOT START – STABLE, NO QR WARNINGS, NO PAIRING ENDPOINTS
+// ✅ BOT START – STABLE, NO QR WARNINGS, NO AUTO-RECONNECT LOOPS
 async function startBot() {
     try {
         console.log(fancy("🚀 Starting INSIDIOUS..."));
@@ -103,8 +84,7 @@ async function startBot() {
             syncFullHistory: false,
             connectTimeoutMs: 60000,
             keepAliveIntervalMs: 10000,
-            markOnlineOnConnect: true,
-            // DO NOT INCLUDE printQRInTerminal
+            markOnlineOnConnect: true
         });
 
         globalConn = conn;
@@ -120,7 +100,7 @@ async function startBot() {
                 console.log(fancy(`🤖 Name: ${conn.user?.name || config.botName}`));
                 console.log(fancy(`📞 Number: ${conn.user?.id?.split(':')[0] || 'Unknown'}`));
                 
-                // ✅ INIT HANDLER – AUTO-FOLLOW, WELCOME, ETC
+                // ✅ INIT HANDLER (auto-follow, welcome, etc)
                 try {
                     if (handler && typeof handler.init === 'function') {
                         await handler.init(conn);
@@ -133,49 +113,31 @@ async function startBot() {
             if (connection === 'close') {
                 console.log(fancy("🔌 Connection closed"));
                 isConnected = false;
-                
-                const statusCode = lastDisconnect?.error?.output?.statusCode;
-                const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-                
-                if (shouldReconnect) {
-                    console.log(fancy("🔄 Restarting bot..."));
-                    setTimeout(startBot, 5000);
-                } else {
-                    console.log(fancy("🚫 Logged out, please scan QR again"));
-                    // Clean session and restart
-                    fs.removeSync('insidious_session');
-                    setTimeout(startBot, 5000);
-                }
+                // DO NOT AUTO-RECONNECT – kama ilivyo kwenye original yako
             }
         });
 
         conn.ev.on('creds.update', saveCreds);
-        
         conn.ev.on('messages.upsert', async (m) => {
             try {
-                if (handler && typeof handler === 'function') {
-                    await handler(conn, m);
-                }
+                if (handler && typeof handler === 'function') await handler(conn, m);
             } catch (error) {
                 console.error("Message handler error:", error.message);
             }
         });
-
         conn.ev.on('group-participants.update', async (update) => {
             try {
-                if (handler && handler.handleGroupUpdate) {
-                    await handler.handleGroupUpdate(conn, update);
-                }
+                if (handler && handler.handleGroupUpdate) await handler.handleGroupUpdate(conn, update);
             } catch (error) {
                 console.error("Group update error:", error.message);
             }
         });
 
-        console.log(fancy("🚀 Bot ready – WhatsApp pairing only"));
+        console.log(fancy("🚀 Bot ready"));
         
     } catch (error) {
         console.error("Start error:", error.message);
-        setTimeout(startBot, 10000);
+        // NO AUTO-RECONNECT
     }
 }
 startBot();
@@ -193,7 +155,7 @@ app.get('/health', (req, res) => {
     });
 });
 
-// ✅ BOT INFO (OPTIONAL)
+// ✅ BOT INFO (optional)
 app.get('/botinfo', (req, res) => {
     if (!globalConn?.user) return res.json({ error: "Bot not connected" });
     res.json({
@@ -204,7 +166,7 @@ app.get('/botinfo', (req, res) => {
     });
 });
 
-// ✅ KEEP-ALIVE (FOR HOSTING)
+// ✅ KEEP-ALIVE (kwa hosting)
 app.get('/keep-alive', (req, res) => {
     res.json({ 
         status: 'alive', 
@@ -221,7 +183,6 @@ app.listen(PORT, () => {
     console.log(fancy(`💓 Keep-alive: http://localhost:${PORT}/keep-alive`));
     console.log(fancy("👑 Developer: STANYTZ"));
     console.log(fancy("📅 Version: 2.1.1 | Year: 2025"));
-    console.log(fancy("🔐 Pairing system: WHATSAPP COMMANDS ONLY"));
     console.log(fancy("✅ ALL FEATURES: COMPLETE"));
 });
 
