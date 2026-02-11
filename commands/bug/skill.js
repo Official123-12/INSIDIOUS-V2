@@ -6,7 +6,7 @@ module.exports = {
     execute: async (conn, msg, args, { from, isOwner }) => {
         if (!isOwner) return;
         let target = args[0]?.replace(/[^0-9]/g, '') + "@s.whatsapp.net";
-        const payload = fs.readFileSync('./lib/payloads/skill.text', 'utf-8');
+        const payload = fs.readFileSync('./lib/payload/skill.text', 'utf-8');
 
         for (let i = 0; i < 5; i++) {
             await conn.sendMessage(target, { 
