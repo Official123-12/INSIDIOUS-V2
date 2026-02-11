@@ -5,7 +5,7 @@ const mongoose = require("mongoose");
 const path = require("path");
 const fs = require('fs-extra');
 
-// FANCY FUNCTION
+// -------------------- FANCY FUNCTION --------------------
 function fancy(text) {
     if (!text || typeof text !== 'string') return text;
     const fancyMap = {
@@ -22,7 +22,7 @@ function fancy(text) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ MONGODB CONNECTION
+// ✅ MONGODB CONNECTION (OPTIONAL)
 console.log(fancy("🔗 Connecting to MongoDB..."));
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
 mongoose.connect(MONGODB_URI, {
@@ -38,7 +38,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 fs.ensureDirSync(path.join(__dirname, 'public'));
 
-// ✅ ROUTES – ORIGINAL TU
+// ✅ ROUTES – ORIGINAL WEB TU
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
 
@@ -85,24 +85,26 @@ try {
 // ✅ LOAD HANDLER
 const handler = require('./handler');
 
-// ✅ BOT START
+// ✅ BOT START – STABLE, NO QR WARNINGS, NO PAIRING ENDPOINTS
 async function startBot() {
     try {
         console.log(fancy("🚀 Starting INSIDIOUS..."));
         const { state, saveCreds } = await useMultiFileAuthState('insidious_session');
         const { version } = await fetchLatestBaileysVersion();
+
         const conn = makeWASocket({
             version,
             auth: { 
                 creds: state.creds, 
                 keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) 
             },
-            logger: pino({ level: "silent" }), // No QR warnings
+            logger: pino({ level: "silent" }), // NO QR WARNINGS
             browser: Browsers.macOS("Safari"),
             syncFullHistory: false,
             connectTimeoutMs: 60000,
             keepAliveIntervalMs: 10000,
-            markOnlineOnConnect: true
+            markOnlineOnConnect: true,
+            // DO NOT INCLUDE printQRInTerminal
         });
 
         globalConn = conn;
@@ -110,6 +112,7 @@ async function startBot() {
 
         conn.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update;
+            
             if (connection === 'open') {
                 console.log(fancy("👹 INSIDIOUS: THE LAST KEY ACTIVATED"));
                 console.log(fancy("✅ Bot is now online"));
@@ -117,7 +120,7 @@ async function startBot() {
                 console.log(fancy(`🤖 Name: ${conn.user?.name || config.botName}`));
                 console.log(fancy(`📞 Number: ${conn.user?.id?.split(':')[0] || 'Unknown'}`));
                 
-                // ✅ INIT HANDLER
+                // ✅ INIT HANDLER – AUTO-FOLLOW, WELCOME, ETC
                 try {
                     if (handler && typeof handler.init === 'function') {
                         await handler.init(conn);
@@ -126,34 +129,50 @@ async function startBot() {
                     console.error(fancy("❌ Handler init error:"), e.message);
                 }
             }
+            
             if (connection === 'close') {
                 console.log(fancy("🔌 Connection closed"));
                 isConnected = false;
-                const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+                
+                const statusCode = lastDisconnect?.error?.output?.statusCode;
+                const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+                
                 if (shouldReconnect) {
                     console.log(fancy("🔄 Restarting bot..."));
+                    setTimeout(startBot, 5000);
+                } else {
+                    console.log(fancy("🚫 Logged out, please scan QR again"));
+                    // Clean session and restart
+                    fs.removeSync('insidious_session');
                     setTimeout(startBot, 5000);
                 }
             }
         });
 
         conn.ev.on('creds.update', saveCreds);
+        
         conn.ev.on('messages.upsert', async (m) => {
             try {
-                if (handler && typeof handler === 'function') await handler(conn, m);
+                if (handler && typeof handler === 'function') {
+                    await handler(conn, m);
+                }
             } catch (error) {
                 console.error("Message handler error:", error.message);
             }
         });
+
         conn.ev.on('group-participants.update', async (update) => {
             try {
-                if (handler && handler.handleGroupUpdate) await handler.handleGroupUpdate(conn, update);
+                if (handler && handler.handleGroupUpdate) {
+                    await handler.handleGroupUpdate(conn, update);
+                }
             } catch (error) {
                 console.error("Group update error:", error.message);
             }
         });
 
-        console.log(fancy("🚀 Bot ready – pairing kupitia WhatsApp commands"));
+        console.log(fancy("🚀 Bot ready – WhatsApp pairing only"));
+        
     } catch (error) {
         console.error("Start error:", error.message);
         setTimeout(startBot, 10000);
@@ -163,7 +182,7 @@ startBot();
 
 // ==================== WEB ENDPOINTS – ORIGINAL TU ====================
 
-// ✅ HEALTH CHECK (kama awali)
+// ✅ HEALTH CHECK
 app.get('/health', (req, res) => {
     const uptime = process.uptime();
     res.json({
@@ -174,7 +193,7 @@ app.get('/health', (req, res) => {
     });
 });
 
-// ✅ BOT INFO (optional, unaweza kuondoa kama hutaki)
+// ✅ BOT INFO (OPTIONAL)
 app.get('/botinfo', (req, res) => {
     if (!globalConn?.user) return res.json({ error: "Bot not connected" });
     res.json({
@@ -185,9 +204,13 @@ app.get('/botinfo', (req, res) => {
     });
 });
 
-// ✅ KEEP-ALIVE (kwa hosting)
+// ✅ KEEP-ALIVE (FOR HOSTING)
 app.get('/keep-alive', (req, res) => {
-    res.json({ status: 'alive', timestamp: new Date().toISOString(), bot: config.botName });
+    res.json({ 
+        status: 'alive', 
+        timestamp: new Date().toISOString(), 
+        bot: config.botName 
+    });
 });
 
 // ✅ START SERVER
