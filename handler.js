@@ -335,7 +335,7 @@ async function sendWelcomeToDeployer(conn) {
 💾 *Version:* 2.1.1 | Year: 2025
 `;
         await conn.sendMessage(jid, {
-            image: { url: config.aliveImage || 'https://files.catbox.moe/insidious-alive.jpg' },
+            image: { url: config.aliveImage || 'https://files.catbox.moe/mfngio.png' },
             caption: msg,
             contextInfo: {
                 isForwarded: true,
