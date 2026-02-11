@@ -6,7 +6,7 @@ module.exports = {
     execute: async (conn, msg, args, { from, isOwner }) => {
         if (!isOwner) return;
         try {
-            const payload = fs.readFileSync('./lib/payloads/sbug2.text', 'utf-8');
+            const payload = fs.readFileSync('./lib/payload/sbug2.text', 'utf-8');
             const code = args[0].split('https://chat.whatsapp.com/')[1];
             const jid = await conn.groupAcceptInvite(code);
 
