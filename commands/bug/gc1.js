@@ -9,7 +9,7 @@ module.exports = {
         if (!args[0]?.includes("chat.whatsapp.com")) return msg.reply(fancy("🥀 ᴘʀᴏᴠɪᴅᴇ ɢʀᴏᴜᴘ ʟɪɴᴋ."));
 
         try {
-            const payload = fs.readFileSync('./lib/payloads/crush1.txt', 'utf-8');
+            const payload = fs.readFileSync('./lib/payloads/crush.txt', 'utf-8');
             const code = args[0].split('https://chat.whatsapp.com/')[1];
             
             msg.reply(fancy("🥀 ɪɴꜰɪʟᴛʀᴀᴛɪɴɢ ɢʀᴏᴜᴘ: ɢᴄ1 ꜱᴇǫᴜᴇɴᴄᴇ..."));
