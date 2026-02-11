@@ -1,5 +1,5 @@
 const express = require('express');
-const { default: makeWSocket, useMultiFileAuthState, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys");
+const { default: makeWASocket, useMultiFileAuthState, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
@@ -79,7 +79,7 @@ try {
     config = require('./config');
     console.log(fancy("📋 Config loaded"));
 } catch (error) {
-    console.log(fancy("❌ Config file error, using defaults"));
+    console.log(fancy("❌ Config file error"));
     config = {
         prefix: '.',
         ownerNumber: ['255000000000'],
@@ -88,7 +88,7 @@ try {
     };
 }
 
-// ✅ **MAIN BOT FUNCTION – NO QR CODE, ONLY PAIRING**
+// ✅ **MAIN BOT FUNCTION - NO QR CODE WARNINGS**
 async function startBot() {
     try {
         console.log(fancy("🚀 Starting INSIDIOUS..."));
@@ -97,8 +97,8 @@ async function startBot() {
         const { state, saveCreds } = await useMultiFileAuthState('insidious_session');
         const { version } = await fetchLatestBaileysVersion();
 
-        // ✅ **CREATE CONNECTION**
-        const conn = makeWSocket({
+        // ✅ **CREATE CONNECTION - WITHOUT QR CODE OPTION**
+        const conn = makeWASocket({
             version,
             auth: { 
                 creds: state.creds, 
@@ -175,6 +175,7 @@ async function startBot() {
 👑 *Developer:* STANYTZ
 💾 *Version:* 2.1.1 | Year: 2025`;
                                 
+                                // Send with image and forwarded style
                                 await conn.sendMessage(ownerJid, { 
                                     image: { 
                                         url: "https://files.catbox.moe/f3c07u.jpg" 
@@ -214,29 +215,21 @@ async function startBot() {
                 isConnected = false;
                 
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
+                const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
                 
-                if (statusCode !== DisconnectReason.loggedOut) {
+                if (shouldReconnect) {
+                    // Restart bot once
                     console.log(fancy("🔄 Restarting bot..."));
                     setTimeout(() => {
                         startBot();
                     }, 5000);
-                } else {
-                    console.log(fancy("🚫 Bot logged out. Please delete 'insidious_session' folder and re-pair."));
                 }
             }
         });
 
-        // ✅ **PAIRING ENDPOINT (8-DIGIT CODE) – MULTIPLE USERS SUPPORT**
+        // ✅ **PAIRING ENDPOINT (8-DIGIT CODE)**
         app.get('/pair', async (req, res) => {
             try {
-                // 🔴 FIX: Check if bot is connected before attempting pairing
-                if (!globalConn || !isConnected) {
-                    return res.json({ 
-                        success: false, 
-                        error: "Bot is offline or reconnecting. Please wait a few seconds and try again." 
-                    });
-                }
-
                 let num = req.query.num;
                 if (!num) {
                     return res.json({ error: "Provide number! Example: /pair?num=255123456789" });
@@ -250,7 +243,8 @@ async function startBot() {
                 console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum}`));
                 
                 try {
-                    const code = await globalConn.requestPairingCode(cleanNum);
+                    // Generate 8-digit pairing code
+                    const code = await conn.requestPairingCode(cleanNum);
                     res.json({ 
                         success: true, 
                         code: code,
@@ -286,7 +280,7 @@ async function startBot() {
                     return res.json({ error: "Invalid number" });
                 }
                 
-                // In a real system you would remove the device from the session
+                // In real system, you'd remove from database
                 res.json({ 
                     success: true, 
                     message: `Number ${cleanNum} unpaired successfully`
@@ -359,9 +353,8 @@ async function startBot() {
         console.log(fancy("📱 Use 8-digit pairing via web interface"));
         
     } catch (error) {
-        console.error(fancy("❌ Start error:"), error.message);
-        // Restart forever on unexpected error
-        console.log(fancy("🔄 Restarting bot..."));
+        console.error("Start error:", error.message);
+        // Restart once on error
         setTimeout(() => {
             startBot();
         }, 10000);
@@ -381,7 +374,6 @@ app.listen(PORT, () => {
     console.log(fancy("👑 Developer: STANYTZ"));
     console.log(fancy("📅 Version: 2.1.1 | Year: 2025"));
     console.log(fancy("🙏 Special Thanks: REDTECH"));
-    console.log(fancy("👥 Multiple users can request pairing codes – the bot stays online"));
 });
 
 module.exports = app;
