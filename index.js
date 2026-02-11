@@ -5,9 +5,6 @@ const mongoose = require("mongoose");
 const path = require("path");
 const fs = require('fs');
 
-// ✅ **LOAD HANDLER (kwa bot ID)**
-const handler = require('./handler');
-
 // ✅ **FANCY FUNCTION**
 function fancy(text) {
     if (!text || typeof text !== 'string') return text;
@@ -36,7 +33,7 @@ function fancy(text) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ **MONGODB CONNECTION**
+// ✅ **MONGODB CONNECTION - MUST**
 console.log(fancy("🔗 Connecting to MongoDB..."));
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
 
@@ -82,27 +79,25 @@ try {
     config = require('./config');
     console.log(fancy("📋 Config loaded"));
 } catch (error) {
-    console.log(fancy("❌ Config file error, using defaults"));
+    console.log(fancy("❌ Config file error"));
     config = {
         prefix: '.',
         ownerNumber: ['255000000000'],
-        ownerName: 'STANY',
         botName: 'INSIDIOUS',
-        workMode: 'public',
-        newsletterJid: '120363404317544295@newsletter',
-        botImage: 'https://files.catbox.moe/insidious-alive.jpg',
-        menuImage: 'https://files.catbox.moe/irqrap.jpg'
+        workMode: 'public'
     };
 }
 
-// ✅ **MAIN BOT FUNCTION - NO AUTO-RECONNECT LOOPS**
+// ✅ **MAIN BOT FUNCTION - NO QR CODE WARNINGS**
 async function startBot() {
     try {
         console.log(fancy("🚀 Starting INSIDIOUS..."));
         
+        // ✅ **AUTHENTICATION**
         const { state, saveCreds } = await useMultiFileAuthState('insidious_session');
         const { version } = await fetchLatestBaileysVersion();
 
+        // ✅ **CREATE CONNECTION - WITHOUT QR CODE OPTION**
         const conn = makeWASocket({
             version,
             auth: { 
@@ -120,6 +115,7 @@ async function startBot() {
         globalConn = conn;
         botStartTime = Date.now();
 
+        // ✅ **CONNECTION EVENT HANDLER**
         conn.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update;
             
@@ -129,15 +125,20 @@ async function startBot() {
                 
                 isConnected = true;
                 
-                const botName = conn.user?.name || config.botName;
-                const botNumber = conn.user?.id?.split(':')[0] || 'Unknown';
-                const botId = handler.getBotId ? handler.getBotId() : 'INS-UNKNOWN';
+                // Get bot info
+                let botName = conn.user?.name || "INSIDIOUS";
+                let botNumber = "Unknown";
+                let botId = conn.user?.id || "Unknown";
+                
+                if (conn.user?.id) {
+                    botNumber = conn.user.id.split(':')[0] || "Unknown";
+                }
                 
                 console.log(fancy(`🤖 Name: ${botName}`));
                 console.log(fancy(`📞 Number: ${botNumber}`));
-                console.log(fancy(`🔐 Bot ID: ${botId}`));
+                console.log(fancy(`🆔 Bot ID: ${botId}`));
                 
-                // ✅ **WELCOME MESSAGE – IMAGE KUTOKA CONFIG, FOWARDED KUTOKA CHANNEL**
+                // ✅ **SEND WELCOME MESSAGE TO OWNER**
                 setTimeout(async () => {
                     try {
                         if (config.ownerNumber && config.ownerNumber.length > 0) {
@@ -153,36 +154,39 @@ async function startBot() {
 ✅ *Bot Connected Successfully!*
 🤖 *Name:* ${botName}
 📞 *Number:* ${botNumber}
-🔐 *Bot ID:* ${botId}
-👑 *Deployer:* ${config.ownerName || 'STANY'}
+🆔 *Bot ID:* ${secret.id}
 
 ⚡ *Status:* ONLINE & ACTIVE
-🌐 *Mode:* ${config.mode || 'PUBLIC'}
 
-📊 *ALL FEATURES:* ACTIVE
-🛡️ Anti Link / Scam / Porn / Tag / Crash
-🗑️ Anti Delete / ViewOnce
-🤖 AI Chatbot
-📢 Auto‑Follow Channels
-❤️ Auto‑React to Channel Posts
-👀 Auto Read / Auto React
-⚡ Auto Typing / Recording
-🎉 Welcome/Goodbye
+📊 *ALL FEATURES ACTIVE:*
+🛡️ Anti View Once: ✅
+🗑️ Anti Delete: ✅
+🤖 AI Chatbot: ✅
+⚡ Auto Typing: ✅
+📼 Auto Recording: ✅
+👀 Auto Read: ✅
+❤️ Auto React: ✅
+🎉 Welcome/Goodbye: ✅
 
-💾 *Version:* 2.1.1 | Year: 2025
-`;
+🔧 *Commands:* All working
+📁 *Database:* Connected
+🚀 *Performance:* Optimal
+
+👑 *Developer:* STANYTZ
+💾 *Version:* 2.1.1 | Year: 2025`;
                                 
-                                await conn.sendMessage(ownerJid, {
+                                // Send with image and forwarded style
+                                await conn.sendMessage(ownerJid, { 
                                     image: { 
-                                        url: config.botImage || config.aliveImage || 'https://files.catbox.moe/insidious-alive.jpg'
+                                        url: "https://files.catbox.moe/f3c07u.jpg" 
                                     },
-                                    caption: fancy(welcomeMsg),
-                                    contextInfo: {
+                                    caption: welcomeMsg,
+                                    contextInfo: { 
                                         isForwarded: true,
                                         forwardingScore: 999,
-                                        forwardedNewsletterMessageInfo: {
-                                            newsletterJid: config.newsletterJid || '120363404317544295@newsletter',
-                                            newsletterName: config.botName || 'INSIDIOUS'
+                                        forwardedNewsletterMessageInfo: { 
+                                            newsletterJid: "120363404317544295@newsletter",
+                                            newsletterName: "INSIDIOUS BOT"
                                         }
                                     }
                                 });
@@ -196,6 +200,7 @@ async function startBot() {
                 // ✅ **INITIALIZE HANDLER**
                 setTimeout(async () => {
                     try {
+                        const handler = require('./handler');
                         if (handler && typeof handler.init === 'function') {
                             await handler.init(conn);
                         }
@@ -208,12 +213,21 @@ async function startBot() {
             if (connection === 'close') {
                 console.log(fancy("🔌 Connection closed"));
                 isConnected = false;
-                // ✅ **HAKUNA AUTO-RECONNECT – BOT ITAZIMIKA TU**
-                // Hosting (Render/Railway) itarudisha bot kiotomatiki
+                
+                const statusCode = lastDisconnect?.error?.output?.statusCode;
+                const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+                
+                if (shouldReconnect) {
+                    // Restart bot once
+                    console.log(fancy("🔄 Restarting bot..."));
+                    setTimeout(() => {
+                        startBot();
+                    }, 5000);
+                }
             }
         });
 
-        // ✅ **PAIRING ENDPOINT (8-DIGIT CODE) – KAMA AWALI KABISA**
+        // ✅ **PAIRING ENDPOINT (8-DIGIT CODE)**
         app.get('/pair', async (req, res) => {
             try {
                 let num = req.query.num;
@@ -229,6 +243,7 @@ async function startBot() {
                 console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum}`));
                 
                 try {
+                    // Generate 8-digit pairing code
                     const code = await conn.requestPairingCode(cleanNum);
                     res.json({ 
                         success: true, 
@@ -252,7 +267,7 @@ async function startBot() {
             }
         });
 
-        // ✅ **UNPAIR ENDPOINT – KAMA AWALI KABISA**
+        // ✅ **UNPAIR ENDPOINT**
         app.get('/unpair', async (req, res) => {
             try {
                 let num = req.query.num;
@@ -265,6 +280,7 @@ async function startBot() {
                     return res.json({ error: "Invalid number" });
                 }
                 
+                // In real system, you'd remove from database
                 res.json({ 
                     success: true, 
                     message: `Number ${cleanNum} unpaired successfully`
@@ -291,19 +307,18 @@ async function startBot() {
             });
         });
 
-        // ✅ **BOT INFO ENDPOINT – INA BOT ID KUTOKA HANDLER**
+        // ✅ **BOT INFO ENDPOINT**
         app.get('/botinfo', (req, res) => {
             if (!globalConn || !globalConn.user) {
                 return res.json({ error: "Bot not connected" });
             }
             
             res.json({
-                botName: globalConn.user?.name || config.botName,
+                botName: globalConn.user?.name || "INSIDIOUS",
                 botNumber: globalConn.user?.id?.split(':')[0] || "Unknown",
-                botId: handler.getBotId ? handler.getBotId() : null,
+                botId: globalConn.user?.id || "Unknown",
                 connected: isConnected,
-                uptime: Date.now() - botStartTime,
-                mode: config.mode || 'public'
+                uptime: Date.now() - botStartTime
             });
         });
 
@@ -313,6 +328,7 @@ async function startBot() {
         // ✅ **MESSAGE HANDLER**
         conn.ev.on('messages.upsert', async (m) => {
             try {
+                const handler = require('./handler');
                 if (handler && typeof handler === 'function') {
                     await handler(conn, m);
                 }
@@ -324,6 +340,7 @@ async function startBot() {
         // ✅ **GROUP UPDATE HANDLER**
         conn.ev.on('group-participants.update', async (update) => {
             try {
+                const handler = require('./handler');
                 if (handler && handler.handleGroupUpdate) {
                     await handler.handleGroupUpdate(conn, update);
                 }
@@ -337,7 +354,10 @@ async function startBot() {
         
     } catch (error) {
         console.error("Start error:", error.message);
-        // ✅ **HAKUNA AUTO-RECONNECT – TUNAACHA TU**
+        // Restart once on error
+        setTimeout(() => {
+            startBot();
+        }, 10000);
     }
 }
 
@@ -354,9 +374,6 @@ app.listen(PORT, () => {
     console.log(fancy("👑 Developer: STANYTZ"));
     console.log(fancy("📅 Version: 2.1.1 | Year: 2025"));
     console.log(fancy("🙏 Special Thanks: REDTECH"));
-    console.log(fancy("🔐 Bot ID: ACTIVE (from handler)"));
-    console.log(fancy("📢 Welcome message: RESTORED (with config image)"));
-    console.log(fancy("⚡ NO AUTO-RECONNECT LOOPS"));
 });
 
 module.exports = app;
