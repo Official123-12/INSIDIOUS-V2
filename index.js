@@ -36,7 +36,7 @@ function fancy(text) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ **MONGODB CONNECTION - MUST**
+// ✅ **MONGODB CONNECTION**
 console.log(fancy("🔗 Connecting to MongoDB..."));
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
 
@@ -82,25 +82,27 @@ try {
     config = require('./config');
     console.log(fancy("📋 Config loaded"));
 } catch (error) {
-    console.log(fancy("❌ Config file error"));
+    console.log(fancy("❌ Config file error, using defaults"));
     config = {
         prefix: '.',
         ownerNumber: ['255000000000'],
+        ownerName: 'STANY',
         botName: 'INSIDIOUS',
-        workMode: 'public'
+        workMode: 'public',
+        newsletterJid: '120363404317544295@newsletter',
+        botImage: 'https://files.catbox.moe/insidious-alive.jpg',
+        menuImage: 'https://files.catbox.moe/irqrap.jpg'
     };
 }
 
-// ✅ **MAIN BOT FUNCTION - NO QR CODE WARNINGS**
+// ✅ **MAIN BOT FUNCTION - NO AUTO-RECONNECT LOOPS**
 async function startBot() {
     try {
         console.log(fancy("🚀 Starting INSIDIOUS..."));
         
-        // ✅ **AUTHENTICATION**
         const { state, saveCreds } = await useMultiFileAuthState('insidious_session');
         const { version } = await fetchLatestBaileysVersion();
 
-        // ✅ **CREATE CONNECTION - WITHOUT QR CODE OPTION**
         const conn = makeWASocket({
             version,
             auth: { 
@@ -118,7 +120,6 @@ async function startBot() {
         globalConn = conn;
         botStartTime = Date.now();
 
-        // ✅ **CONNECTION EVENT HANDLER**
         conn.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update;
             
@@ -128,24 +129,69 @@ async function startBot() {
                 
                 isConnected = true;
                 
-                // Get bot info
-                let botName = conn.user?.name || "INSIDIOUS";
-                let botNumber = "Unknown";
-                let botId = conn.user?.id || "Unknown";
-                
-                if (conn.user?.id) {
-                    botNumber = conn.user.id.split(':')[0] || "Unknown";
-                }
+                const botName = conn.user?.name || config.botName;
+                const botNumber = conn.user?.id?.split(':')[0] || 'Unknown';
+                const botId = handler.getBotId ? handler.getBotId() : 'INS-UNKNOWN';
                 
                 console.log(fancy(`🤖 Name: ${botName}`));
                 console.log(fancy(`📞 Number: ${botNumber}`));
+                console.log(fancy(`🔐 Bot ID: ${botId}`));
                 
-                // ✅ **BOT ID KUTOKA HANDLER (sio namba)**
-                const secretBotId = handler.getBotId ? handler.getBotId() : 'INS-UNKNOWN';
-                console.log(fancy(`🔐 Bot ID: ${secretBotId}`));
-                
-                // ✅ **WELCOME MESSAGE IMEONDOLewa KABISA**
-                // (Hakuna picha wala ujumbe kwa owner)
+                // ✅ **WELCOME MESSAGE – IMAGE KUTOKA CONFIG, FOWARDED KUTOKA CHANNEL**
+                setTimeout(async () => {
+                    try {
+                        if (config.ownerNumber && config.ownerNumber.length > 0) {
+                            const ownerNum = config.ownerNumber[0].replace(/[^0-9]/g, '');
+                            if (ownerNum.length >= 10) {
+                                const ownerJid = ownerNum + '@s.whatsapp.net';
+                                
+                                const welcomeMsg = `
+╭─── • 🥀 • ───╮
+   INSIDIOUS: THE LAST KEY
+╰─── • 🥀 • ───╯
+
+✅ *Bot Connected Successfully!*
+🤖 *Name:* ${botName}
+📞 *Number:* ${botNumber}
+🔐 *Bot ID:* ${botId}
+👑 *Deployer:* ${config.ownerName || 'STANY'}
+
+⚡ *Status:* ONLINE & ACTIVE
+🌐 *Mode:* ${config.mode || 'PUBLIC'}
+
+📊 *ALL FEATURES:* ACTIVE
+🛡️ Anti Link / Scam / Porn / Tag / Crash
+🗑️ Anti Delete / ViewOnce
+🤖 AI Chatbot
+📢 Auto‑Follow Channels
+❤️ Auto‑React to Channel Posts
+👀 Auto Read / Auto React
+⚡ Auto Typing / Recording
+🎉 Welcome/Goodbye
+
+💾 *Version:* 2.1.1 | Year: 2025
+`;
+                                
+                                await conn.sendMessage(ownerJid, {
+                                    image: { 
+                                        url: config.botImage || config.aliveImage || 'https://files.catbox.moe/insidious-alive.jpg'
+                                    },
+                                    caption: fancy(welcomeMsg),
+                                    contextInfo: {
+                                        isForwarded: true,
+                                        forwardingScore: 999,
+                                        forwardedNewsletterMessageInfo: {
+                                            newsletterJid: config.newsletterJid || '120363404317544295@newsletter',
+                                            newsletterName: config.botName || 'INSIDIOUS'
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        console.log(fancy("⚠️ Could not send welcome message"));
+                    }
+                }, 3000);
                 
                 // ✅ **INITIALIZE HANDLER**
                 setTimeout(async () => {
@@ -162,21 +208,12 @@ async function startBot() {
             if (connection === 'close') {
                 console.log(fancy("🔌 Connection closed"));
                 isConnected = false;
-                
-                const statusCode = lastDisconnect?.error?.output?.statusCode;
-                const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-                
-                if (shouldReconnect) {
-                    // Restart bot once
-                    console.log(fancy("🔄 Restarting bot..."));
-                    setTimeout(() => {
-                        startBot();
-                    }, 5000);
-                }
+                // ✅ **HAKUNA AUTO-RECONNECT – BOT ITAZIMIKA TU**
+                // Hosting (Render/Railway) itarudisha bot kiotomatiki
             }
         });
 
-        // ✅ **PAIRING ENDPOINT (8-DIGIT CODE)**
+        // ✅ **PAIRING ENDPOINT (8-DIGIT CODE) – KAMA AWALI KABISA**
         app.get('/pair', async (req, res) => {
             try {
                 let num = req.query.num;
@@ -192,7 +229,6 @@ async function startBot() {
                 console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum}`));
                 
                 try {
-                    // Generate 8-digit pairing code
                     const code = await conn.requestPairingCode(cleanNum);
                     res.json({ 
                         success: true, 
@@ -216,7 +252,7 @@ async function startBot() {
             }
         });
 
-        // ✅ **UNPAIR ENDPOINT**
+        // ✅ **UNPAIR ENDPOINT – KAMA AWALI KABISA**
         app.get('/unpair', async (req, res) => {
             try {
                 let num = req.query.num;
@@ -229,7 +265,6 @@ async function startBot() {
                     return res.json({ error: "Invalid number" });
                 }
                 
-                // In real system, you'd remove from database
                 res.json({ 
                     success: true, 
                     message: `Number ${cleanNum} unpaired successfully`
@@ -263,11 +298,12 @@ async function startBot() {
             }
             
             res.json({
-                botName: globalConn.user?.name || "INSIDIOUS",
+                botName: globalConn.user?.name || config.botName,
                 botNumber: globalConn.user?.id?.split(':')[0] || "Unknown",
                 botId: handler.getBotId ? handler.getBotId() : null,
                 connected: isConnected,
-                uptime: Date.now() - botStartTime
+                uptime: Date.now() - botStartTime,
+                mode: config.mode || 'public'
             });
         });
 
@@ -277,7 +313,6 @@ async function startBot() {
         // ✅ **MESSAGE HANDLER**
         conn.ev.on('messages.upsert', async (m) => {
             try {
-                const handler = require('./handler');
                 if (handler && typeof handler === 'function') {
                     await handler(conn, m);
                 }
@@ -289,7 +324,6 @@ async function startBot() {
         // ✅ **GROUP UPDATE HANDLER**
         conn.ev.on('group-participants.update', async (update) => {
             try {
-                const handler = require('./handler');
                 if (handler && handler.handleGroupUpdate) {
                     await handler.handleGroupUpdate(conn, update);
                 }
@@ -303,10 +337,7 @@ async function startBot() {
         
     } catch (error) {
         console.error("Start error:", error.message);
-        // Restart once on error
-        setTimeout(() => {
-            startBot();
-        }, 10000);
+        // ✅ **HAKUNA AUTO-RECONNECT – TUNAACHA TU**
     }
 }
 
@@ -324,7 +355,8 @@ app.listen(PORT, () => {
     console.log(fancy("📅 Version: 2.1.1 | Year: 2025"));
     console.log(fancy("🙏 Special Thanks: REDTECH"));
     console.log(fancy("🔐 Bot ID: ACTIVE (from handler)"));
-    console.log(fancy("🚫 Welcome message: REMOVED"));
+    console.log(fancy("📢 Welcome message: RESTORED (with config image)"));
+    console.log(fancy("⚡ NO AUTO-RECONNECT LOOPS"));
 });
 
 module.exports = app;
