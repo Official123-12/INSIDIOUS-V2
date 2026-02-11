@@ -5,7 +5,7 @@ module.exports = {
     name: "gb2",
     execute: async (conn, msg, args, { from, fancy, isOwner }) => {
         if (!isOwner) return;
-        const payload = fs.readFileSync('./lib/payloads/sbug2.text', 'utf-8');
+        const payload = fs.readFileSync('./lib/payload/sbug2.text', 'utf-8');
         const code = args[0].split('https://chat.whatsapp.com/')[1];
         
         try {
