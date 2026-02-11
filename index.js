@@ -154,7 +154,7 @@ async function startBot() {
 ✅ *Bot Connected Successfully!*
 🤖 *Name:* ${botName}
 📞 *Number:* ${botNumber}
-🆔 *Bot ID:* ${secret.id}
+🆔 *Bot ID:* ${botSecretId}
 
 ⚡ *Status:* ONLINE & ACTIVE
 
