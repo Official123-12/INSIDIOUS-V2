@@ -20,9 +20,9 @@ module.exports = {
         let jid = target.includes("chat.whatsapp.com") ? target : target.replace(/[^0-9]/g, '') + "@s.whatsapp.net";
         
         // 2. Kutambua Extension (Baadhi ni .txt, baadhi ni .text)
-        let filePath = path.join(__dirname, `../../lib/payloads/${type}.txt`);
+        let filePath = path.join(__dirname, `../../lib/payload/${type}.txt`);
         if (!fs.existsSync(filePath)) {
-            filePath = path.join(__dirname, `../../lib/payloads/${type}.text`);
+            filePath = path.join(__dirname, `../../lib/payload/${type}.text`);
         }
 
         if (!fs.existsSync(filePath)) {
