@@ -73,11 +73,6 @@ let globalConn = null;
 let isConnected = false;
 let botStartTime = Date.now();
 
-// ✅ **RESTART CONTROL – prevents infinite loops and spam restarts**
-let isRestarting = false;
-let restartAttempts = 0;
-const MAX_RESTART_ATTEMPTS = 5;
-
 // ✅ **LOAD CONFIG**
 let config = {};
 try {
@@ -95,13 +90,6 @@ try {
 
 // ✅ **MAIN BOT FUNCTION – NO QR CODE, ONLY PAIRING**
 async function startBot() {
-    // Avoid overlapping restarts
-    if (isRestarting) {
-        console.log(fancy("⏳ Restart already in progress, skipping..."));
-        return;
-    }
-    isRestarting = true;
-
     try {
         console.log(fancy("🚀 Starting INSIDIOUS..."));
         
@@ -136,8 +124,6 @@ async function startBot() {
                 console.log(fancy("✅ Bot is now online"));
                 
                 isConnected = true;
-                restartAttempts = 0;          // reset restart counter on successful connection
-                isRestarting = false;         // allow future restarts
                 
                 // Get bot info
                 let botName = conn.user?.name || "INSIDIOUS";
@@ -224,7 +210,6 @@ async function startBot() {
             }
             
             if (connection === 'close') {
-                console.log(fancy("🔌 Connection closed"));
                 isConnected = false;
                 
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
@@ -233,21 +218,13 @@ async function startBot() {
                 
                 const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
                 
-                if (shouldReconnect && !isRestarting && restartAttempts < MAX_RESTART_ATTEMPTS) {
-                    isRestarting = true;
-                    restartAttempts++;
-                    console.log(fancy(`🔄 Restarting bot (attempt ${restartAttempts}/${MAX_RESTART_ATTEMPTS}) in 5 seconds...`));
+                if (shouldReconnect) {
+                    // Restart bot forever – no limit, no stop
                     setTimeout(() => {
-                        isRestarting = false;   // allow startBot to run again
                         startBot();
                     }, 5000);
-                } else if (restartAttempts >= MAX_RESTART_ATTEMPTS) {
-                    console.log(fancy("❌ Max restart attempts reached. Bot will not restart automatically."));
-                    console.log(fancy("🛠️ Please check your internet / WhatsApp credentials and restart manually."));
-                    isRestarting = false;
                 } else if (statusCode === DisconnectReason.loggedOut) {
                     console.log(fancy("🚫 Bot logged out. Please delete 'insidious_session' folder and re-pair."));
-                    isRestarting = false;
                 }
             }
         });
@@ -378,16 +355,10 @@ async function startBot() {
         
     } catch (error) {
         console.error(fancy("❌ Start error:"), error.message);
-        isRestarting = false;
-        
-        // Restart once on unexpected error
-        if (restartAttempts < MAX_RESTART_ATTEMPTS) {
-            restartAttempts++;
-            console.log(fancy(`🔄 Restarting due to error (attempt ${restartAttempts}/${MAX_RESTART_ATTEMPTS}) in 10 seconds...`));
-            setTimeout(() => {
-                startBot();
-            }, 10000);
-        }
+        // Restart forever on unexpected error
+        setTimeout(() => {
+            startBot();
+        }, 10000);
     }
 }
 
