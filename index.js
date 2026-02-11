@@ -154,7 +154,7 @@ async function startBot() {
 ✅ *Bot Connected Successfully!*
 🤖 *Name:* ${botName}
 📞 *Number:* ${botNumber}
-🆔 *Bot ID:* ${botSecretId}
+🆔 *Bot ID:* ${botId.split(':')[0]}
 
 ⚡ *Status:* ONLINE & ACTIVE
 
@@ -222,7 +222,7 @@ async function startBot() {
                     console.log(fancy("🔄 Restarting bot..."));
                     setTimeout(() => {
                         startBot();
-                    }, 500000000);
+                    }, 5000);
                 }
             }
         });
