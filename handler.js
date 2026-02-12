@@ -13,6 +13,7 @@ config.ownerNumber = (config.ownerNumber || [])
 
 // ==================== DEFAULT SETTINGS ====================
 const DEFAULT_SETTINGS = {
+    // BOT METADATA
     mode: 'public',
     prefix: '.',
     maxCoOwners: 2,
@@ -29,7 +30,7 @@ const DEFAULT_SETTINGS = {
     requiredGroupInvite: 'https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y',
     autoFollowChannels: ['120363404317544295@newsletter'],
 
-    // ========== ANTI / SECURITY FEATURES ==========
+    // ========== ANTI FEATURES ==========
     antilink: true,
     antiporn: true,
     antiscam: true,
@@ -248,7 +249,7 @@ async function isUserInRequiredGroup(conn, userJid) {
     } catch { return false; }
 }
 
-// ==================== ACTION APPLIER – CLEAR ENGLISH MESSAGES ====================
+// ==================== ACTION APPLIER – CLEAR ENGLISH ====================
 async function applyAction(conn, from, sender, actionType, reason, warnIncrement = 1, customMessage = '') {
     if (!from.endsWith('@g.us')) return;
     const isAdmin = await isBotAdmin(conn, from);
@@ -287,11 +288,10 @@ async function applyAction(conn, from, sender, actionType, reason, warnIncrement
     
     if (actionType === 'block') {
         await conn.updateBlockStatus(sender, 'block').catch(() => {});
-        // No message sent to blocked user
     }
 }
 
-// ==================== ANTI FEATURES – CLEAR ENGLISH TAGGING ====================
+// ==================== ANTI FEATURES ====================
 async function handleAntiLink(conn, msg, body, from, sender) {
     if (!from.endsWith('@g.us') || !getGroupSetting(from, 'antilink')) return false;
     const linkRegex = /(?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-\/a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi;
@@ -375,7 +375,6 @@ async function handleAntiTag(conn, msg, from, sender) {
     return true;
 }
 
-// ==================== OTHER ANTI FEATURES ====================
 async function handleViewOnce(conn, msg) {
     if (!getGroupSetting('global', 'antiviewonce')) return false;
     if (!msg.message?.viewOnceMessageV2 && !msg.message?.viewOnceMessage) return false;
@@ -817,8 +816,8 @@ module.exports.loadGlobalSettings = loadGlobalSettings;
 module.exports.saveGlobalSettings = saveGlobalSettings;
 module.exports.getGroupSetting = getGroupSetting;
 module.exports.setGroupSetting = setGroupSetting;
-module.exports.loadSettings = loadGlobalSettings;
-module.exports.saveSettings = saveGlobalSettings;
+module.exports.loadSettings = loadGlobalSettings;  // alias for command
+module.exports.saveSettings = saveGlobalSettings;  // alias for command
 module.exports.refreshConfig = async () => {
     await loadGlobalSettings();
     await loadGroupSettings();
