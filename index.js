@@ -26,7 +26,7 @@ function fancy(text) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ==================== MONGODB (OPTIONAL) ====================
+// ==================== MONGODB ====================
 console.log(fancy("🔗 Connecting to MongoDB..."));
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious";
 mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 30000 })
@@ -62,7 +62,7 @@ try { config = require('./config'); } catch {
     };
 }
 
-// ==================== BOT START – SINGLE INSTANCE, NO RESTART ====================
+// ==================== BOT START – AUTO-RECONNECT, HAKUNA LOG ZA DISCONNECT ====================
 async function startBot() {
     try {
         const { state, saveCreds } = await useMultiFileAuthState('insidious_session');
@@ -76,9 +76,7 @@ async function startBot() {
             connectTimeoutMs: 60000,
             keepAliveIntervalMs: 10000,
             markOnlineOnConnect: true,
-            // 🚫 NO AUTO-RECONNECT
-            retryRequestDelayMs: 500,
-            maxRetryCount: 0,
+            // ✅ AUTO-RECONNECT IMEWASHWA – itajaribu kuunganika tena ikikatika
             shouldIgnoreJid: () => true
         });
         globalConn = conn;
@@ -91,11 +89,10 @@ async function startBot() {
                 console.log(fancy("✅ Bot online"));
                 if (handler?.init) handler.init(conn).catch(() => {});
             }
-            // 🚫 WHEN CLOSE: ABSOLUTELY NO LOG, NO RECONNECT, JUST SILENCE
             if (connection === 'close') {
                 isConnected = false;
                 globalConn = null;
-                // NOTHING PRINTED – COMPLETE SILENCE
+                // 🔇 KIMYA KABISA – HAKUNA LOG, HAKUNA MSWADA
             }
         });
 
@@ -103,18 +100,15 @@ async function startBot() {
         conn.ev.on('messages.upsert', async (m) => { try { if (handler) await handler(conn, m); } catch {} });
         conn.ev.on('group-participants.update', async (up) => { try { if (handler?.handleGroupUpdate) await handler.handleGroupUpdate(conn, up); } catch {} });
 
-        console.log(fancy("🚀 Bot started – no auto-reconnect"));
+        console.log(fancy("🚀 Bot started – auto-reconnect active"));
     } catch (e) {
         console.error("❌ Start error:", e.message);
     }
 }
 startBot();
 
-// ==================== PAIRING ENDPOINT – ONLY IF CONNECTED ====================
+// ==================== PAIRING ENDPOINT – HAKUNA "BOT IS OFFLINE" ====================
 app.get('/pair', async (req, res) => {
-    if (!isConnected || !globalConn) {
-        return res.json({ success: false, error: "⏳ Bot is offline. Wait and try again." });
-    }
     try {
         let num = req.query.num;
         if (!num) return res.json({ error: "Provide number! Example: /pair?num=255123456789" });
@@ -130,7 +124,10 @@ app.get('/pair', async (req, res) => {
             message: `8-digit pairing code: ${code}`
         });
     } catch (err) {
-        res.json({ success: false, error: "Pairing failed: " + (err.message.includes("rate") ? "Rate limit. Wait 5 min." : err.message) });
+        res.json({ 
+            success: false, 
+            error: "Pairing failed: " + (err.message.includes("rate") ? "Rate limit. Wait 5 min." : err.message)
+        });
     }
 });
 
@@ -193,7 +190,7 @@ app.get('/keep-alive', (req, res) => res.json({ status: 'alive', bot: config.bot
 app.listen(PORT, () => {
     console.log(fancy(`🌐 Web: http://localhost:${PORT}`));
     console.log(fancy(`🔗 Pair: http://localhost:${PORT}/pair?num=255XXXXXXXXX`));
-    console.log(fancy(`✅ AUTO-RECONNECT: OFF`));
+    console.log(fancy(`✅ AUTO-RECONNECT: ACTIVE (hakuna "Bot is offline")`));
     console.log(fancy(`🤖 INSIDIOUS:THE LAST KEY – SECURITY ACTIVE`));
 });
 
