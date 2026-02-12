@@ -1,5 +1,5 @@
 const express = require('express');
-const { default: makeWASocket, useMultiFileAuthState, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys");
+const { default: makeWASocket, useMultiFileAuthState, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
@@ -62,7 +62,7 @@ try { config = require('./config'); } catch {
     };
 }
 
-// ==================== BOT START – AUTO-RECONNECT, HAKUNA LOG ZA DISCONNECT ====================
+// ==================== MAIN BOT – AUTO-RECONNECT (SILENT) ====================
 async function startBot() {
     try {
         const { state, saveCreds } = await useMultiFileAuthState('insidious_session');
@@ -76,7 +76,6 @@ async function startBot() {
             connectTimeoutMs: 60000,
             keepAliveIntervalMs: 10000,
             markOnlineOnConnect: true,
-            // ✅ AUTO-RECONNECT IMEWASHWA – itajaribu kuunganika tena ikikatika
             shouldIgnoreJid: () => true
         });
         globalConn = conn;
@@ -92,7 +91,7 @@ async function startBot() {
             if (connection === 'close') {
                 isConnected = false;
                 globalConn = null;
-                // 🔇 KIMYA KABISA – HAKUNA LOG, HAKUNA MSWADA
+                // 🔇 KIMYA KABISA – HAKUNA LOG
             }
         });
 
@@ -100,23 +99,85 @@ async function startBot() {
         conn.ev.on('messages.upsert', async (m) => { try { if (handler) await handler(conn, m); } catch {} });
         conn.ev.on('group-participants.update', async (up) => { try { if (handler?.handleGroupUpdate) await handler.handleGroupUpdate(conn, up); } catch {} });
 
-        console.log(fancy("🚀 Bot started – auto-reconnect active"));
+        console.log(fancy("🚀 Main bot started – auto-reconnect active"));
     } catch (e) {
         console.error("❌ Start error:", e.message);
     }
 }
 startBot();
 
-// ==================== PAIRING ENDPOINT – HAKUNA "BOT IS OFFLINE" ====================
+// ==================== PAIRING ENDPOINT – INAFANYA KAZI HATA BOT IKIWA IMEKUFA ====================
+async function requestPairingCode(number) {
+    // Tumia session ya muda kwa ajili ya pairing
+    const { state, saveCreds } = await useMultiFileAuthState('pairing_session');
+    const { version } = await fetchLatestBaileysVersion();
+    const conn = makeWASocket({
+        version,
+        auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) },
+        logger: pino({ level: "silent" }),
+        browser: Browsers.macOS("Safari"),
+        syncFullHistory: false,
+        connectTimeoutMs: 30000,
+        keepAliveIntervalMs: 10000,
+        markOnlineOnConnect: false,
+        shouldIgnoreJid: () => true,
+        maxRetryCount: 0 // Usijaribu ku reconnect – tunataka code haraka
+    });
+
+    return new Promise((resolve, reject) => {
+        let timeout = setTimeout(() => {
+            conn.end();
+            reject(new Error("Pairing timeout"));
+        }, 30000);
+
+        conn.ev.on('connection.update', async (update) => {
+            const { connection } = update;
+            if (connection === 'open') {
+                try {
+                    const code = await conn.requestPairingCode(number);
+                    clearTimeout(timeout);
+                    resolve(code);
+                } catch (err) {
+                    reject(err);
+                } finally {
+                    // Funga connection baada ya kupata code
+                    setTimeout(() => conn.end(), 1000);
+                    // Safisha folder ya session (si lazima, ili usichukue nafasi)
+                    fs.remove('pairing_session').catch(() => {});
+                }
+            }
+            if (connection === 'close') {
+                // Ikiwa imefungwa kabla ya kupata code, reject
+                reject(new Error("Connection closed before pairing"));
+            }
+        });
+    });
+}
+
 app.get('/pair', async (req, res) => {
     try {
         let num = req.query.num;
         if (!num) return res.json({ error: "Provide number! Example: /pair?num=255123456789" });
         const cleanNum = num.replace(/[^0-9]/g, '');
         if (cleanNum.length < 10) return res.json({ error: "Invalid number" });
-        
-        const code = await globalConn.requestPairingCode(cleanNum);
+
+        let code;
+        // Jaribu kutumia globalConn ikiwa iko online
+        if (globalConn && isConnected) {
+            try {
+                code = await globalConn.requestPairingCode(cleanNum);
+            } catch (e) {
+                // Kama globalConn inashindwa, tumia temporary connection
+                code = await requestPairingCode(cleanNum);
+            }
+        } else {
+            // GlobalConn haipo au haija connected – tumia temporary
+            code = await requestPairingCode(cleanNum);
+        }
+
+        // Ikiwa handler ipo, ongeza namba kwenye paired list
         if (handler?.pairNumber) await handler.pairNumber(cleanNum).catch(() => {});
+
         res.json({
             success: true,
             code: code,
@@ -190,7 +251,7 @@ app.get('/keep-alive', (req, res) => res.json({ status: 'alive', bot: config.bot
 app.listen(PORT, () => {
     console.log(fancy(`🌐 Web: http://localhost:${PORT}`));
     console.log(fancy(`🔗 Pair: http://localhost:${PORT}/pair?num=255XXXXXXXXX`));
-    console.log(fancy(`✅ AUTO-RECONNECT: ACTIVE (hakuna "Bot is offline")`));
+    console.log(fancy(`✅ PAIRING: INAFANYA KAZI HATA BOT IKIWA OFFLINE`));
     console.log(fancy(`🤖 INSIDIOUS:THE LAST KEY – SECURITY ACTIVE`));
 });
 
