@@ -1,5 +1,5 @@
 const express = require('express');
-const { default: makeWASocket, useMultiFileAuthState, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys");
+const { default: makeWASocket, useMultiFileAuthState, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
@@ -46,7 +46,6 @@ app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 
 let globalConn = null;
 let isConnected = false;
 let botStartTime = Date.now();
-let reconnectAttempts = 0; // not used for logging, just internal
 
 // ==================== CONFIG ====================
 let config = {};
@@ -71,18 +70,17 @@ async function startBot() {
         const conn = makeWASocket({
             version,
             auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) },
-            logger: pino({ level: "silent" }), // Complete silence
+            logger: pino({ level: "silent" }),
             browser: Browsers.macOS("Safari"),
             syncFullHistory: false,
             connectTimeoutMs: 60000,
-            keepAliveIntervalMs: 15000, // Keep connection alive every 15s
+            keepAliveIntervalMs: 15000,
             markOnlineOnConnect: true,
             generateHighQualityLinkPreview: false,
-            // 🔥 NEVER GIVE UP – retry forever
-            retryRequestDelayMs: 500,
+            // ========== INFINITE AUTO-RECONNECT ==========
             maxRetryCount: Infinity,
+            retryRequestDelayMs: 500,
             shouldIgnoreJid: () => true,
-            // Additional stability options
             patchMessageBeforeSending: true,
             transactionOpts: { maxCommitRetry: 25 }
         });
@@ -90,22 +88,20 @@ async function startBot() {
         botStartTime = Date.now();
 
         conn.ev.on('connection.update', (update) => {
-            const { connection, lastDisconnect } = update;
+            const { connection } = update;
             
             if (connection === 'open') {
                 isConnected = true;
-                reconnectAttempts = 0;
-                console.log(fancy("✅ Bot online – stay connected permanently"));
+                console.log(fancy("✅ Bot online – stay connected forever"));
                 if (handler?.init) handler.init(conn).catch(() => {});
             }
             
-            // 🔇 ABSOLUTELY NO LOGS WHEN CLOSING – COMPLETE SILENCE
+            // 🔇 ABSOLUTELY SILENT ON CLOSE – NO LOGS, NO MESSAGES
             if (connection === 'close') {
                 isConnected = false;
                 globalConn = null;
-                // DO NOT LOG ANYTHING – NOT EVEN A COMMENT
-                // The socket will automatically reconnect because we set maxRetryCount: Infinity
-                // and no error is thrown. This happens silently.
+                // THE SOCKET WILL AUTOMATICALLY RECONNECT DUE TO maxRetryCount: Infinity
+                // NOTHING IS PRINTED – COMPLETE SILENCE
             }
         });
 
@@ -119,7 +115,7 @@ async function startBot() {
             try { if (handler?.handleGroupUpdate) await handler.handleGroupUpdate(conn, up); } catch {}
         });
 
-        // 🫀 HEARTBEAT – ensures connection stays alive by sending presence every 20 seconds
+        // 🫀 HEARTBEAT – SEND PRESENCE EVERY 20 SECONDS TO KEEP CONNECTION ALIVE
         setInterval(async () => {
             if (isConnected && globalConn) {
                 try {
@@ -128,16 +124,16 @@ async function startBot() {
             }
         }, 20000);
 
-        console.log(fancy("🚀 Main bot started – infinite auto‑reconnect, no disconnection logs"));
+        console.log(fancy("🚀 Main bot started – infinite auto-reconnect, zero disconnect logs"));
     } catch (e) {
         console.error("❌ Fatal start error:", e.message);
-        // If the start fails, wait 10 seconds and try again (this is the only restart)
+        // ONLY RESTART ON INITIAL FAILURE – WAIT 10 SECONDS
         setTimeout(startBot, 10000);
     }
 }
 startBot();
 
-// ==================== PAIRING – ALWAYS WORKS, EVEN DURING RECONNECT ====================
+// ==================== PAIRING – ALWAYS WORKS (EVEN DURING RECONNECT) ====================
 async function requestPairingCode(number) {
     const { state } = await useMultiFileAuthState('pairing_session');
     const { version } = await fetchLatestBaileysVersion();
@@ -151,7 +147,7 @@ async function requestPairingCode(number) {
         keepAliveIntervalMs: 10000,
         markOnlineOnConnect: false,
         shouldIgnoreJid: () => true,
-        maxRetryCount: 0 // no retry for pairing
+        maxRetryCount: 0 // NO RETRY FOR PAIRING
     });
 
     return new Promise((resolve, reject) => {
@@ -189,6 +185,7 @@ app.get('/pair', async (req, res) => {
         if (cleanNum.length < 10) return res.json({ error: "Invalid number" });
 
         let code;
+        // TRY MAIN CONNECTION FIRST, FALLBACK TO TEMPORARY CONNECTION
         if (globalConn && isConnected) {
             try {
                 code = await globalConn.requestPairingCode(cleanNum);
