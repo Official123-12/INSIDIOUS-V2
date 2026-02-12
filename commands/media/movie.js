@@ -4,7 +4,7 @@ module.exports = {
     execute: async (conn, msg, args, { from, fancy }) => {
         if (!args[0]) return msg.reply(fancy("ᴇɴᴛᴇʀ ᴍᴏᴠɪᴇ ɴᴀᴍᴇ!"));
         try {
-            const res = await axios.get(`https://api.popcorn.com/search?q=${encodeURIComponent(args.join(' '))}`); // Scraper API
+            const res = await axios.get(`https://ef-prime-md-ultra-apis.vercel.app/search/moviesearch?q=${encodeURIComponent(args.join(' '))}`); // Scraper API
             const m = res.data[0];
             let txt = `╭── • 🥀 • ──╮\n  ${fancy("ᴍᴏᴠɪᴇ ꜰᴏᴜɴᴅ")}\n╰── • 🥀 • ──╯\n\n` +
                 `🎬 *ᴛɪᴛʟᴇ:* ${m.title}\n` +
