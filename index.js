@@ -4,7 +4,6 @@ const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
 const fs = require('fs');
-const { v4: uuidv4 } = require('uuid'); // ← hakikisha umeinstall: npm install uuid
 
 // ========== GLOBAL ERROR HANDLERS ==========
 process.on('uncaughtException', (err) => {
@@ -56,17 +55,10 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ========== CREATE PUBLIC FOLDER IF NOT EXISTS ==========
-if (!fs.existsSync(path.join(__dirname, 'public'))) {
-    fs.mkdirSync(path.join(__dirname, 'public'), { recursive: true });
+const publicDir = path.join(__dirname, 'public');
+if (!fs.existsSync(publicDir)) {
+    fs.mkdirSync(publicDir, { recursive: true });
 }
-
-// ========== SIMPLE ROUTES ==========
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-app.get('/dashboard', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
-});
 
 // ========== LOAD CONFIG ==========
 let config = {};
@@ -83,317 +75,176 @@ try {
     };
 }
 
-// ========== MULTI‑SESSION MANAGEMENT ==========
-const sessions = new Map(); // key: phoneNumber (string), value: session object
+// ========== GLOBAL VARIABLES ==========
+let globalConn = null;
+let isConnected = false;
+let botStartTime = Date.now();
+let connectionPromise = null; // Kwa ajili ya kusubiri connection
 
-/**
- * Session object structure:
- * {
- *   phoneNumber: string,
- *   conn: WASocket,
- *   isConnected: boolean,
- *   startTime: Date,
- *   sessionDir: string,
- *   botName: string,
- *   botId: string
- * }
- */
+// ========== MAIN BOT FUNCTION ==========
+async function startBot() {
+    try {
+        console.log(fancy("🚀 Starting INSIDIOUS..."));
+        
+        const { state, saveCreds } = await useMultiFileAuthState('insidious_session');
+        const { version } = await fetchLatestBaileysVersion();
 
-// ========== FUNCTION TO START A NEW SESSION ==========
-async function startSession(phoneNumber) {
-    // Safisha namba
-    const cleanNum = phoneNumber.replace(/[^0-9]/g, '');
-    if (cleanNum.length < 10) throw new Error("Invalid phone number");
+        const conn = makeWASocket({
+            version,
+            auth: { 
+                creds: state.creds, 
+                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) 
+            },
+            logger: pino({ level: "silent" }),
+            browser: Browsers.macOS("Safari"),
+            syncFullHistory: false,
+            connectTimeoutMs: 60000,
+            keepAliveIntervalMs: 10000,
+            markOnlineOnConnect: true
+        });
 
-    // Kama session tayari ipo, irudishe
-    if (sessions.has(cleanNum)) {
-        return sessions.get(cleanNum);
+        globalConn = conn;
+        botStartTime = Date.now();
+
+        // CONNECTION EVENT HANDLER
+        conn.ev.on('connection.update', async (update) => {
+            const { connection, lastDisconnect } = update;
+            
+            if (connection === 'open') {
+                console.log(fancy("👹 INSIDIOUS: THE LAST KEY ACTIVATED"));
+                console.log(fancy("✅ Bot is now online"));
+                isConnected = true;
+                
+                // Tuma welcome message kwa owner
+                setTimeout(async () => {
+                    try {
+                        if (config.ownerNumber && config.ownerNumber.length > 0) {
+                            const ownerNum = config.ownerNumber[0].replace(/[^0-9]/g, '');
+                            if (ownerNum.length >= 10) {
+                                const ownerJid = ownerNum + '@s.whatsapp.net';
+                                await conn.sendMessage(ownerJid, { 
+                                    text: "✅ *INSIDIOUS BOT CONNECTED SUCCESSFULLY!*"
+                                });
+                            }
+                        }
+                    } catch (e) {}
+                }, 3000);
+            }
+            
+            if (connection === 'close') {
+                console.log(fancy("🔌 Connection closed"));
+                isConnected = false;
+                
+                const statusCode = lastDisconnect?.error?.output?.statusCode;
+                const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+                
+                if (shouldReconnect) {
+                    console.log(fancy("🔄 Restarting bot in 5s..."));
+                    setTimeout(() => {
+                        if (!isConnected) startBot();
+                    }, 5000);
+                }
+            }
+        });
+
+        conn.ev.on('creds.update', saveCreds);
+
+        // Initialize handler
+        setTimeout(async () => {
+            try {
+                const handler = require('./handler');
+                if (handler && typeof handler.init === 'function') {
+                    await handler.init(conn);
+                }
+            } catch (e) {}
+        }, 2000);
+
+        console.log(fancy("🚀 Bot ready"));
+        
+    } catch (error) {
+        console.error("Start error:", error.message);
+        setTimeout(() => startBot(), 10000);
     }
-
-    console.log(fancy(`🚀 Starting new session for ${cleanNum}...`));
-
-    const sessionDir = path.join(__dirname, 'sessions', cleanNum);
-    fs.mkdirSync(sessionDir, { recursive: true });
-
-    const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
-    const { version } = await fetchLatestBaileysVersion();
-
-    const conn = makeWASocket({
-        version,
-        auth: {
-            creds: state.creds,
-            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }))
-        },
-        logger: pino({ level: "silent" }),
-        browser: Browsers.macOS("Safari"),
-        syncFullHistory: false,
-        connectTimeoutMs: 60000,
-        keepAliveIntervalMs: 10000,
-        markOnlineOnConnect: true
-    });
-
-    // Unda session object
-    const session = {
-        phoneNumber: cleanNum,
-        conn,
-        isConnected: false,
-        startTime: Date.now(),
-        sessionDir,
-        botName: 'Unknown',
-        botId: 'Unknown'
-    };
-    sessions.set(cleanNum, session);
-
-    // ===== EVENT: connection.update =====
-    conn.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect } = update;
-        if (connection === 'open') {
-            console.log(fancy(`✅ Session ${cleanNum} is now ONLINE`));
-            session.isConnected = true;
-            session.botName = conn.user?.name || 'Unknown';
-            if (conn.user?.id) {
-                session.botId = conn.user.id.split(':')[0];
-            }
-
-            // Tuma welcome message kwa owner (kama ni session ya owner)
-            setTimeout(async () => {
-                try {
-                    if (config.ownerNumber && config.ownerNumber.includes(cleanNum)) {
-                        const ownerJid = cleanNum + '@s.whatsapp.net';
-                        const welcomeMsg = `
-╭─── • 🥀 • ───╮
-   INSIDIOUS: THE LAST KEY
-╰─── • 🥀 • ───╯
-
-✅ *Bot Connected Successfully!*
-🤖 *Name:* ${session.botName}
-📞 *Number:* ${cleanNum}
-🆔 *Bot ID:* ${session.botId}
-
-⚡ *Status:* ONLINE & ACTIVE
-📅 *Session started:* ${new Date(session.startTime).toLocaleString()}
-`;
-                        await conn.sendMessage(ownerJid, {
-                            text: welcomeMsg
-                        });
-                    }
-                } catch (e) {}
-            }, 3000);
-        }
-
-        if (connection === 'close') {
-            console.log(fancy(`🔌 Session ${cleanNum} closed`));
-            session.isConnected = false;
-
-            const statusCode = lastDisconnect?.error?.output?.statusCode;
-            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-
-            if (shouldReconnect) {
-                console.log(fancy(`🔄 Reconnecting session ${cleanNum} in 5s...`));
-                setTimeout(() => {
-                    // Ikiwa session bado ipo kwenye Map na haijaunganishwa, jaribu kuanzisha tena
-                    if (sessions.has(cleanNum) && !sessions.get(cleanNum).isConnected) {
-                        // Ondoa session ya zamani kwenye Map (ili kuweza kuunda upya)
-                        sessions.delete(cleanNum);
-                        startSession(cleanNum).catch(err => {
-                            console.log(fancy(`❌ Failed to reconnect ${cleanNum}: ${err.message}`));
-                        });
-                    }
-                }, 5000);
-            } else {
-                console.log(fancy(`🚫 Session ${cleanNum} logged out. Delete folder to reuse.`));
-                // Tunaweza kuondoa kwenye Map, lakini tusifute folder moja kwa moja
-                sessions.delete(cleanNum);
-            }
-        }
-    });
-
-    // ===== EVENT: creds.update =====
-    conn.ev.on('creds.update', saveCreds);
-
-    // ===== EVENT: messages.upsert =====
-    conn.ev.on('messages.upsert', async (m) => {
-        try {
-            const handler = require('./handler');
-            if (handler && typeof handler === 'function') {
-                await handler(conn, m);
-            }
-        } catch (error) {
-            console.error(`Message handler error (${cleanNum}):`, error.message);
-        }
-    });
-
-    // ===== EVENT: group-participants.update =====
-    conn.ev.on('group-participants.update', async (update) => {
-        try {
-            const handler = require('./handler');
-            if (handler && handler.handleGroupUpdate) {
-                await handler.handleGroupUpdate(conn, update);
-            }
-        } catch (error) {
-            console.error(`Group update error (${cleanNum}):`, error.message);
-        }
-    });
-
-    console.log(fancy(`📱 Session ${cleanNum} initialized, waiting for connection...`));
-    return session;
 }
 
-// ========== ENDPOINT: /pair – Anzisha session na upate code (inangoja connection) ==========
+// Anzisha bot
+startBot();
+
+// ========== FUNCTION KUSUBIRI CONNECTION ==========
+async function waitForConnection(timeout = 30000) {
+    const startTime = Date.now();
+    while (!isConnected) {
+        if (Date.now() - startTime > timeout) {
+            throw new Error("Timeout waiting for WhatsApp connection");
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    return globalConn;
+}
+
+// ========== ENDPOINT: /pair – Inangoja connection ==========
 app.get('/pair', async (req, res) => {
     try {
         let num = req.query.num;
         if (!num) {
-            return res.json({ error: "Provide number! Example: /pair?num=255123456789" });
+            return res.status(400).json({ 
+                success: false, 
+                error: "Provide number! Example: /pair?num=255123456789" 
+            });
         }
-
+        
         const cleanNum = num.replace(/[^0-9]/g, '');
         if (cleanNum.length < 10) {
-            return res.json({ error: "Invalid number" });
+            return res.status(400).json({ 
+                success: false, 
+                error: "Invalid number. Use country code + number (e.g., 255618558502)" 
+            });
         }
-
-        // Angalia kama session tayari ipo
-        let session = sessions.get(cleanNum);
-        if (!session) {
-            // Anzisha session mpya
-            session = await startSession(cleanNum);
-        }
-
-        // Subiri hadi session iwe connected (timeout sekunde 30)
-        const maxWait = 30000; // 30 seconds
-        const startTime = Date.now();
-        while (!session.isConnected) {
-            if (Date.now() - startTime > maxWait) {
-                return res.json({ error: "Timeout waiting for connection. Try again later." });
-            }
-            // Subiri kidogo kabla ya kuangalia tena
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-
-        // Sasa session iko tayari
+        
+        // Subiri connection iwe tayari
+        console.log(fancy(`⏳ Waiting for connection to pair ${cleanNum}...`));
+        const conn = await waitForConnection(30000); // Timeout 30s
+        
+        // Omba pairing code
         console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum}`));
-        const code = await session.conn.requestPairingCode(cleanNum);
-        res.json({
-            success: true,
+        const code = await conn.requestPairingCode(cleanNum);
+        
+        // Rudisha code
+        res.json({ 
+            success: true, 
             code: code,
-            message: `8-digit pairing code: ${code}`
+            message: `Your 8-digit pairing code is: ${code}`
         });
-
+        
     } catch (err) {
         console.error("Pairing error:", err.message);
-        res.json({ success: false, error: "Failed: " + err.message });
-    }
-});
-
-// ========== ENDPOINT: /sessions – Orodha ya sessions zote ==========
-app.get('/sessions', (req, res) => {
-    const sessionList = [];
-    for (let [num, sess] of sessions.entries()) {
-        sessionList.push({
-            phoneNumber: num,
-            isConnected: sess.isConnected,
-            botName: sess.botName,
-            botId: sess.botId,
-            uptime: Date.now() - sess.startTime,
-            startTime: sess.startTime
+        res.status(500).json({ 
+            success: false, 
+            error: err.message === "Timeout waiting for WhatsApp connection" 
+                ? "Bot is still connecting. Please wait 30 seconds and try again." 
+                : "Failed to generate code: " + err.message
         });
     }
-    res.json({ success: true, sessions: sessionList });
 });
 
-// ========== ENDPOINT: /session/:id – Taarifa za session moja ==========
-app.get('/session/:id', (req, res) => {
-    const id = req.params.id.replace(/[^0-9]/g, '');
-    const sess = sessions.get(id);
-    if (!sess) {
-        return res.status(404).json({ success: false, error: 'Session not found' });
-    }
+// ========== ENDPOINT: /status – Kuangalia kama bot iko tayari ==========
+app.get('/status', (req, res) => {
     res.json({
-        success: true,
-        session: {
-            phoneNumber: id,
-            isConnected: sess.isConnected,
-            botName: sess.botName,
-            botId: sess.botId,
-            uptime: Date.now() - sess.startTime,
-            startTime: sess.startTime
-        }
+        connected: isConnected,
+        uptime: Date.now() - botStartTime
     });
 });
 
-// ========== ENDPOINT: /session/:id/logout – Logout session ==========
-app.post('/session/:id/logout', async (req, res) => {
-    const id = req.params.id.replace(/[^0-9]/g, '');
-    const sess = sessions.get(id);
-    if (!sess) {
-        return res.status(404).json({ success: false, error: 'Session not found' });
-    }
-    try {
-        // Logout kutoka WhatsApp
-        if (sess.conn) {
-            await sess.conn.logout();
-        }
-        // Ondoa kwenye Map
-        sessions.delete(id);
-        // Futa folder ya session (hiari)
-        // fs.rmSync(sess.sessionDir, { recursive: true, force: true });
-        res.json({ success: true, message: `Session ${id} logged out` });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
-});
-
-// ========== ENDPOINT: /unpair (kwa compatibility – sasa inaweza kutumika kufuta session) ==========
-app.get('/unpair', async (req, res) => {
-    try {
-        let num = req.query.num;
-        if (!num) {
-            return res.json({ error: "Provide number! Example: /unpair?num=255123456789" });
-        }
-
-        const cleanNum = num.replace(/[^0-9]/g, '');
-        if (cleanNum.length < 10) {
-            return res.json({ error: "Invalid number" });
-        }
-
-        const session = sessions.get(cleanNum);
-        if (!session) {
-            return res.json({ success: true, message: `No active session for ${cleanNum}` });
-        }
-
-        await session.conn.logout();
-        sessions.delete(cleanNum);
-        // Optional: delete folder
-        // fs.rmSync(session.sessionDir, { recursive: true, force: true });
-
-        res.json({
-            success: true,
-            message: `Number ${cleanNum} unpaired successfully`
-        });
-
-    } catch (err) {
-        console.error("Unpair error:", err.message);
-        res.json({ success: false, error: "Failed: " + err.message });
-    }
-});
-
-// ========== ENDPOINT: /health (global) ==========
+// ========== HEALTH CHECK ==========
 app.get('/health', (req, res) => {
-    const uptime = process.uptime();
-    const hours = Math.floor(uptime / 3600);
-    const minutes = Math.floor((uptime % 3600) / 60);
-    const seconds = Math.floor(uptime % 60);
-
-    res.json({
-        status: 'healthy',
-        totalSessions: sessions.size,
-        connectedSessions: Array.from(sessions.values()).filter(s => s.isConnected).length,
-        uptime: `${hours}h ${minutes}m ${seconds}s`,
+    res.json({ 
+        status: 'healthy', 
+        connected: isConnected,
         database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
     });
 });
 
-// ========== KEEP‑ALIVE PING ==========
+// ========== KEEP ALIVE ==========
 setInterval(() => {
     fetch(`http://localhost:${PORT}/health`).catch(() => {});
 }, 5 * 60 * 1000);
@@ -402,9 +253,7 @@ setInterval(() => {
 app.listen(PORT, () => {
     console.log(fancy(`🌐 Web Interface: http://localhost:${PORT}`));
     console.log(fancy(`🔗 Pairing: http://localhost:${PORT}/pair?num=255XXXXXXXXX`));
-    console.log(fancy(`📋 Sessions list: http://localhost:${PORT}/sessions`));
-    console.log(fancy(`❤️ Health: http://localhost:${PORT}/health`));
-    console.log(fancy("👑 Developer: STANYTZ | Multi‑Session Ready"));
+    console.log(fancy(`👑 Developer: STANYTZ`));
 });
 
 module.exports = app;
