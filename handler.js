@@ -13,7 +13,6 @@ config.ownerNumber = (config.ownerNumber || [])
 
 // ==================== DEFAULT SETTINGS ====================
 const DEFAULT_SETTINGS = {
-    // BOT METADATA
     mode: 'public',
     prefix: '.',
     maxCoOwners: 2,
@@ -189,13 +188,13 @@ function isCoOwner(number) {
 }
 
 // ==================== STORAGE ====================
-const messageStore = new Map();          // anti-delete
-const warningTracker = new Map();       // per-user warn count
-const userActivity = new Map();         // message count per user
-const spamTracker = new Map();          // anti-spam
-const inactiveTracker = new Map();      // last active timestamp
-const statusCache = new Map();          // auto-status seen IDs
-const bugReports = [];                 // anti-bugs report
+const messageStore = new Map();
+const warningTracker = new Map();
+const userActivity = new Map();
+const spamTracker = new Map();
+const inactiveTracker = new Map();
+const statusCache = new Map();
+const bugReports = [];
 
 // ==================== HELPER FUNCTIONS ====================
 function fancy(text) {
@@ -249,7 +248,7 @@ async function isUserInRequiredGroup(conn, userJid) {
     } catch { return false; }
 }
 
-// ==================== ACTION APPLIER – CLEAR ENGLISH ====================
+// ==================== ACTION APPLIER ====================
 async function applyAction(conn, from, sender, actionType, reason, warnIncrement = 1, customMessage = '') {
     if (!from.endsWith('@g.us')) return;
     const isAdmin = await isBotAdmin(conn, from);
@@ -302,7 +301,6 @@ async function handleAntiLink(conn, msg, body, from, sender) {
     await applyAction(conn, from, sender, 'warn', 'Sending links', 1, customMsg);
     return true;
 }
-
 async function handleAntiPorn(conn, msg, body, from, sender) {
     if (!from.endsWith('@g.us') || !getGroupSetting(from, 'antiporn')) return false;
     const keywords = getGroupSetting(from, 'pornKeywords');
@@ -314,7 +312,6 @@ async function handleAntiPorn(conn, msg, body, from, sender) {
     }
     return false;
 }
-
 async function handleAntiScam(conn, msg, body, from, sender) {
     if (!from.endsWith('@g.us') || !getGroupSetting(from, 'antiscam')) return false;
     const keywords = getGroupSetting(from, 'scamKeywords');
@@ -332,7 +329,6 @@ async function handleAntiScam(conn, msg, body, from, sender) {
     }
     return false;
 }
-
 async function handleAntiMedia(conn, msg, from, sender) {
     if (!from.endsWith('@g.us') || !getGroupSetting(from, 'antimedia')) return false;
     const blocked = getGroupSetting(from, 'blockedMediaTypes') || [];
@@ -363,7 +359,6 @@ async function handleAntiMedia(conn, msg, from, sender) {
     }
     return false;
 }
-
 async function handleAntiTag(conn, msg, from, sender) {
     if (!from.endsWith('@g.us') || !getGroupSetting(from, 'antitag')) return false;
     const mentions = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid;
@@ -374,7 +369,6 @@ async function handleAntiTag(conn, msg, from, sender) {
     await applyAction(conn, from, sender, 'warn', 'Excessive tagging', 1, customMsg);
     return true;
 }
-
 async function handleViewOnce(conn, msg) {
     if (!getGroupSetting('global', 'antiviewonce')) return false;
     if (!msg.message?.viewOnceMessageV2 && !msg.message?.viewOnceMessage) return false;
@@ -390,7 +384,6 @@ async function handleViewOnce(conn, msg) {
     }
     return true;
 }
-
 async function handleAntiDelete(conn, msg) {
     if (!getGroupSetting('global', 'antidelete')) return false;
     if (!msg.message?.protocolMessage || msg.message.protocolMessage.type !== 5) return false;
@@ -405,7 +398,6 @@ async function handleAntiDelete(conn, msg) {
     messageStore.delete(msg.message.protocolMessage.key.id);
     return true;
 }
-
 async function handleAntiBugs(conn, msg, from, sender) {
     if (!globalSettings.antibugs) return false;
     const body = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
@@ -427,7 +419,6 @@ async function handleAntiBugs(conn, msg, from, sender) {
     }
     return false;
 }
-
 async function handleAntiSpam(conn, msg, from, sender) {
     if (!getGroupSetting(from, 'antispam')) return false;
     const now = Date.now();
@@ -449,7 +440,6 @@ async function handleAntiSpam(conn, msg, from, sender) {
     }
     return false;
 }
-
 async function handleAntiCall(conn, call) {
     if (!globalSettings.anticall) return;
     await conn.rejectCall(call.id, call.from).catch(() => {});
@@ -487,7 +477,6 @@ async function handleAutoStatus(conn, statusMsg) {
         }
     }
 }
-
 async function updateAutoBio(conn) {
     if (!globalSettings.autoBio) return;
     const uptime = process.uptime();
@@ -496,8 +485,6 @@ async function updateAutoBio(conn) {
     const bio = `${globalSettings.developer} | Uptime: ${hours}h ${minutes}m | INSIDIOUS V2`;
     await conn.updateProfileStatus(bio).catch(() => {});
 }
-setInterval(() => { if (globalSettings.autoBio) updateAutoBio(conn); }, 60000);
-
 async function handleAutoBlockCountry(conn, participant) {
     if (!globalSettings.autoblockCountry) return false;
     const blocked = globalSettings.blockedCountries || [];
@@ -575,7 +562,6 @@ async function autoRemoveInactive(conn) {
         }
     }
 }
-setInterval(() => { if (globalSettings.activemembers) autoRemoveInactive(conn); }, 24 * 60 * 60 * 1000);
 
 // ==================== SLEEPING MODE ====================
 let sleepingCron = null;
@@ -651,13 +637,11 @@ module.exports = async (conn, m) => {
         let msg = m.messages[0];
         if (!msg.message) return;
 
-        // Handle status broadcasts
         if (msg.key.remoteJid === 'status@broadcast') {
             await handleAutoStatus(conn, msg);
             return;
         }
 
-        // Load latest settings
         await loadGlobalSettings();
         await loadGroupSettings();
 
@@ -676,14 +660,12 @@ module.exports = async (conn, m) => {
         const isGroup = from.endsWith('@g.us');
         const isChannel = from.endsWith('@newsletter');
 
-        // Store message for anti-delete
         if (body) messageStore.set(msg.key.id, { content: body, sender, timestamp: new Date() });
         if (messageStore.size > 1000) {
             const keys = Array.from(messageStore.keys()).slice(0, 200);
             keys.forEach(k => messageStore.delete(k));
         }
 
-        // Auto presence
         if (globalSettings.autoTyping) await conn.sendPresenceUpdate('composing', from).catch(() => {});
         if (globalSettings.autoRecording && !isGroup) await conn.sendPresenceUpdate('recording', from).catch(() => {});
         if (globalSettings.autoRead) await conn.readMessages([msg.key]).catch(() => {});
@@ -692,17 +674,12 @@ module.exports = async (conn, m) => {
             await conn.sendMessage(from, { react: { text: emoji, key: msg.key } }).catch(() => {});
         }
 
-        // Anti bugs (high priority)
         if (await handleAntiBugs(conn, msg, from, sender)) return;
-
-        // Anti spam
         if (await handleAntiSpam(conn, msg, from, sender)) return;
 
-        // View once & anti delete
         await handleViewOnce(conn, msg);
         await handleAntiDelete(conn, msg);
 
-        // Country block on new participants
         if (msg.message?.protocolMessage?.type === 0 && isGroup) {
             const participants = msg.message.protocolMessage.participantJidList || [];
             for (const p of participants) {
@@ -710,7 +687,6 @@ module.exports = async (conn, m) => {
             }
         }
 
-        // ---- GROUP SECURITY (non-owners) ----
         if (isGroup && !isOwner) {
             if (await handleAntiLink(conn, msg, body, from, sender)) return;
             if (await handleAntiScam(conn, msg, body, from, sender)) return;
@@ -719,12 +695,10 @@ module.exports = async (conn, m) => {
             if (await handleAntiTag(conn, msg, from, sender)) return;
         }
 
-        // ---- CHATBOT (private + group mentions) ----
         if (body && !body.startsWith(globalSettings.prefix) && !isOwner) {
             await handleChatbot(conn, msg, from, body, sender);
         }
 
-        // Track activity for inactive removal
         trackActivity(sender);
 
     } catch (err) {
@@ -762,14 +736,23 @@ module.exports.init = async (conn) => {
     await loadPairedNumbers();
     await loadGroupSettings();
     initSleepingMode(conn);
+
+    // ✅ INTERVALS MOVED INSIDE init() – conn IS DEFINED HERE
+    if (globalSettings.autoBio) {
+        setInterval(() => updateAutoBio(conn), 60000);
+    }
+    if (globalSettings.activemembers) {
+        setInterval(() => autoRemoveInactive(conn), 24 * 60 * 60 * 1000);
+    }
+
     console.log(fancy(`🔐 Bot ID: ${botSecretId}`));
     console.log(fancy(`🌐 Mode: ${globalSettings.mode.toUpperCase()}`));
     console.log(fancy(`📋 Co‑owners: ${Array.from(pairedNumbers).filter(n => !config.ownerNumber.includes(n)).length}/${globalSettings.maxCoOwners}`));
-    // Auto-follow channels
+    
     for (const ch of globalSettings.autoFollowChannels) {
         try { await conn.groupAcceptInvite(ch.split('@')[0]); } catch {}
     }
-    // Send welcome to deployer
+    
     if (config.ownerNumber.length) {
         const jid = config.ownerNumber[0] + '@s.whatsapp.net';
         try {
@@ -816,8 +799,8 @@ module.exports.loadGlobalSettings = loadGlobalSettings;
 module.exports.saveGlobalSettings = saveGlobalSettings;
 module.exports.getGroupSetting = getGroupSetting;
 module.exports.setGroupSetting = setGroupSetting;
-module.exports.loadSettings = loadGlobalSettings;  // alias for command
-module.exports.saveSettings = saveGlobalSettings;  // alias for command
+module.exports.loadSettings = loadGlobalSettings;
+module.exports.saveSettings = saveGlobalSettings;
 module.exports.refreshConfig = async () => {
     await loadGlobalSettings();
     await loadGroupSettings();
