@@ -4,7 +4,7 @@ const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
 const fs = require('fs');
-const { v4: uuidv4 } = require('uuid'); // ← install: npm install uuid
+const { v4: uuidv4 } = require('uuid'); // ← hakikisha umeinstall: npm install uuid
 
 // ========== GLOBAL ERROR HANDLERS ==========
 process.on('uncaughtException', (err) => {
@@ -86,16 +86,18 @@ try {
 // ========== MULTI‑SESSION MANAGEMENT ==========
 const sessions = new Map(); // key: phoneNumber (string), value: session object
 
-// Session object structure:
-// {
-//   phoneNumber: string,
-//   conn: WASocket,
-//   isConnected: boolean,
-//   startTime: Date,
-//   sessionDir: string,
-//   botName: string,
-//   botId: string
-// }
+/**
+ * Session object structure:
+ * {
+ *   phoneNumber: string,
+ *   conn: WASocket,
+ *   isConnected: boolean,
+ *   startTime: Date,
+ *   sessionDir: string,
+ *   botName: string,
+ *   botId: string
+ * }
+ */
 
 // ========== FUNCTION TO START A NEW SESSION ==========
 async function startSession(phoneNumber) {
@@ -189,7 +191,7 @@ async function startSession(phoneNumber) {
             if (shouldReconnect) {
                 console.log(fancy(`🔄 Reconnecting session ${cleanNum} in 5s...`));
                 setTimeout(() => {
-                    // Ikiwa session bado ipo kwenye Map, jaribu kuanzisha tena
+                    // Ikiwa session bado ipo kwenye Map na haijaunganishwa, jaribu kuanzisha tena
                     if (sessions.has(cleanNum) && !sessions.get(cleanNum).isConnected) {
                         // Ondoa session ya zamani kwenye Map (ili kuweza kuunda upya)
                         sessions.delete(cleanNum);
@@ -236,6 +238,52 @@ async function startSession(phoneNumber) {
     console.log(fancy(`📱 Session ${cleanNum} initialized, waiting for connection...`));
     return session;
 }
+
+// ========== ENDPOINT: /pair – Anzisha session na upate code (inangoja connection) ==========
+app.get('/pair', async (req, res) => {
+    try {
+        let num = req.query.num;
+        if (!num) {
+            return res.json({ error: "Provide number! Example: /pair?num=255123456789" });
+        }
+
+        const cleanNum = num.replace(/[^0-9]/g, '');
+        if (cleanNum.length < 10) {
+            return res.json({ error: "Invalid number" });
+        }
+
+        // Angalia kama session tayari ipo
+        let session = sessions.get(cleanNum);
+        if (!session) {
+            // Anzisha session mpya
+            session = await startSession(cleanNum);
+        }
+
+        // Subiri hadi session iwe connected (timeout sekunde 30)
+        const maxWait = 30000; // 30 seconds
+        const startTime = Date.now();
+        while (!session.isConnected) {
+            if (Date.now() - startTime > maxWait) {
+                return res.json({ error: "Timeout waiting for connection. Try again later." });
+            }
+            // Subiri kidogo kabla ya kuangalia tena
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
+        // Sasa session iko tayari
+        console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum}`));
+        const code = await session.conn.requestPairingCode(cleanNum);
+        res.json({
+            success: true,
+            code: code,
+            message: `8-digit pairing code: ${code}`
+        });
+
+    } catch (err) {
+        console.error("Pairing error:", err.message);
+        res.json({ success: false, error: "Failed: " + err.message });
+    }
+});
 
 // ========== ENDPOINT: /sessions – Orodha ya sessions zote ==========
 app.get('/sessions', (req, res) => {
@@ -292,45 +340,6 @@ app.post('/session/:id/logout', async (req, res) => {
         res.json({ success: true, message: `Session ${id} logged out` });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
-    }
-});
-
-// ========== ENDPOINT: /pair (8‑digit pairing) – Anzisha session na upate code ==========
-app.get('/pair', async (req, res) => {
-    try {
-        let num = req.query.num;
-        if (!num) {
-            return res.json({ error: "Provide number! Example: /pair?num=255123456789" });
-        }
-
-        const cleanNum = num.replace(/[^0-9]/g, '');
-        if (cleanNum.length < 10) {
-            return res.json({ error: "Invalid number" });
-        }
-
-        // Angalia kama session tayari ipo na imeconnected
-        let session = sessions.get(cleanNum);
-        if (!session) {
-            // Anzisha session mpya
-            session = await startSession(cleanNum);
-        }
-
-        // Subiri kidogo connection iwe tayari (optional)
-        if (!session.conn) {
-            return res.json({ error: "Session not ready, try again in a few seconds" });
-        }
-
-        console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum}`));
-        const code = await session.conn.requestPairingCode(cleanNum);
-        res.json({
-            success: true,
-            code: code,
-            message: `8-digit pairing code: ${code}`
-        });
-
-    } catch (err) {
-        console.error("Pairing error:", err.message);
-        res.json({ success: false, error: "Failed: " + err.message });
     }
 });
 
