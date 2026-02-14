@@ -1,28 +1,30 @@
 module.exports = {
-    name: "pair",
+    name: "unpair",
     ownerOnly: true,
-    description: "Generate 8-digit pairing code for a WhatsApp number",
+    description: "Remove a paired co-owner number",
     usage: "[phone number]",
     
-    execute: async (conn, msg, args, { from, isOwner, reply, config, fancy, canPairNumber, pairNumber, getPairedNumbers }) => {
+    execute: async (conn, msg, args, { from, isOwner, reply, config, fancy, unpairNumber }) => {
         if (!isOwner) return reply("❌ This command is for owner only!");
-        if (!args[0]) return reply(`🔐 Usage: ${config.prefix}pair <number>\nExample: ${config.prefix}pair 255712345678`);
+        if (!args[0]) return reply(`🔐 Usage: ${config.prefix}unpair <number>\nExample: ${config.prefix}unpair 255712345678`);
 
         const number = args[0].replace(/[^0-9]/g, '');
         if (number.length < 10) return reply("❌ Invalid phone number!");
 
-        if (!canPairNumber(number)) {
-            const current = getPairedNumbers().filter(n => !config.ownerNumber.includes(n)).length;
-            return reply(`❌ Cannot pair – limit reached (${current}/${config.maxCoOwners}) or already paired.`);
+        // Check if it's the deployer's own number
+        if (config.ownerNumber && config.ownerNumber.includes(number)) {
+            return reply("❌ Cannot unpair the deployer's own number!");
         }
 
         try {
-            const code = await conn.requestPairingCode(number);
-            await pairNumber(number);
-            const co = getPairedNumbers().filter(n => !config.ownerNumber.includes(n)).length;
-            await reply(fancy(`✅ *PAIRING CODE GENERATED*\n\n📱 Number: ${number}\n🔐 Code: ${code}\n👥 Co‑owners: ${co}/${config.maxCoOwners}`));
+            const result = await unpairNumber(number);
+            if (result) {
+                await reply(fancy(`✅ Number ${number} has been unpaired successfully.`));
+            } else {
+                await reply(fancy(`❌ Number ${number} is not paired.`));
+            }
         } catch (e) {
-            reply(`❌ Pairing failed: ${e.message}`);
+            reply(`❌ Unpair failed: ${e.message}`);
         }
     }
 };
