@@ -3,7 +3,7 @@ const { default: makeWASocket, useMultiFileAuthState, Browsers, makeCacheableSig
 const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
-const fs = require('fs').promises;  // Use promises for async file ops
+const fs = require('fs').promises;
 const crypto = require('crypto');
 
 // ✅ **FANCY FUNCTION**
@@ -109,65 +109,90 @@ async function startBot() {
 }
 startBot();
 
-// ==================== INDEPENDENT PAIRING – MULTI‑USER SUPPORT ====================
-async function requestPairingCode(number) {
-    // Generate unique session folder for this request
+// ==================== ROBUST PAIRING – MULTI‑USER, AUTO‑RETRY ====================
+async function requestPairingCode(number, retries = 3) {
     const sessionId = crypto.randomBytes(8).toString('hex');
     const sessionDir = path.join(__dirname, `temp_pair_${sessionId}`);
 
-    try {
-        const { state } = await useMultiFileAuthState(sessionDir);
-        const { version } = await fetchLatestBaileysVersion();
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            const { state } = await useMultiFileAuthState(sessionDir);
+            const { version } = await fetchLatestBaileysVersion();
 
-        const conn = makeWASocket({
-            version,
-            auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) },
-            logger: pino({ level: "silent" }),
-            browser: Browsers.macOS("Safari"),
-            syncFullHistory: false,
-            connectTimeoutMs: 60000,
-            keepAliveIntervalMs: 10000,
-            markOnlineOnConnect: false,
-            shouldIgnoreJid: () => true,
-            maxRetryCount: 2,
-            retryRequestDelayMs: 1000
-        });
-
-        return new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                conn.end();
-                reject(new Error("⏰ Pairing timeout (60s)"));
-            }, 60000);
-
-            conn.ev.on('connection.update', async (update) => {
-                const { connection, lastDisconnect } = update;
-                if (connection === 'open') {
-                    await new Promise(r => setTimeout(r, 1000)); // ensure socket ready
-                    try {
-                        const code = await conn.requestPairingCode(number);
-                        clearTimeout(timeout);
-                        resolve(code);
-                    } catch (err) {
-                        reject(err);
-                    } finally {
-                        setTimeout(() => conn.end(), 2000);
-                        setTimeout(async () => {
-                            try { await fs.rm(sessionDir, { recursive: true, force: true }); } catch {}
-                        }, 3000);
-                    }
-                }
-                if (connection === 'close' && !update.isOnline) {
-                    const statusCode = lastDisconnect?.error?.output?.statusCode;
-                    if (statusCode === 429) reject(new Error("🚫 Rate limited. Wait 5 minutes."));
-                    else reject(new Error("❌ Connection closed. Please try again."));
-                }
+            const conn = makeWASocket({
+                version,
+                auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) },
+                logger: pino({ level: "silent" }),
+                browser: Browsers.macOS("Safari"),
+                syncFullHistory: false,
+                connectTimeoutMs: 60000,
+                keepAliveIntervalMs: 10000,
+                markOnlineOnConnect: false,
+                shouldIgnoreJid: () => true,
+                maxRetryCount: 2,
+                retryRequestDelayMs: 1000
             });
-        });
-    } catch (err) {
-        setTimeout(async () => {
+
+            const code = await new Promise((resolve, reject) => {
+                let codeReceived = false;
+                const timeout = setTimeout(() => {
+                    if (!codeReceived) {
+                        conn.end();
+                        reject(new Error(`⏰ Pairing timeout (60s)`));
+                    }
+                }, 60000);
+
+                conn.ev.on('connection.update', async (update) => {
+                    const { connection, lastDisconnect } = update;
+                    
+                    if (connection === 'open' && !codeReceived) {
+                        // Wait 2 seconds to ensure socket is fully ready
+                        await new Promise(r => setTimeout(r, 2000));
+                        try {
+                            const pairingCode = await conn.requestPairingCode(number);
+                            codeReceived = true;
+                            clearTimeout(timeout);
+                            resolve(pairingCode);
+                        } catch (err) {
+                            reject(err);
+                        } finally {
+                            // Close connection after a short delay
+                            setTimeout(() => conn.end(), 2000);
+                        }
+                    }
+                    
+                    if (connection === 'close' && !codeReceived) {
+                        const statusCode = lastDisconnect?.error?.output?.statusCode;
+                        if (statusCode === 429) {
+                            reject(new Error("🚫 Rate limited. Wait 5 minutes."));
+                        } else {
+                            // Reject with a retryable error
+                            reject(new Error(`Connection closed (attempt ${attempt}/${retries})`));
+                        }
+                    }
+                });
+            });
+
+            // Success – clean up session folder and return code
+            setTimeout(async () => {
+                try { await fs.rm(sessionDir, { recursive: true, force: true }); } catch {}
+            }, 3000);
+            return code;
+
+        } catch (err) {
+            // Clean up session folder on error
             try { await fs.rm(sessionDir, { recursive: true, force: true }); } catch {}
-        }, 1000);
-        throw err;
+            
+            // If it's a retryable error and we have attempts left, continue
+            if (err.message.includes('Connection closed') && attempt < retries) {
+                console.log(fancy(`🔄 Pairing retry ${attempt}/${retries} for ${number}`));
+                // Small delay before retry
+                await new Promise(r => setTimeout(r, 2000));
+                continue;
+            }
+            // Otherwise throw the error
+            throw err;
+        }
     }
 }
 
@@ -180,7 +205,7 @@ app.get('/pair', async (req, res) => {
         if (cleanNum.length < 10) return res.json({ error: "Invalid number" });
 
         console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum}`));
-        const code = await requestPairingCode(cleanNum);
+        const code = await requestPairingCode(cleanNum, 3); // up to 3 retries
 
         if (handler && handler.pairNumber) {
             await handler.pairNumber(cleanNum).catch(() => {});
@@ -265,7 +290,7 @@ app.listen(PORT, () => {
     console.log(fancy(`🌐 Web: http://localhost:${PORT}`));
     console.log(fancy(`🔗 Pair (8‑digit): http://localhost:${PORT}/pair?num=255XXXXXXXXX`));
     console.log(fancy(`📋 Paired list: http://localhost:${PORT}/paired`));
-    console.log(fancy(`✅ Multi‑user pairing: ENABLED`));
+    console.log(fancy(`✅ Multi‑user pairing: ENABLED (with auto‑retry)`));
     console.log(fancy(`🤖 Main bot: infinite stay‑alive`));
 });
 
