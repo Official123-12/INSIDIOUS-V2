@@ -1,5 +1,3 @@
-const fs = require('fs-extra');
-const path = require('path');
 const config = require('../../config');
 const { fancy, runtime } = require('../../lib/tools');
 const { proto, generateWAMessageFromContent, prepareWAMessageMedia } = require('@whiskeysockets/baileys');
@@ -9,15 +7,22 @@ module.exports = {
     aliases: ["ping", "alive", "runtime"],
     description: "Show bot status with sliding cards",
     
-    execute: async (conn, msg, args, { from, pushname }) => {
+    execute: async (conn, msg, args, { from, sender, pushname }) => {
         try {
-            // Prepare image media (use bot image from config)
+            // Get user's display name
+            let userName = pushname;
+            if (!userName) {
+                const contact = await conn.getContact(sender);
+                userName = contact?.name || contact?.pushname || sender.split('@')[0];
+            }
+
+            // Prepare image media
             const imageMedia = await prepareWAMessageMedia(
                 { image: { url: config.botImage } },
                 { upload: conn.waUploadToServer }
             );
 
-            // Calculate ping: time between message receipt and now
+            // Calculate ping
             const messageTimestamp = msg.messageTimestamp ? msg.messageTimestamp * 1000 : Date.now();
             const ping = Date.now() - messageTimestamp;
 
@@ -29,71 +34,91 @@ module.exports = {
 
             // Card 1: Ping
             cards.push({
-                body: { text: fancy(`🏓 *PING*\n\nResponse Time: ${ping}ms\n\nBot is responsive.`) },
+                body: { text: fancy(
+                    `━━━━━━━━━━━━━━━━━━\n` +
+                    `   🏓 *PING*\n` +
+                    `━━━━━━━━━━━━━━━━━━\n\n` +
+                    `📶 Response Time: *${ping}ms*\n\n` +
+                    `🤖 Bot is responsive.`
+                ) },
                 footer: { text: fancy(config.footer) },
                 header: {
                     hasMediaAttachment: true,
                     imageMessage: imageMedia.imageMessage
                 },
                 nativeFlowMessage: {
-                    buttons: [
-                        {
-                            name: "quick_reply",
-                            buttonParamsJson: JSON.stringify({
-                                display_text: "🔄 Refresh",
-                                id: `${config.prefix}status`
-                            })
-                        }
-                    ]
+                    buttons: [{
+                        name: "quick_reply",
+                        buttonParamsJson: JSON.stringify({
+                            display_text: "🔄 Refresh",
+                            id: `${config.prefix}status`
+                        })
+                    }]
                 }
             });
 
             // Card 2: Alive
             cards.push({
-                body: { text: fancy(`🤖 *ALIVE*\n\nBot Name: ${config.botName}\nDeveloper: ${config.developerName}\nVersion: ${config.version}\n\nI'm alive and ready!`) },
+                body: { text: fancy(
+                    `━━━━━━━━━━━━━━━━━━\n` +
+                    `   🤖 *ALIVE*\n` +
+                    `━━━━━━━━━━━━━━━━━━\n\n` +
+                    `✨ Bot Name: ${config.botName}\n` +
+                    `👑 Developer: ${config.developerName}\n` +
+                    `📦 Version: ${config.version}\n\n` +
+                    `✅ I'm alive and ready!`
+                ) },
                 footer: { text: fancy(config.footer) },
                 header: {
                     hasMediaAttachment: true,
                     imageMessage: imageMedia.imageMessage
                 },
                 nativeFlowMessage: {
-                    buttons: [
-                        {
-                            name: "quick_reply",
-                            buttonParamsJson: JSON.stringify({
-                                display_text: "🔄 Refresh",
-                                id: `${config.prefix}status`
-                            })
-                        }
-                    ]
+                    buttons: [{
+                        name: "quick_reply",
+                        buttonParamsJson: JSON.stringify({
+                            display_text: "🔄 Refresh",
+                            id: `${config.prefix}status`
+                        })
+                    }]
                 }
             });
 
             // Card 3: Runtime
             cards.push({
-                body: { text: fancy(`⏱️ *RUNTIME*\n\nUptime: ${uptime}\n\nBot has been running for ${uptime}.`) },
+                body: { text: fancy(
+                    `━━━━━━━━━━━━━━━━━━\n` +
+                    `   ⏱️ *RUNTIME*\n` +
+                    `━━━━━━━━━━━━━━━━━━\n\n` +
+                    `🕐 Uptime: *${uptime}*\n\n` +
+                    `Bot has been running for ${uptime}.`
+                ) },
                 footer: { text: fancy(config.footer) },
                 header: {
                     hasMediaAttachment: true,
                     imageMessage: imageMedia.imageMessage
                 },
                 nativeFlowMessage: {
-                    buttons: [
-                        {
-                            name: "quick_reply",
-                            buttonParamsJson: JSON.stringify({
-                                display_text: "🔄 Refresh",
-                                id: `${config.prefix}status`
-                            })
-                        }
-                    ]
+                    buttons: [{
+                        name: "quick_reply",
+                        buttonParamsJson: JSON.stringify({
+                            display_text: "🔄 Refresh",
+                            id: `${config.prefix}status`
+                        })
+                    }]
                 }
             });
 
             // Build interactive message
             const interactiveMessage = {
-                body: { text: fancy(`📊 *BOT STATUS DASHBOARD*\n\nHello ${pushname}, swipe to view details.`) },
-                footer: { text: fancy("Slide left/right for more info") },
+                body: { text: fancy(
+                    `━━━━━━━━━━━━━━━━━━\n` +
+                    `   📊 *BOT STATUS DASHBOARD*\n` +
+                    `━━━━━━━━━━━━━━━━━━\n\n` +
+                    `👋 Hello, *${userName}*!\n` +
+                    `Swipe to view details.`
+                ) },
+                footer: { text: fancy("◀️ Slide left/right for more info ▶️") },
                 header: {
                     title: fancy(config.botName),
                     hasMediaAttachment: false
@@ -103,17 +128,8 @@ module.exports = {
                 }
             };
 
-            // Wrap in viewOnceMessage (optional)
-            const viewOnceMessage = {
-                viewOnceMessage: {
-                    message: {
-                        interactiveMessage: interactiveMessage
-                    }
-                }
-            };
-
-            // Generate and send
-            const waMessage = generateWAMessageFromContent(from, viewOnceMessage, {
+            // Send as regular interactive message (not view once)
+            const waMessage = generateWAMessageFromContent(from, { interactiveMessage }, {
                 userJid: conn.user.id,
                 upload: conn.waUploadToServer
             });
