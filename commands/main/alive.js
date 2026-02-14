@@ -12,8 +12,12 @@ module.exports = {
             // Get user's display name
             let userName = pushname;
             if (!userName) {
-                const contact = await conn.getContact(sender);
-                userName = contact?.name || contact?.pushname || sender.split('@')[0];
+                try {
+                    const contact = await conn.getContact(sender);
+                    userName = contact?.name || contact?.pushname || sender.split('@')[0];
+                } catch {
+                    userName = sender.split('@')[0];
+                }
             }
 
             // Prepare image media
@@ -128,7 +132,7 @@ module.exports = {
                 }
             };
 
-            // Send as regular interactive message (not view once)
+            // Send as regular interactive message
             const waMessage = generateWAMessageFromContent(from, { interactiveMessage }, {
                 userJid: conn.user.id,
                 upload: conn.waUploadToServer
