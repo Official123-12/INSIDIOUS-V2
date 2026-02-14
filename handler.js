@@ -690,7 +690,9 @@ async function handleCommand(conn, msg, body, from, sender, isOwner, isDeployerU
                         canPairNumber,
                         pairNumber,
                         unpairNumber,
-                        getPairedNumbers: () => Array.from(pairedNumbers)
+                        getPairedNumbers: () => Array.from(pairedNumbers),
+                        isBotAdmin: (jid) => isBotAdmin(conn, jid),
+                        isParticipantAdmin: (jid, participant) => isParticipantAdmin(conn, jid, participant)
                     });
                 } catch (e) {
                     console.error(`Command error (${cmd}):`, e);
@@ -806,10 +808,6 @@ module.exports = async (conn, m) => {
         if (msg.message?.protocolMessage?.type === 0 && isGroup) {
             const participants = msg.message.protocolMessage.participantJidList || [];
             for (const p of participants) {
-                // For each new participant, we need to check if they are exempt.
-                // We can't use `isExempt` because that's for the message sender.
-                // We'll fetch admin status for each participant inside handleAutoBlockCountry? Too heavy.
-                // Simpler: owners are already in config, group admins we can check quickly.
                 const pNumber = p.split('@')[0];
                 const pIsOwner = isDeployer(pNumber) || isCoOwner(pNumber);
                 let pIsGroupAdmin = false;
@@ -833,7 +831,7 @@ module.exports = async (conn, m) => {
             if (await handleAntiTag(conn, msg, from, sender)) return;
         }
 
-        // ---- CHATBOT (private + group mentions) – but skip for exempt? Chatbot is a feature, not security. We'll allow it for everyone? Usually yes. But we'll keep as before (only if not owner). We can decide to allow chatbot for exempt as well. Let's keep it as is.
+        // ---- CHATBOT (private + group mentions) – only for non‑owners (but not exempt, it's a feature) ----
         if (body && !body.startsWith(globalSettings.prefix) && !isOwner) {
             await handleChatbot(conn, msg, from, body, sender);
         }
@@ -853,12 +851,9 @@ module.exports.handleGroupUpdate = async (conn, update) => {
     const { id, participants, action } = update;
     if (action === 'add') {
         for (const p of participants) {
-            // Check if new member is owner or group admin (they won't be admin yet, but could be owner)
             const pNumber = p.split('@')[0];
             const pIsOwner = isDeployer(pNumber) || isCoOwner(pNumber);
-            // They are not admin yet (just joined), but we can check if they are already admin? No.
-            const pIsExempt = pIsOwner; // only owners exempt from auto‑block at join
-            await handleAutoBlockCountry(conn, p, pIsExempt);
+            await handleAutoBlockCountry(conn, p, pIsOwner);
             await handleWelcome(conn, p, id, 'add');
         }
     } else if (action === 'remove') {
@@ -871,7 +866,6 @@ module.exports.handleGroupUpdate = async (conn, update) => {
 // ==================== CALL HANDLER ====================
 module.exports.handleCall = async (conn, call) => {
     await loadGlobalSettings();
-    // Owners are exempt from anti‑call? The function already checks ownerNumber. We'll leave as is.
     await handleAntiCall(conn, call);
 };
 
