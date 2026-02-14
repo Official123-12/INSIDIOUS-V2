@@ -1,13 +1,12 @@
 const express = require('express');
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys");
+const { default: makeWASocket, useMultiFileAuthState, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
-const fs = require('fs');
+const fs = require('fs').promises;
 const crypto = require('crypto');
-const { Boom } = require('@hapi/boom');
 
-// ✅ **FANCY FUNCTION**
+// ✅ **FANCY FUNCTION (USIGUSE)**
 function fancy(text) {
     if (!text || typeof text !== 'string') return text;
     const map = {
@@ -24,178 +23,164 @@ function fancy(text) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ **MONGODB SESSION SCHEMA**
-const SessionSchema = new mongoose.Schema({
-    id: { type: String, required: true, unique: true },
-    data: { type: String, required: true }
-});
-const Session = mongoose.model('Session', SessionSchema);
-
+// ✅ **MONGODB**
+console.log(fancy("🔗 Connecting to MongoDB..."));
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
+mongoose.connect(MONGODB_URI, {
+    serverSelectionTimeoutMS: 30000,
+    socketTimeoutMS: 45000,
+    maxPoolSize: 10
+})
+.then(() => console.log(fancy("✅ MongoDB Connected")))
+.catch(err => console.log(fancy("❌ MongoDB Connection FAILED")));
 
-// ✅ **DATABASE CONNECTION**
-mongoose.connect(MONGODB_URI).then(() => console.log(fancy("✅ MongoDB Connected for Always-Online Session")));
-
+// ✅ **MIDDLEWARE**
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ✅ **GLOBAL VARS**
 let globalConn = null;
 let isConnected = false;
+let botStartTime = Date.now();
+
+// ✅ **LOAD CONFIG**
+let config = {};
+try { config = require('./config'); } catch {
+    config = { prefix: '.', ownerNumber: ['255000000000'], botName: 'INSIDIOUS', workMode: 'public' };
+}
 
 // ✅ **LOAD HANDLER**
 let handler = null;
 try { handler = require('./handler'); } catch (e) {}
 
-// ==================== SESSION SYNC LOGIC ====================
-
-// 1. Kujivuta kutoka DB kwenda kwenye Folder
-async function loadSessionFromDB() {
-    try {
-        const session = await Session.findOne({ id: 'insidious_v2' });
-        if (session) {
-            const sessionPath = path.join(__dirname, 'insidious_session');
-            if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath);
-            fs.writeFileSync(path.join(sessionPath, 'creds.json'), session.data);
-            console.log(fancy("📡 Session restored from MongoDB Atlas"));
-        }
-    } catch (e) { console.log("Session recovery failed"); }
-}
-
-// 2. Kuhifadhi kutoka kwenye Folder kwenda DB
-async function saveSessionToDB() {
-    try {
-        const credsRelPath = path.join(__dirname, 'insidious_session', 'creds.json');
-        if (fs.existsSync(credsRelPath)) {
-            const data = fs.readFileSync(credsRelPath, 'utf8');
-            await Session.findOneAndUpdate(
-                { id: 'insidious_v2' },
-                { data: data },
-                { upsert: true }
-            );
-        }
-    } catch (e) { console.log("DB Session save failed"); }
-}
-
-// ==================== MAIN BOT ====================
+// ==================== MAIN BOT – INFINITE STAY-ALIVE ====================
 async function startBot() {
-    await loadSessionFromDB(); // Rudisha session kabla ya kuwaka
-
     try {
+        console.log(fancy("🚀 Starting INSIDIOUS..."));
         const { state, saveCreds } = await useMultiFileAuthState('insidious_session');
         const { version } = await fetchLatestBaileysVersion();
 
         const conn = makeWASocket({
             version,
-            auth: {
-                creds: state.creds,
-                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }))
-            },
+            auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) },
             logger: pino({ level: "silent" }),
-            browser: Browsers.macOS("Desktop"),
-            syncFullHistory: false,
-            shouldSyncHistoryMessage: () => false,
-            markOnlineOnConnect: true,
+            browser: Browsers.macOS("Safari"),
+            syncFullHistory: false, // 🚀 FIX: Zima history kwa ajili ya link ya haraka
+            shouldSyncHistoryMessage: () => false, // 🚀 FIX: Kataa history kabisa
             connectTimeoutMs: 60000,
+            defaultQueryTimeoutMs: 0,
             keepAliveIntervalMs: 30000,
-            printQRInTerminal: false
+            markOnlineOnConnect: true,
+            maxRetryCount: Infinity,
+            retryRequestDelayMs: 1000
         });
 
         globalConn = conn;
+        botStartTime = Date.now();
 
         conn.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update;
             if (connection === 'open') {
-                console.log(fancy("✅ insidious connected & session secured"));
+                console.log(fancy("✅ Bot online and secure"));
                 isConnected = true;
-                if (handler && typeof handler.init === 'function') await handler.init(conn);
+                if (handler && handler.init) await handler.init(conn).catch(() => {});
             }
             if (connection === 'close') {
                 isConnected = false;
-                let reason = new Boom(lastDisconnect?.error)?.output.statusCode;
-                if (reason !== DisconnectReason.loggedOut) {
-                    setTimeout(startBot, 3000);
-                } else {
-                    console.log(fancy("❌ Logged out. Clearing session..."));
-                    await Session.deleteOne({ id: 'insidious_v2' });
+                const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+                if (shouldReconnect) {
+                    console.log(fancy("⚠️ Reconnecting..."));
+                    setTimeout(startBot, 5000);
                 }
             }
         });
 
-        conn.ev.on('creds.update', async () => {
-            await saveCreds(); // Save locally
-            await saveSessionToDB(); // Backup to MongoDB for Always-Online
-        });
-
+        conn.ev.on('creds.update', saveCreds);
         conn.ev.on('messages.upsert', async (m) => {
             try { if (handler) await handler(conn, m); } catch (e) {}
         });
 
     } catch (error) {
-        setTimeout(startBot, 5000);
+        setTimeout(startBot, 10000);
     }
 }
 startBot();
 
-// ==================== PAIRING PROCESS ====================
+// ==================== ROBUST PAIRING – MULTI‑USER SUPPORT ====================
 async function requestPairingCode(number) {
-    const sessionId = crypto.randomBytes(4).toString('hex');
+    const sessionId = crypto.randomBytes(8).toString('hex');
     const sessionDir = path.join(__dirname, `temp_pair_${sessionId}`);
-    const { state } = await useMultiFileAuthState(sessionDir);
-    const { version } = await fetchLatestBaileysVersion();
 
-    const tempConn = makeWASocket({
-        version,
-        auth: {
-            creds: state.creds,
-            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }))
-        },
-        logger: pino({ level: "silent" }),
-        browser: Browsers.macOS("Desktop"),
-        syncFullHistory: false
-    });
+    try {
+        const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+        const { version } = await fetchLatestBaileysVersion();
 
-    return new Promise(async (resolve, reject) => {
-        const timeout = setTimeout(() => {
-            tempConn.end();
-            reject(new Error("Timeout"));
-        }, 30000);
+        const tempConn = makeWASocket({
+            version,
+            auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) },
+            logger: pino({ level: "silent" }),
+            browser: Browsers.macOS("Safari"),
+            syncFullHistory: false // 🚀 FIX: Lazima iwe false hapa pia
+        });
 
-        try {
+        tempConn.ev.on('creds.update', saveCreds);
+
+        return new Promise(async (resolve, reject) => {
+            const timeout = setTimeout(() => {
+                tempConn.end();
+                reject(new Error(`⏰ Pairing timeout`));
+            }, 60000);
+
+            // Wait for socket stability
             await new Promise(r => setTimeout(r, 4000));
+            
             if (!tempConn.authState.creds.registered) {
-                const code = await tempConn.requestPairingCode(number);
-                clearTimeout(timeout);
-                setTimeout(() => tempConn.end(), 5000);
-                resolve(code);
+                try {
+                    const code = await tempConn.requestPairingCode(number);
+                    clearTimeout(timeout);
+                    // Cleanup session after return
+                    setTimeout(async () => {
+                        tempConn.end();
+                        await fs.rm(sessionDir, { recursive: true, force: true }).catch(() => {});
+                    }, 10000);
+                    resolve(code);
+                } catch (err) {
+                    reject(err);
+                }
             }
-        } catch (err) {
-            clearTimeout(timeout);
-            tempConn.end();
-            reject(err);
-        }
-    });
+        });
+    } catch (err) {
+        throw err;
+    }
 }
 
-// ==================== ENDPOINTS ====================
+// ==================== PAIRING ENDPOINT ====================
 app.get('/pair', async (req, res) => {
     try {
         let num = req.query.num;
-        if (!num) return res.json({ error: "No number" });
+        if (!num) return res.json({ error: "Provide number!" });
         const cleanNum = num.replace(/[^0-9]/g, '');
+        
+        console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum}`));
         const code = await requestPairingCode(cleanNum);
-        res.json({ success: true, code: code });
+
+        res.json({
+            success: true,
+            code: code,
+            formattedCode: code.match(/.{1,4}/g)?.join('-') || code
+        });
     } catch (err) {
-        res.status(500).json({ error: "Server Busy" });
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 
 app.get('/health', (req, res) => {
-    res.json({ status: isConnected ? 'online' : 'reconnecting' });
+    res.json({ status: 'alive', connected: isConnected, uptime: process.uptime() });
 });
 
-process.on('uncaughtException', () => {});
-process.on('unhandledRejection', () => {});
-
+// ==================== START SERVER ====================
 app.listen(PORT, () => {
-    console.log(fancy(`🌐 insidious v2 server live on ${PORT}`));
+    console.log(fancy(`🌐 server live on port ${PORT}`));
 });
+
+module.exports = app;
