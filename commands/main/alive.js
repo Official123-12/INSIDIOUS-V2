@@ -18,13 +18,8 @@ module.exports = {
             );
 
             // Calculate ping: time between message receipt and now
-            const start = Date.now();
-            const ping = Date.now() - start; // Actually we need message timestamp? Simpler: use fixed or compute after.
-            // Better: measure response time by sending a simple message and timing? But we can't inside same handler.
-            // Let's just use a placeholder or compute approximate.
-            // We'll compute from message timestamp.
             const messageTimestamp = msg.messageTimestamp ? msg.messageTimestamp * 1000 : Date.now();
-            const responseTime = Date.now() - messageTimestamp;
+            const ping = Date.now() - messageTimestamp;
 
             // Uptime
             const uptime = runtime(process.uptime());
@@ -34,7 +29,7 @@ module.exports = {
 
             // Card 1: Ping
             cards.push({
-                body: { text: fancy(`🏓 *PING*\n\nResponse Time: ${responseTime}ms\n\nBot is responsive.`) },
+                body: { text: fancy(`🏓 *PING*\n\nResponse Time: ${ping}ms\n\nBot is responsive.`) },
                 footer: { text: fancy(config.footer) },
                 header: {
                     hasMediaAttachment: true,
@@ -117,6 +112,7 @@ module.exports = {
                 }
             };
 
+            // Generate and send
             const waMessage = generateWAMessageFromContent(from, viewOnceMessage, {
                 userJid: conn.user.id,
                 upload: conn.waUploadToServer
