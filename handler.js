@@ -29,6 +29,7 @@ const DEFAULT_SETTINGS = {
     requiredGroupInvite: 'https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y',
     autoFollowChannels: ['120363404317544295@newsletter'],
 
+    // ========== ANTI FEATURES ==========
     antilink: true,
     antiporn: true,
     antiscam: true,
@@ -41,6 +42,7 @@ const DEFAULT_SETTINGS = {
     antispam: true,
     anticall: true,
 
+    // ========== AUTO FEATURES ==========
     autoRead: true,
     autoReact: true,
     autoTyping: true,
@@ -49,12 +51,15 @@ const DEFAULT_SETTINGS = {
     autostatus: true,
     downloadStatus: false,
 
+    // ========== GROUP MANAGEMENT ==========
     welcomeGoodbye: true,
     activemembers: true,
     autoblockCountry: false,
 
+    // ========== AI ==========
     chatbot: true,
 
+    // ========== THRESHOLDS & LIMITS ==========
     warnLimit: 3,
     maxTags: 5,
     inactiveDays: 7,
@@ -63,14 +68,17 @@ const DEFAULT_SETTINGS = {
     sleepingStart: '23:00',
     sleepingEnd: '06:00',
 
+    // ========== KEYWORDS ==========
     scamKeywords: ['win', 'prize', 'lottery', 'congratulations', 'million', 'inheritance', 'selected'],
     pornKeywords: ['xxx', 'porn', 'sex', 'nude', 'adult', '18+', 'onlyfans'],
     blockedMediaTypes: ['photo', 'video', 'sticker'],
     blockedCountries: [],
 
+    // ========== AUTO REACT / STATUS ==========
     autoReactEmojis: ['❤️', '🔥', '👍', '🎉', '👏', '⚡', '✨', '🌟'],
     autoStatusActions: ['view', 'react', 'reply'],
 
+    // ========== API ==========
     quoteApiUrl: 'https://api.quotable.io/random',
     aiApiUrl: 'https://text.pollinations.ai/',
 };
@@ -81,7 +89,6 @@ const GROUP_SETTINGS_FILE = path.join(__dirname, '.groupsettings.json');
 let globalSettings = { ...DEFAULT_SETTINGS };
 let groupSettings = new Map();
 
-// ✅ FIXED: now returns the settings object
 async function loadGlobalSettings() {
     try {
         if (await fs.pathExists(SETTINGS_FILE)) {
@@ -91,11 +98,9 @@ async function loadGlobalSettings() {
     } catch {}
     return globalSettings;
 }
-
 async function saveGlobalSettings() {
     await fs.writeJson(SETTINGS_FILE, globalSettings, { spaces: 2 });
 }
-
 async function loadGroupSettings() {
     try {
         if (await fs.pathExists(GROUP_SETTINGS_FILE)) {
@@ -104,18 +109,15 @@ async function loadGroupSettings() {
         }
     } catch {}
 }
-
 async function saveGroupSettings() {
     const obj = Object.fromEntries(groupSettings);
     await fs.writeJson(GROUP_SETTINGS_FILE, obj, { spaces: 2 });
 }
-
 function getGroupSetting(groupJid, key) {
     if (!groupJid || groupJid === 'global') return globalSettings[key];
     const gs = groupSettings.get(groupJid) || {};
     return gs[key] !== undefined ? gs[key] : globalSettings[key];
 }
-
 async function setGroupSetting(groupJid, key, value) {
     const gs = groupSettings.get(groupJid) || {};
     gs[key] = value;
@@ -134,7 +136,6 @@ function generateBotId() {
     for (let i = 0; i < 6; i++) id += chars[Math.floor(Math.random() * chars.length)];
     return id;
 }
-
 async function loadPairedNumbers() {
     try {
         if (await fs.pathExists(PAIR_FILE)) {
@@ -151,7 +152,6 @@ async function loadPairedNumbers() {
     }
     config.ownerNumber.forEach(num => num && pairedNumbers.add(num));
 }
-
 async function savePairedNumbers() {
     const data = {
         botId: botSecretId,
@@ -159,14 +159,12 @@ async function savePairedNumbers() {
     };
     await fs.writeJson(PAIR_FILE, data, { spaces: 2 });
 }
-
 function canPairNumber(number) {
     const clean = number.replace(/[^0-9]/g, '');
     if (config.ownerNumber.includes(clean)) return false;
     const nonOwnerPaired = Array.from(pairedNumbers).filter(n => !config.ownerNumber.includes(n));
     return nonOwnerPaired.length < globalSettings.maxCoOwners && !pairedNumbers.has(clean);
 }
-
 async function pairNumber(number) {
     const clean = number.replace(/[^0-9]/g, '');
     if (!canPairNumber(clean)) return false;
@@ -174,7 +172,6 @@ async function pairNumber(number) {
     await savePairedNumbers();
     return true;
 }
-
 async function unpairNumber(number) {
     const clean = number.replace(/[^0-9]/g, '');
     if (config.ownerNumber.includes(clean)) return false;
@@ -182,12 +179,10 @@ async function unpairNumber(number) {
     if (deleted) await savePairedNumbers();
     return deleted;
 }
-
 function isDeployer(number) {
     const clean = number.replace(/[^0-9]/g, '');
     return config.ownerNumber.includes(clean);
 }
-
 function isCoOwner(number) {
     const clean = number.replace(/[^0-9]/g, '');
     return pairedNumbers.has(clean) && !config.ownerNumber.includes(clean);
@@ -215,23 +210,19 @@ function fancy(text) {
     };
     return text.split('').map(c => map[c] || c).join('');
 }
-
 function getUsername(jid) { return jid?.split('@')[0] || 'Unknown'; }
-
 async function getContactName(conn, jid) {
     try {
         const contact = await conn.getContact(jid);
         return contact?.name || contact?.pushname || getUsername(jid);
     } catch { return getUsername(jid); }
 }
-
 async function getGroupName(conn, groupJid) {
     try {
         const meta = await conn.groupMetadata(groupJid);
         return meta.subject || 'Group';
     } catch { return 'Group'; }
 }
-
 async function isBotAdmin(conn, groupJid) {
     try {
         if (!conn.user?.id) return false;
@@ -239,7 +230,6 @@ async function isBotAdmin(conn, groupJid) {
         return meta.participants.some(p => p.id === conn.user.id && (p.admin === 'admin' || p.admin === 'superadmin'));
     } catch { return false; }
 }
-
 async function isParticipantAdmin(conn, groupJid, participantJid) {
     try {
         const meta = await conn.groupMetadata(groupJid);
@@ -247,7 +237,6 @@ async function isParticipantAdmin(conn, groupJid, participantJid) {
         return participant ? (participant.admin === 'admin' || participant.admin === 'superadmin') : false;
     } catch { return false; }
 }
-
 function enhanceMessage(conn, msg) {
     if (!msg) return msg;
     if (!msg.reply) {
@@ -259,7 +248,6 @@ function enhanceMessage(conn, msg) {
     }
     return msg;
 }
-
 async function isUserInRequiredGroup(conn, userJid) {
     if (!globalSettings.requiredGroupJid) return true;
     try {
@@ -321,7 +309,6 @@ async function handleAntiLink(conn, msg, body, from, sender) {
     await applyAction(conn, from, sender, 'warn', 'Sending links', 1, customMsg);
     return true;
 }
-
 async function handleAntiPorn(conn, msg, body, from, sender) {
     if (!from.endsWith('@g.us') || !getGroupSetting(from, 'antiporn')) return false;
     const keywords = getGroupSetting(from, 'pornKeywords');
@@ -333,7 +320,6 @@ async function handleAntiPorn(conn, msg, body, from, sender) {
     }
     return false;
 }
-
 async function handleAntiScam(conn, msg, body, from, sender) {
     if (!from.endsWith('@g.us') || !getGroupSetting(from, 'antiscam')) return false;
     const keywords = getGroupSetting(from, 'scamKeywords');
@@ -351,7 +337,6 @@ async function handleAntiScam(conn, msg, body, from, sender) {
     }
     return false;
 }
-
 async function handleAntiMedia(conn, msg, from, sender) {
     if (!from.endsWith('@g.us') || !getGroupSetting(from, 'antimedia')) return false;
     const blocked = getGroupSetting(from, 'blockedMediaTypes') || [];
@@ -382,7 +367,6 @@ async function handleAntiMedia(conn, msg, from, sender) {
     }
     return false;
 }
-
 async function handleAntiTag(conn, msg, from, sender) {
     if (!from.endsWith('@g.us') || !getGroupSetting(from, 'antitag')) return false;
     const mentions = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid;
@@ -393,7 +377,6 @@ async function handleAntiTag(conn, msg, from, sender) {
     await applyAction(conn, from, sender, 'warn', 'Excessive tagging', 1, customMsg);
     return true;
 }
-
 async function handleViewOnce(conn, msg) {
     if (!getGroupSetting('global', 'antiviewonce')) return false;
     if (!msg.message?.viewOnceMessageV2 && !msg.message?.viewOnceMessage) return false;
@@ -409,7 +392,6 @@ async function handleViewOnce(conn, msg) {
     }
     return true;
 }
-
 async function handleAntiDelete(conn, msg) {
     if (!getGroupSetting('global', 'antidelete')) return false;
     if (!msg.message?.protocolMessage || msg.message.protocolMessage.type !== 5) return false;
@@ -424,7 +406,6 @@ async function handleAntiDelete(conn, msg) {
     messageStore.delete(msg.message.protocolMessage.key.id);
     return true;
 }
-
 async function handleAntiBugs(conn, msg, from, sender) {
     if (!globalSettings.antibugs) return false;
     const body = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
@@ -446,7 +427,6 @@ async function handleAntiBugs(conn, msg, from, sender) {
     }
     return false;
 }
-
 async function handleAntiSpam(conn, msg, from, sender) {
     if (!getGroupSetting(from, 'antispam')) return false;
     const now = Date.now();
@@ -468,7 +448,6 @@ async function handleAntiSpam(conn, msg, from, sender) {
     }
     return false;
 }
-
 async function handleAntiCall(conn, call) {
     if (!globalSettings.anticall) return;
     await conn.rejectCall(call.id, call.from).catch(() => {});
@@ -506,7 +485,6 @@ async function handleAutoStatus(conn, statusMsg) {
         }
     }
 }
-
 async function updateAutoBio(conn) {
     if (!globalSettings.autoBio) return;
     const uptime = process.uptime();
@@ -515,7 +493,6 @@ async function updateAutoBio(conn) {
     const bio = `${globalSettings.developer} | Uptime: ${hours}h ${minutes}m | INSIDIOUS V2`;
     await conn.updateProfileStatus(bio).catch(() => {});
 }
-
 async function handleAutoBlockCountry(conn, participant) {
     if (!globalSettings.autoblockCountry) return false;
     const blocked = globalSettings.blockedCountries || [];
@@ -569,7 +546,6 @@ async function handleWelcome(conn, participant, groupJid, action = 'add') {
 function trackActivity(userJid) {
     inactiveTracker.set(userJid, Date.now());
 }
-
 async function autoRemoveInactive(conn) {
     if (!globalSettings.activemembers) return;
     const inactiveDays = globalSettings.inactiveDays;
@@ -597,7 +573,6 @@ async function autoRemoveInactive(conn) {
 
 // ==================== SLEEPING MODE ====================
 let sleepingCron = null;
-
 async function initSleepingMode(conn) {
     if (sleepingCron) sleepingCron.stop();
     if (!globalSettings.sleepingmode) return;
@@ -633,7 +608,7 @@ async function initSleepingMode(conn) {
     });
 }
 
-// ==================== CHATBOT ====================
+// ==================== AI CHATBOT ====================
 async function handleChatbot(conn, msg, from, body, sender) {
     if (!getGroupSetting(from, 'chatbot') && !getGroupSetting('global', 'chatbot')) return false;
     const isGroup = from.endsWith('@g.us');
@@ -670,6 +645,7 @@ async function handleCommand(conn, msg, body, from, sender, isOwner, isDeployerU
     const args = body.slice(prefix.length).trim().split(/ +/);
     const cmd = args.shift().toLowerCase();
 
+    // ---- REQUIRED GROUP CHECK (non-owners) ----
     if (!isOwner && globalSettings.requiredGroupJid) {
         const inGroup = await isUserInRequiredGroup(conn, sender);
         if (!inGroup) {
@@ -678,11 +654,13 @@ async function handleCommand(conn, msg, body, from, sender, isOwner, isDeployerU
         }
     }
 
+    // ---- MODE CHECK ----
     if (globalSettings.mode === 'self' && !isOwner) {
         await msg.reply(fancy('❌ Bot is in private mode. Only owner can use commands.'));
         return true;
     }
 
+    // ---- COMMAND EXECUTION ----
     const cmdPath = path.join(__dirname, 'commands');
     if (await fs.pathExists(cmdPath)) {
         const categories = await fs.readdir(cmdPath);
@@ -736,11 +714,13 @@ module.exports = async (conn, m) => {
         let msg = m.messages[0];
         if (!msg.message) return;
 
+        // Handle status broadcasts
         if (msg.key.remoteJid === 'status@broadcast') {
             await handleAutoStatus(conn, msg);
             return;
         }
 
+        // Load latest settings
         await loadGlobalSettings();
         await loadGroupSettings();
 
@@ -749,7 +729,33 @@ module.exports = async (conn, m) => {
         const from = msg.key.remoteJid;
         const sender = msg.key.participant || msg.key.remoteJid;
         const senderNumber = sender.split('@')[0];
-        const body = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || msg.message?.imageMessage?.caption || '').trim();
+
+        // ========== NEW BUTTON CLICK HANDLING ==========
+        const type = Object.keys(msg.message)[0];
+        let body = "";
+        
+        if (type === 'interactiveResponseMessage') {
+            try {
+                const nativeFlow = msg.message.interactiveResponseMessage?.nativeFlowResponseMessage;
+                if (nativeFlow) {
+                    body = JSON.parse(nativeFlow.paramsJson).id;
+                }
+            } catch (e) {
+                body = "";
+            }
+        } else if (type === 'conversation') {
+            body = msg.message.conversation || "";
+        } else if (type === 'extendedTextMessage') {
+            body = msg.message.extendedTextMessage.text || "";
+        } else if (type === 'imageMessage') {
+            body = msg.message.imageMessage.caption || "";
+        } else if (type === 'videoMessage') {
+            body = msg.message.videoMessage.caption || "";
+        } else {
+            body = "";
+        }
+
+        body = body.trim();
 
         const isFromMe = msg.key.fromMe || false;
         const isDeployerUser = isDeployer(senderNumber);
@@ -759,12 +765,14 @@ module.exports = async (conn, m) => {
         const isGroup = from.endsWith('@g.us');
         const isChannel = from.endsWith('@newsletter');
 
+        // Store message for anti-delete
         if (body) messageStore.set(msg.key.id, { content: body, sender, timestamp: new Date() });
         if (messageStore.size > 1000) {
             const keys = Array.from(messageStore.keys()).slice(0, 200);
             keys.forEach(k => messageStore.delete(k));
         }
 
+        // Auto presence
         if (globalSettings.autoTyping) await conn.sendPresenceUpdate('composing', from).catch(() => {});
         if (globalSettings.autoRecording && !isGroup) await conn.sendPresenceUpdate('recording', from).catch(() => {});
         if (globalSettings.autoRead) await conn.readMessages([msg.key]).catch(() => {});
@@ -773,12 +781,17 @@ module.exports = async (conn, m) => {
             await conn.sendMessage(from, { react: { text: emoji, key: msg.key } }).catch(() => {});
         }
 
+        // Anti bugs (high priority)
         if (await handleAntiBugs(conn, msg, from, sender)) return;
+
+        // Anti spam
         if (await handleAntiSpam(conn, msg, from, sender)) return;
 
+        // View once & anti delete
         await handleViewOnce(conn, msg);
         await handleAntiDelete(conn, msg);
 
+        // Country block on new participants
         if (msg.message?.protocolMessage?.type === 0 && isGroup) {
             const participants = msg.message.protocolMessage.participantJidList || [];
             for (const p of participants) {
@@ -786,8 +799,10 @@ module.exports = async (conn, m) => {
             }
         }
 
+        // ---- COMMANDS (executed before group security) ----
         if (body && await handleCommand(conn, msg, body, from, sender, isOwner, isDeployerUser, isCoOwnerUser)) return;
 
+        // ---- GROUP SECURITY (non-owners and non-admins) ----
         if (isGroup && !isOwner) {
             const isGroupAdmin = await isParticipantAdmin(conn, from, sender);
             if (!isGroupAdmin) {
@@ -799,10 +814,12 @@ module.exports = async (conn, m) => {
             }
         }
 
+        // ---- CHATBOT (private + group mentions) ----
         if (body && !body.startsWith(globalSettings.prefix) && !isOwner) {
             await handleChatbot(conn, msg, from, body, sender);
         }
 
+        // Track activity for inactive removal
         trackActivity(sender);
 
     } catch (err) {
@@ -841,6 +858,7 @@ module.exports.init = async (conn) => {
     await loadGroupSettings();
     initSleepingMode(conn);
 
+    // ✅ INTERVALS MOVED INSIDE init() – conn IS DEFINED HERE
     if (globalSettings.autoBio) {
         setInterval(() => updateAutoBio(conn), 60000);
     }
