@@ -730,7 +730,7 @@ module.exports = async (conn, m) => {
         const sender = msg.key.participant || msg.key.remoteJid;
         const senderNumber = sender.split('@')[0];
 
-        // ========== NEW BUTTON CLICK HANDLING ==========
+        // ========== BUTTON CLICK HANDLING ==========
         const type = Object.keys(msg.message)[0];
         let body = "";
         
