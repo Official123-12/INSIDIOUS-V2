@@ -37,47 +37,55 @@ module.exports = {
             const cards = [];
 
             // Card 1: Ping
-            cards.push({
-                body: { text: fancy(
-                    `━━━━━━━━━━━━━━━━━━\n` +
-                    `   🏓 *PING*\n` +
-                    `━━━━━━━━━━━━━━━━━━\n\n` +
-                    `📶 Response Time: *${ping}ms*\n\n` +
-                    `🤖 Bot is responsive.`
-                ) },
-                footer: { text: fancy(config.footer) },
-                header: {
+            cards.push(proto.Message.InteractiveMessage.CarouselMessage.Card.create({
+                body: proto.Message.InteractiveMessage.Body.create({
+                    text: fancy(
+                        `━━━━━━━━━━━━━━━━━━\n` +
+                        `   🏓 *PING*\n` +
+                        `━━━━━━━━━━━━━━━━━━\n\n` +
+                        `📶 Response Time: *${ping}ms*\n\n` +
+                        `🤖 Bot is responsive.`
+                    )
+                }),
+                footer: proto.Message.InteractiveMessage.Footer.create({
+                    text: fancy(config.footer)
+                }),
+                header: proto.Message.InteractiveMessage.Header.create({
                     hasMediaAttachment: true,
-                    imageMessage: imageMedia.imageMessage
-                },
-                nativeFlowMessage: {
+                    ...imageMedia
+                }),
+                nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
                     buttons: [{
                         name: "quick_reply",
                         buttonParamsJson: JSON.stringify({
                             display_text: "🔄 Refresh",
-                            id: `${config.prefix}status`  // ID includes prefix
+                            id: `${config.prefix}status`
                         })
                     }]
-                }
-            });
+                })
+            }));
 
             // Card 2: Alive
-            cards.push({
-                body: { text: fancy(
-                    `━━━━━━━━━━━━━━━━━━\n` +
-                    `   🤖 *ALIVE*\n` +
-                    `━━━━━━━━━━━━━━━━━━\n\n` +
-                    `✨ Bot Name: ${config.botName}\n` +
-                    `👑 Developer: ${config.developerName}\n` +
-                    `📦 Version: ${config.version}\n\n` +
-                    `✅ I'm alive and ready!`
-                ) },
-                footer: { text: fancy(config.footer) },
-                header: {
+            cards.push(proto.Message.InteractiveMessage.CarouselMessage.Card.create({
+                body: proto.Message.InteractiveMessage.Body.create({
+                    text: fancy(
+                        `━━━━━━━━━━━━━━━━━━\n` +
+                        `   🤖 *ALIVE*\n` +
+                        `━━━━━━━━━━━━━━━━━━\n\n` +
+                        `✨ Bot Name: ${config.botName}\n` +
+                        `👑 Developer: ${config.developerName}\n` +
+                        `📦 Version: ${config.version}\n\n` +
+                        `✅ I'm alive and ready!`
+                    )
+                }),
+                footer: proto.Message.InteractiveMessage.Footer.create({
+                    text: fancy(config.footer)
+                }),
+                header: proto.Message.InteractiveMessage.Header.create({
                     hasMediaAttachment: true,
-                    imageMessage: imageMedia.imageMessage
-                },
-                nativeFlowMessage: {
+                    ...imageMedia
+                }),
+                nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
                     buttons: [{
                         name: "quick_reply",
                         buttonParamsJson: JSON.stringify({
@@ -85,24 +93,28 @@ module.exports = {
                             id: `${config.prefix}status`
                         })
                     }]
-                }
-            });
+                })
+            }));
 
             // Card 3: Runtime
-            cards.push({
-                body: { text: fancy(
-                    `━━━━━━━━━━━━━━━━━━\n` +
-                    `   ⏱️ *RUNTIME*\n` +
-                    `━━━━━━━━━━━━━━━━━━\n\n` +
-                    `🕐 Uptime: *${uptime}*\n\n` +
-                    `Bot has been running for ${uptime}.`
-                ) },
-                footer: { text: fancy(config.footer) },
-                header: {
+            cards.push(proto.Message.InteractiveMessage.CarouselMessage.Card.create({
+                body: proto.Message.InteractiveMessage.Body.create({
+                    text: fancy(
+                        `━━━━━━━━━━━━━━━━━━\n` +
+                        `   ⏱️ *RUNTIME*\n` +
+                        `━━━━━━━━━━━━━━━━━━\n\n` +
+                        `🕐 Uptime: *${uptime}*\n\n` +
+                        `Bot has been running for ${uptime}.`
+                    )
+                }),
+                footer: proto.Message.InteractiveMessage.Footer.create({
+                    text: fancy(config.footer)
+                }),
+                header: proto.Message.InteractiveMessage.Header.create({
                     hasMediaAttachment: true,
-                    imageMessage: imageMedia.imageMessage
-                },
-                nativeFlowMessage: {
+                    ...imageMedia
+                }),
+                nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
                     buttons: [{
                         name: "quick_reply",
                         buttonParamsJson: JSON.stringify({
@@ -110,30 +122,39 @@ module.exports = {
                             id: `${config.prefix}status`
                         })
                     }]
-                }
-            });
+                })
+            }));
 
             // Build interactive message
-            const interactiveMessage = {
-                body: { text: fancy(
-                    `━━━━━━━━━━━━━━━━━━\n` +
-                    `   📊 *BOT STATUS DASHBOARD*\n` +
-                    `━━━━━━━━━━━━━━━━━━\n\n` +
-                    `👋 Hello, *${userName}*!\n` +
-                    `Swipe to view details.`
-                ) },
-                footer: { text: fancy("◀️ Slide left/right for more info ▶️") },
-                header: {
+            const interactiveMessage = proto.Message.InteractiveMessage.create({
+                body: proto.Message.InteractiveMessage.Body.create({
+                    text: fancy(
+                        `━━━━━━━━━━━━━━━━━━\n` +
+                        `   📊 *BOT STATUS DASHBOARD*\n` +
+                        `━━━━━━━━━━━━━━━━━━\n\n` +
+                        `👋 Hello, *${userName}*!\n` +
+                        `Swipe to view details.`
+                    )
+                }),
+                footer: proto.Message.InteractiveMessage.Footer.create({
+                    text: fancy("◀️ Slide left/right for more info ▶️")
+                }),
+                header: proto.Message.InteractiveMessage.Header.create({
                     title: fancy(config.botName),
                     hasMediaAttachment: false
-                },
-                carouselMessage: {
+                }),
+                carouselMessage: proto.Message.InteractiveMessage.CarouselMessage.create({
                     cards: cards
-                }
+                })
+            });
+
+            // Create outer message
+            const messageContent = {
+                interactiveMessage: interactiveMessage
             };
 
-            // Send as regular interactive message
-            const waMessage = generateWAMessageFromContent(from, { interactiveMessage }, {
+            // Send
+            const waMessage = generateWAMessageFromContent(from, messageContent, {
                 userJid: conn.user.id,
                 upload: conn.waUploadToServer
             });
