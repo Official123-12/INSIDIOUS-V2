@@ -1,4 +1,4 @@
-const fs = require('fs-extra');
+const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const cron = require('node-cron');
@@ -91,26 +91,27 @@ let groupSettings = new Map();
 
 async function loadGlobalSettings() {
     try {
-        if (await fs.pathExists(SETTINGS_FILE)) {
-            const saved = await fs.readJson(SETTINGS_FILE);
+        if (await fs.promises.access(SETTINGS_FILE).then(() => true).catch(() => false)) {
+            const saved = JSON.parse(await fs.promises.readFile(SETTINGS_FILE, 'utf8'));
             globalSettings = { ...DEFAULT_SETTINGS, ...saved };
         }
     } catch {}
+    return globalSettings;
 }
 async function saveGlobalSettings() {
-    await fs.writeJson(SETTINGS_FILE, globalSettings, { spaces: 2 });
+    await fs.promises.writeFile(SETTINGS_FILE, JSON.stringify(globalSettings, null, 2));
 }
 async function loadGroupSettings() {
     try {
-        if (await fs.pathExists(GROUP_SETTINGS_FILE)) {
-            const saved = await fs.readJson(GROUP_SETTINGS_FILE);
+        if (await fs.promises.access(GROUP_SETTINGS_FILE).then(() => true).catch(() => false)) {
+            const saved = JSON.parse(await fs.promises.readFile(GROUP_SETTINGS_FILE, 'utf8'));
             groupSettings = new Map(Object.entries(saved));
         }
     } catch {}
 }
 async function saveGroupSettings() {
     const obj = Object.fromEntries(groupSettings);
-    await fs.writeJson(GROUP_SETTINGS_FILE, obj, { spaces: 2 });
+    await fs.promises.writeFile(GROUP_SETTINGS_FILE, JSON.stringify(obj, null, 2));
 }
 function getGroupSetting(groupJid, key) {
     if (!groupJid || groupJid === 'global') return globalSettings[key];
@@ -137,8 +138,8 @@ function generateBotId() {
 }
 async function loadPairedNumbers() {
     try {
-        if (await fs.pathExists(PAIR_FILE)) {
-            const data = await fs.readJson(PAIR_FILE);
+        if (await fs.promises.access(PAIR_FILE).then(() => true).catch(() => false)) {
+            const data = JSON.parse(await fs.promises.readFile(PAIR_FILE, 'utf8'));
             pairedNumbers = new Set(data.paired || []);
             botSecretId = data.botId || generateBotId();
         } else {
@@ -156,7 +157,7 @@ async function savePairedNumbers() {
         botId: botSecretId,
         paired: Array.from(pairedNumbers).filter(n => !config.ownerNumber.includes(n))
     };
-    await fs.writeJson(PAIR_FILE, data, { spaces: 2 });
+    await fs.promises.writeFile(PAIR_FILE, JSON.stringify(data, null, 2));
 }
 function canPairNumber(number) {
     const clean = number.replace(/[^0-9]/g, '');
@@ -229,7 +230,6 @@ async function isBotAdmin(conn, groupJid) {
         return meta.participants.some(p => p.id === conn.user.id && (p.admin === 'admin' || p.admin === 'superadmin'));
     } catch { return false; }
 }
-// ✅ NEW: Check if a specific participant is a group admin
 async function isParticipantAdmin(conn, groupJid, participantJid) {
     try {
         const meta = await conn.groupMetadata(groupJid);
@@ -608,7 +608,7 @@ async function initSleepingMode(conn) {
     });
 }
 
-// ==================== CHATBOT ====================
+// ==================== AI CHATBOT ====================
 async function handleChatbot(conn, msg, from, body, sender) {
     if (!getGroupSetting(from, 'chatbot') && !getGroupSetting('global', 'chatbot')) return false;
     const isGroup = from.endsWith('@g.us');
@@ -638,7 +638,7 @@ async function handleChatbot(conn, msg, from, body, sender) {
     } catch { return false; }
 }
 
-// ==================== COMMAND HANDLER ====================
+// ==================== COMMAND HANDLER (FULLY RESTORED) ====================
 async function handleCommand(conn, msg, body, from, sender, isOwner, isDeployerUser, isCoOwnerUser) {
     let prefix = globalSettings.prefix;
     if (!body.startsWith(prefix)) return false;
@@ -662,14 +662,14 @@ async function handleCommand(conn, msg, body, from, sender, isOwner, isDeployerU
 
     // ---- COMMAND EXECUTION ----
     const cmdPath = path.join(__dirname, 'commands');
-    if (await fs.pathExists(cmdPath)) {
-        const categories = await fs.readdir(cmdPath);
+    if (fs.existsSync(cmdPath)) {
+        const categories = fs.readdirSync(cmdPath);
         let found = false;
         for (const cat of categories) {
             const catPath = path.join(cmdPath, cat);
-            if (!(await fs.stat(catPath)).isDirectory()) continue;
+            if (!fs.statSync(catPath).isDirectory()) continue;
             const filePath = path.join(catPath, `${cmd}.js`);
-            if (await fs.pathExists(filePath)) {
+            if (fs.existsSync(filePath)) {
                 delete require.cache[require.resolve(filePath)];
                 const command = require(filePath);
                 if (command.ownerOnly && !isOwner) {
@@ -773,12 +773,11 @@ module.exports = async (conn, m) => {
             }
         }
 
-        // ---- COMMANDS ----
+        // ---- COMMANDS (executed before group security) ----
         if (body && await handleCommand(conn, msg, body, from, sender, isOwner, isDeployerUser, isCoOwnerUser)) return;
 
         // ---- GROUP SECURITY (non-owners and non-admins) ----
         if (isGroup && !isOwner) {
-            // Check if sender is a group admin – if yes, skip all anti-features
             const isGroupAdmin = await isParticipantAdmin(conn, from, sender);
             if (!isGroupAdmin) {
                 if (await handleAntiLink(conn, msg, body, from, sender)) return;
