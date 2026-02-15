@@ -59,15 +59,6 @@ if (!fs.existsSync(path.join(__dirname, 'public'))) {
     fs.mkdirSync(path.join(__dirname, 'public'), { recursive: true });
 }
 
-// ✅ **SIMPLE ROUTES**
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.get('/dashboard', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
-});
-
 // ✅ **GLOBAL VARIABLES**
 let globalConn = null;
 let isConnected = false;
@@ -88,81 +79,87 @@ try {
     };
 }
 
-// ✅ **ROUTES THAT USE BOT CONNECTION (defined once)**
+// ✅ **ROUTES ZOTE ZIMEHAMISHWA HAPA NJE (HAZIJIRUDISHI)**
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/dashboard', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+// ✅ **PAIRING ENDPOINT - HAKUNA CHECK YA ZIADA, INAENDELEA KAMA AWALI**
 app.get('/pair', async (req, res) => {
     try {
-        // Check if bot is connected and socket is ready
-        if (!globalConn || !isConnected) {
-            return res.status(503).json({ 
-                success: false, 
-                error: "Bot is not connected or is reconnecting. Please try again in a few seconds." 
-            });
-        }
-
         let num = req.query.num;
         if (!num) {
-            return res.status(400).json({ error: "Provide number! Example: /pair?num=255123456789" });
+            return res.json({ error: "Provide number! Example: /pair?num=255123456789" });
         }
-
+        
         const cleanNum = num.replace(/[^0-9]/g, '');
         if (cleanNum.length < 10) {
-            return res.status(400).json({ error: "Invalid number" });
+            return res.json({ error: "Invalid number" });
         }
-
+        
         console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum}`));
-
-        // Generate 8-digit pairing code
-        const code = await globalConn.requestPairingCode(cleanNum);
-        res.json({ 
-            success: true, 
-            code: code,
-            message: `8-digit pairing code: ${code}`
-        });
-
+        
+        try {
+            // Generate 8-digit pairing code
+            const code = await globalConn.requestPairingCode(cleanNum);
+            res.json({ 
+                success: true, 
+                code: code,
+                message: `8-digit pairing code: ${code}`
+            });
+        } catch (err) {
+            if (err.message.includes("already paired")) {
+                res.json({ 
+                    success: true, 
+                    message: "Number already paired"
+                });
+            } else {
+                throw err;
+            }
+        }
+        
     } catch (err) {
         console.error("Pairing error:", err.message);
-
-        // Handle specific Baileys errors
-        if (err.message?.includes("already paired")) {
-            res.json({ success: true, message: "Number already paired" });
-        } else if (err.message?.toLowerCase().includes("connection") || err.message?.includes("closed")) {
-            res.status(503).json({ success: false, error: "Connection to WhatsApp is closed. The bot is restarting, please wait." });
-        } else {
-            res.status(500).json({ success: false, error: "Failed: " + err.message });
-        }
+        res.json({ success: false, error: "Failed: " + err.message });
     }
 });
 
+// ✅ **UNPAIR ENDPOINT**
 app.get('/unpair', async (req, res) => {
     try {
         let num = req.query.num;
         if (!num) {
-            return res.status(400).json({ error: "Provide number! Example: /unpair?num=255123456789" });
+            return res.json({ error: "Provide number! Example: /unpair?num=255123456789" });
         }
-
+        
         const cleanNum = num.replace(/[^0-9]/g, '');
         if (cleanNum.length < 10) {
-            return res.status(400).json({ error: "Invalid number" });
+            return res.json({ error: "Invalid number" });
         }
-
+        
         // In real system, you'd remove from database
         res.json({ 
             success: true, 
             message: `Number ${cleanNum} unpaired successfully`
         });
-
+        
     } catch (err) {
         console.error("Unpair error:", err.message);
-        res.status(500).json({ success: false, error: "Failed: " + err.message });
+        res.json({ success: false, error: "Failed: " + err.message });
     }
 });
 
+// ✅ **HEALTH CHECK**
 app.get('/health', (req, res) => {
     const uptime = process.uptime();
     const hours = Math.floor(uptime / 3600);
     const minutes = Math.floor((uptime % 3600) / 60);
     const seconds = Math.floor(uptime % 60);
-
+    
     res.json({
         status: 'healthy',
         connected: isConnected,
@@ -171,11 +168,12 @@ app.get('/health', (req, res) => {
     });
 });
 
+// ✅ **BOT INFO ENDPOINT**
 app.get('/botinfo', (req, res) => {
-    if (!globalConn || !globalConn.user || !isConnected) {
-        return res.status(503).json({ error: "Bot not connected" });
+    if (!globalConn || !globalConn.user) {
+        return res.json({ error: "Bot not connected" });
     }
-
+    
     res.json({
         botName: globalConn.user?.name || "INSIDIOUS",
         botNumber: globalConn.user?.id?.split(':')[0] || "Unknown",
@@ -209,7 +207,6 @@ async function startBot() {
             markOnlineOnConnect: true
         });
 
-        // Update global reference
         globalConn = conn;
         botStartTime = Date.now();
 
@@ -311,7 +308,8 @@ async function startBot() {
             if (connection === 'close') {
                 console.log(fancy("🔌 Connection closed"));
                 isConnected = false;
-                globalConn = null; // Clear reference immediately to avoid stale usage
+                
+                // TUMEONDOA: globalConn = null;  // <--- HII ILIKUA INAFUTA REFERENCE, SASA IMESALIA ILI UWEZE KUPATA ERROR YA "connection closed"
                 
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
                 const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
