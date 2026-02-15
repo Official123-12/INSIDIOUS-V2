@@ -29,7 +29,6 @@ const DEFAULT_SETTINGS = {
     requiredGroupInvite: 'https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y',
     autoFollowChannels: ['120363404317544295@newsletter'],
 
-    // ========== ANTI FEATURES ==========
     antilink: true,
     antiporn: true,
     antiscam: true,
@@ -42,7 +41,6 @@ const DEFAULT_SETTINGS = {
     antispam: true,
     anticall: true,
 
-    // ========== AUTO FEATURES ==========
     autoRead: true,
     autoReact: true,
     autoTyping: true,
@@ -51,15 +49,12 @@ const DEFAULT_SETTINGS = {
     autostatus: true,
     downloadStatus: false,
 
-    // ========== GROUP MANAGEMENT ==========
     welcomeGoodbye: true,
     activemembers: true,
     autoblockCountry: false,
 
-    // ========== AI ==========
     chatbot: true,
 
-    // ========== THRESHOLDS & LIMITS ==========
     warnLimit: 3,
     maxTags: 5,
     inactiveDays: 7,
@@ -68,17 +63,14 @@ const DEFAULT_SETTINGS = {
     sleepingStart: '23:00',
     sleepingEnd: '06:00',
 
-    // ========== KEYWORDS ==========
     scamKeywords: ['win', 'prize', 'lottery', 'congratulations', 'million', 'inheritance', 'selected'],
     pornKeywords: ['xxx', 'porn', 'sex', 'nude', 'adult', '18+', 'onlyfans'],
     blockedMediaTypes: ['photo', 'video', 'sticker'],
     blockedCountries: [],
 
-    // ========== AUTO REACT / STATUS ==========
     autoReactEmojis: ['❤️', '🔥', '👍', '🎉', '👏', '⚡', '✨', '🌟'],
     autoStatusActions: ['view', 'react', 'reply'],
 
-    // ========== API ==========
     quoteApiUrl: 'https://api.quotable.io/random',
     aiApiUrl: 'https://text.pollinations.ai/',
 };
@@ -211,11 +203,14 @@ function fancy(text) {
     return text.split('').map(c => map[c] || c).join('');
 }
 function getUsername(jid) { return jid?.split('@')[0] || 'Unknown'; }
+
 async function getContactName(conn, jid) {
     try {
         const contact = await conn.getContact(jid);
         return contact?.name || contact?.pushname || getUsername(jid);
-    } catch { return getUsername(jid); }
+    } catch {
+        return getUsername(jid);
+    }
 }
 async function getGroupName(conn, groupJid) {
     try {
@@ -659,7 +654,7 @@ async function handleCommand(conn, msg, body, from, sender, isOwner, isDeployerU
     }
     const isPrivileged = isOwner || isGroupAdmin;
 
-    // ---- REQUIRED GROUP CHECK (only for non-privileged users) ----
+    // ---- REQUIRED GROUP CHECK – only non‑privileged users need to be in the required group ----
     if (!isPrivileged && globalSettings.requiredGroupJid) {
         const inGroup = await isUserInRequiredGroup(conn, sender);
         if (!inGroup) {
