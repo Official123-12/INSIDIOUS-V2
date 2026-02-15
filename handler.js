@@ -264,6 +264,7 @@ async function applyAction(conn, from, sender, actionType, reason, warnIncrement
 
     const mention = [sender];
     const userTag = `@${sender.split('@')[0]}`;
+    const userName = await getContactName(conn, sender);
 
     if (actionType === 'warn') {
         const warn = (warningTracker.get(sender) || 0) + warnIncrement;
@@ -274,14 +275,14 @@ async function applyAction(conn, from, sender, actionType, reason, warnIncrement
         if (customMessage) {
             message = customMessage;
         } else {
-            message = `⚠️ ${userTag} – You violated rule: *${reason}*. Your message has been deleted. Warning ${warn}/${warnLimit}.`;
+            message = `⚠️ ${userTag} (${userName}) – You violated rule: *${reason}*. Your message has been deleted. Warning ${warn}/${warnLimit}.`;
         }
         
         await conn.sendMessage(from, { text: fancy(message), mentions: mention }).catch(() => {});
         
         if (warn >= warnLimit) {
             await conn.groupParticipantsUpdate(from, [sender], 'remove').catch(() => {});
-            const removeMsg = `🚫 ${userTag} – You have been removed from the group. Reason: *${reason}* (exceeded ${warnLimit} warnings).`;
+            const removeMsg = `🚫 ${userTag} (${userName}) – You have been removed from the group. Reason: *${reason}* (exceeded ${warnLimit} warnings).`;
             await conn.sendMessage(from, { text: fancy(removeMsg), mentions: mention }).catch(() => {});
             warningTracker.delete(sender);
         }
@@ -289,7 +290,7 @@ async function applyAction(conn, from, sender, actionType, reason, warnIncrement
     
     if (actionType === 'remove') {
         await conn.groupParticipantsUpdate(from, [sender], 'remove').catch(() => {});
-        const removeMsg = `🚫 ${userTag} – You have been removed from the group. Reason: *${reason}*.`;
+        const removeMsg = `🚫 ${userTag} (${userName}) – You have been removed from the group. Reason: *${reason}*.`;
         await conn.sendMessage(from, { text: fancy(removeMsg), mentions: mention }).catch(() => {});
     }
     
@@ -305,7 +306,8 @@ async function handleAntiLink(conn, msg, body, from, sender) {
     if (!linkRegex.test(body)) return false;
     
     await conn.sendMessage(from, { delete: msg.key }).catch(() => {});
-    const customMsg = `⚠️ @${sender.split('@')[0]} – You sent a *LINK*! Your message has been deleted. Links are not allowed in this group. Warning`;
+    const userName = await getContactName(conn, sender);
+    const customMsg = `⚠️ @${sender.split('@')[0]} (${userName}) – You sent a *LINK*! Your message has been deleted. Links are not allowed in this group. Warning`;
     await applyAction(conn, from, sender, 'warn', 'Sending links', 1, customMsg);
     return true;
 }
@@ -314,7 +316,8 @@ async function handleAntiPorn(conn, msg, body, from, sender) {
     const keywords = getGroupSetting(from, 'pornKeywords');
     if (keywords.some(w => body.toLowerCase().includes(w))) {
         await conn.sendMessage(from, { delete: msg.key }).catch(() => {});
-        const customMsg = `⚠️ @${sender.split('@')[0]} – You sent *ADULT/EXPLICIT CONTENT*! Your message has been deleted. This is strictly forbidden. Warning`;
+        const userName = await getContactName(conn, sender);
+        const customMsg = `⚠️ @${sender.split('@')[0]} (${userName}) – You sent *ADULT/EXPLICIT CONTENT*! Your message has been deleted. This is strictly forbidden. Warning`;
         await applyAction(conn, from, sender, 'warn', 'Adult content', 2, customMsg);
         return true;
     }
@@ -327,11 +330,12 @@ async function handleAntiScam(conn, msg, body, from, sender) {
         await conn.sendMessage(from, { delete: msg.key }).catch(() => {});
         const meta = await conn.groupMetadata(from);
         const allMentions = meta.participants.map(p => p.id);
+        const userName = await getContactName(conn, sender);
         await conn.sendMessage(from, {
-            text: fancy(`⚠️ *SCAM ALERT!* @${sender.split('@')[0]} sent a message that appears to be a scam. The message has been deleted. Do not engage.`),
+            text: fancy(`⚠️ *SCAM ALERT!* @${sender.split('@')[0]} (${userName}) sent a message that appears to be a scam. The message has been deleted. Do not engage.`),
             mentions: allMentions
         }).catch(() => {});
-        const customMsg = `⚠️ @${sender.split('@')[0]} – You sent a *SCAM MESSAGE*! Your message has been deleted. This puts members at risk. Warning`;
+        const customMsg = `⚠️ @${sender.split('@')[0]} (${userName}) – You sent a *SCAM MESSAGE*! Your message has been deleted. This puts members at risk. Warning`;
         await applyAction(conn, from, sender, 'warn', 'Scam content', 2, customMsg);
         return true;
     }
@@ -361,7 +365,8 @@ async function handleAntiMedia(conn, msg, from, sender) {
         (blocked.includes('all') && (isPhoto || isVideo || isSticker || isAudio || isDocument))) {
         
         await conn.sendMessage(from, { delete: msg.key }).catch(() => {});
-        const customMsg = `⚠️ @${sender.split('@')[0]} – You sent a *${mediaType}*! This media type is not allowed. Your message has been deleted. Warning`;
+        const userName = await getContactName(conn, sender);
+        const customMsg = `⚠️ @${sender.split('@')[0]} (${userName}) – You sent a *${mediaType}*! This media type is not allowed. Your message has been deleted. Warning`;
         await applyAction(conn, from, sender, 'warn', `Sending ${mediaType}`, 1, customMsg);
         return true;
     }
@@ -373,7 +378,8 @@ async function handleAntiTag(conn, msg, from, sender) {
     if (!mentions || mentions.length < getGroupSetting(from, 'maxTags')) return false;
     
     await conn.sendMessage(from, { delete: msg.key }).catch(() => {});
-    const customMsg = `⚠️ @${sender.split('@')[0]} – You tagged ${mentions.length} people! Excessive tagging is not allowed. Your message has been deleted. Warning`;
+    const userName = await getContactName(conn, sender);
+    const customMsg = `⚠️ @${sender.split('@')[0]} (${userName}) – You tagged ${mentions.length} people! Excessive tagging is not allowed. Your message has been deleted. Warning`;
     await applyAction(conn, from, sender, 'warn', 'Excessive tagging', 1, customMsg);
     return true;
 }
@@ -442,7 +448,8 @@ async function handleAntiSpam(conn, msg, from, sender) {
     spamTracker.set(key, record);
     if (record.count > limit) {
         await conn.sendMessage(from, { delete: msg.key }).catch(() => {});
-        const customMsg = `⚠️ @${sender.split('@')[0]} – You are sending messages too fast! Please slow down. Warning`;
+        const userName = await getContactName(conn, sender);
+        const customMsg = `⚠️ @${sender.split('@')[0]} (${userName}) – You are sending messages too fast! Please slow down. Warning`;
         await applyAction(conn, from, sender, 'warn', 'Spamming', 1, customMsg);
         return true;
     }
@@ -608,7 +615,7 @@ async function initSleepingMode(conn) {
     });
 }
 
-// ==================== AI CHATBOT ====================
+// ==================== AI CHATBOT & AUTO REPLY ====================
 async function handleChatbot(conn, msg, from, body, sender) {
     if (!getGroupSetting(from, 'chatbot') && !getGroupSetting('global', 'chatbot')) return false;
     const isGroup = from.endsWith('@g.us');
@@ -645,8 +652,15 @@ async function handleCommand(conn, msg, body, from, sender, isOwner, isDeployerU
     const args = body.slice(prefix.length).trim().split(/ +/);
     const cmd = args.shift().toLowerCase();
 
-    // ---- REQUIRED GROUP CHECK (non-owners) ----
-    if (!isOwner && globalSettings.requiredGroupJid) {
+    // Determine if user is group admin (if in group)
+    let isGroupAdmin = false;
+    if (from.endsWith('@g.us')) {
+        isGroupAdmin = await isParticipantAdmin(conn, from, sender);
+    }
+    const isPrivileged = isOwner || isGroupAdmin;
+
+    // ---- REQUIRED GROUP CHECK (only for non-privileged users) ----
+    if (!isPrivileged && globalSettings.requiredGroupJid) {
         const inGroup = await isUserInRequiredGroup(conn, sender);
         if (!inGroup) {
             await msg.reply(fancy(`❌ You must join our group to use this bot.\nJoin here: ${globalSettings.requiredGroupInvite}`));
@@ -654,7 +668,7 @@ async function handleCommand(conn, msg, body, from, sender, isOwner, isDeployerU
         }
     }
 
-    // ---- MODE CHECK ----
+    // ---- MODE CHECK (only for non-owners) ----
     if (globalSettings.mode === 'self' && !isOwner) {
         await msg.reply(fancy('❌ Bot is in private mode. Only owner can use commands.'));
         return true;
@@ -674,6 +688,10 @@ async function handleCommand(conn, msg, body, from, sender, isOwner, isDeployerU
                 const command = require(filePath);
                 if (command.ownerOnly && !isOwner) {
                     await msg.reply(fancy('❌ This command is for owner only!'));
+                    return true;
+                }
+                if (command.adminOnly && !isPrivileged) {
+                    await msg.reply(fancy('❌ This command is for group admins only!'));
                     return true;
                 }
                 try {
@@ -742,6 +760,7 @@ module.exports = async (conn, m) => {
                 if (nativeFlow && nativeFlow.paramsJson) {
                     const parsed = JSON.parse(nativeFlow.paramsJson);
                     body = parsed.id || "";
+                    console.log('Button click:', body);
                 }
             } catch (e) {
                 body = "";
@@ -831,8 +850,8 @@ module.exports = async (conn, m) => {
             if (await handleAntiTag(conn, msg, from, sender)) return;
         }
 
-        // ---- CHATBOT (private + group mentions) – only for non‑owners (but not exempt, it's a feature) ----
-        if (body && !body.startsWith(globalSettings.prefix) && !isOwner) {
+        // ---- CHATBOT (private + group mentions) – only for non‑owners ----
+        if (body && !body.startsWith(globalSettings.prefix) && !isOwner && globalSettings.chatbot) {
             await handleChatbot(conn, msg, from, body, sender);
         }
 
