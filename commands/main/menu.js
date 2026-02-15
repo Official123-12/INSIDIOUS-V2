@@ -8,7 +8,7 @@ module.exports = {
     name: "menu",
     execute: async (conn, msg, args, { from, sender, pushname }) => {
         try {
-            // Get user's display name
+            // Get user's original WhatsApp name
             let userName = pushname;
             if (!userName) {
                 try {
@@ -25,6 +25,19 @@ module.exports = {
             const cards = [];
             const BUTTONS_PER_PAGE = 6;
 
+            // Prepare audio media (same audio for all cards)
+            const audioUrl = config.menuAudio || 'https://example.com/intro.mp3'; // fallback
+            let audioMedia;
+            try {
+                audioMedia = await prepareWAMessageMedia(
+                    { audio: { url: audioUrl }, mimetype: 'audio/mpeg' },
+                    { upload: conn.waUploadToServer }
+                );
+            } catch (e) {
+                console.error('Failed to load audio:', e);
+                audioMedia = null;
+            }
+
             for (const cat of categories) {
                 const catPath = path.join(cmdPath, cat);
                 const stat = fs.statSync(catPath);
@@ -36,12 +49,7 @@ module.exports = {
 
                 if (files.length === 0) continue;
 
-                const imageMedia = await prepareWAMessageMedia(
-                    { image: { url: config.menuImage } },
-                    { upload: conn.waUploadToServer }
-                );
-
-                // Split into pages
+                // Split files into pages
                 const pages = [];
                 for (let i = 0; i < files.length; i += BUTTONS_PER_PAGE) {
                     pages.push(files.slice(i, i + BUTTONS_PER_PAGE));
@@ -52,7 +60,7 @@ module.exports = {
                         name: "quick_reply",
                         buttonParamsJson: JSON.stringify({
                             display_text: `${config.prefix}${cmd}`,
-                            id: `${config.prefix}${cmd}` // This sends the full command when clicked
+                            id: `${config.prefix}${cmd}`
                         })
                     }));
 
@@ -78,6 +86,7 @@ module.exports = {
                         }
                     }
 
+                    // Build card with audio header if available
                     const card = {
                         body: { text: fancy(
                             `━━━━━━━━━━━━━━━━━━\n` +
@@ -88,9 +97,12 @@ module.exports = {
                             `👑 Developer: ${config.developerName}`
                         ) },
                         footer: { text: fancy(config.footer) },
-                        header: {
+                        header: audioMedia ? {
                             hasMediaAttachment: true,
-                            imageMessage: imageMedia.imageMessage
+                            audioMessage: audioMedia.audioMessage
+                        } : {
+                            title: fancy(config.botName),
+                            hasMediaAttachment: false
                         },
                         nativeFlowMessage: {
                             buttons: buttons
@@ -100,13 +112,14 @@ module.exports = {
                 });
             }
 
+            // Main interactive message
             const interactiveMessage = {
                 body: { text: fancy(
                     `━━━━━━━━━━━━━━━━━━\n` +
                     `   👹 *INSIDIOUS V2.1.1*  \n` +
                     `━━━━━━━━━━━━━━━━━━\n\n` +
                     `⏱️ Uptime: ${runtime(process.uptime())}\n\n` +
-                    `👤 User: ${userName}`
+                    `👤 User: *${userName}*`
                 ) },
                 footer: { text: fancy("◀️ Slide left/right for categories & pages ▶️") },
                 header: {
@@ -118,6 +131,7 @@ module.exports = {
                 }
             };
 
+            // Send as regular interactive message
             const messageContent = { interactiveMessage };
             const waMessage = generateWAMessageFromContent(from, messageContent, {
                 userJid: conn.user.id,
