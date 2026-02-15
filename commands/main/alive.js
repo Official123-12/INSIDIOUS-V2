@@ -9,7 +9,6 @@ module.exports = {
     
     execute: async (conn, msg, args, { from, sender, pushname }) => {
         try {
-            // Get user's display name
             let userName = pushname;
             if (!userName) {
                 try {
@@ -20,23 +19,17 @@ module.exports = {
                 }
             }
 
-            // Prepare image media
             const imageMedia = await prepareWAMessageMedia(
                 { image: { url: config.botImage } },
                 { upload: conn.waUploadToServer }
             );
 
-            // Calculate ping
             const messageTimestamp = msg.messageTimestamp ? msg.messageTimestamp * 1000 : Date.now();
             const ping = Date.now() - messageTimestamp;
-
-            // Uptime
             const uptime = runtime(process.uptime());
 
-            // Create cards
             const cards = [];
 
-            // Card 1: Ping
             cards.push({
                 body: { text: fancy(
                     `━━━━━━━━━━━━━━━━━━\n` +
@@ -61,7 +54,6 @@ module.exports = {
                 }
             });
 
-            // Card 2: Alive
             cards.push({
                 body: { text: fancy(
                     `━━━━━━━━━━━━━━━━━━\n` +
@@ -88,7 +80,6 @@ module.exports = {
                 }
             });
 
-            // Card 3: Runtime
             cards.push({
                 body: { text: fancy(
                     `━━━━━━━━━━━━━━━━━━\n` +
@@ -113,7 +104,6 @@ module.exports = {
                 }
             });
 
-            // Build interactive message
             const interactiveMessage = {
                 body: { text: fancy(
                     `━━━━━━━━━━━━━━━━━━\n` +
@@ -132,12 +122,7 @@ module.exports = {
                 }
             };
 
-            // Wrap in message container
-            const messageContent = {
-                interactiveMessage: interactiveMessage
-            };
-
-            // Send
+            const messageContent = { interactiveMessage };
             const waMessage = generateWAMessageFromContent(from, messageContent, {
                 userJid: conn.user.id,
                 upload: conn.waUploadToServer
@@ -146,7 +131,6 @@ module.exports = {
 
         } catch (e) {
             console.error("Status error:", e);
-            // Fallback plain text
             const uptime = runtime(process.uptime());
             const text = `🏓 *PING:* Response time ...\n🤖 *ALIVE:* Bot is online\n⏱️ *RUNTIME:* ${uptime}`;
             await conn.sendMessage(from, { text: fancy(text) }, { quoted: msg });
