@@ -129,7 +129,7 @@ module.exports = {
     botImage: getConfig('BOT_IMAGE', 'https://files.catbox.moe/mfngio.png'),
     aliveImage: getConfig('ALIVE_IMAGE', 'https://files.catbox.moe/mfngio.png'),
     menuImage: getConfig('MENU_IMAGE', 'https://files.catbox.moe/irqrap.jpg'),
-    menuAudio: 'https://your-server.com/intro.mp3', 
+    menuAudio: 'https://eliteprotech-url.zone.id/1771163123472g2ktsd.mp3',
     footer: getConfig('FOOTER', "© 2025 INSIDIOUS V2.1.1 | Developer: STANYTZ"),
 
     // ==================== SERVER ====================
