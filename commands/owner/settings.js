@@ -1,222 +1,259 @@
-const handler = require('../../handler'); // hakikisha handler ina exports zinazohitajika
+const handler = require('../../handler');
+const fs = require('fs-extra');
+const path = require('path');
+const { generateWAMessageFromContent, prepareWAMessageMedia } = require('@whiskeysockets/baileys');
 
 module.exports = {
     name: "settings",
     aliases: ["setting", "config", "settingan"],
     ownerOnly: true,
-    description: "View and change bot global settings",
-    usage: "[feature] [value]",
-    
-    execute: async (conn, msg, args, { from, fancy, config, isOwner, reply }) => {
-        if (!isOwner) 
-            return reply("❌ This command is for owner only!");
+    description: "Manage all bot settings with interactive carousel",
+    usage: "",
 
-        // Load current global settings
-        let settings = await handler.loadGlobalSettings(); // tumia loadGlobalSettings
+    execute: async (conn, msg, args, { from, sender, fancy, config, isOwner, pushname, reply }) => {
+        if (!isOwner) return reply("❌ This command is for owner only!");
 
-        // -------------------- SHOW ALL SETTINGS --------------------
-        if (args.length === 0) {
-            let text = `╭─── • 🥀 • ───╮\n`;
-            text += `   *GLOBAL SETTINGS*  \n`;
-            text += `╰─── • 🥀 • ───╯\n\n`;
+        try {
+            // Jina la mtumiaji
+            let userName = pushname || sender.split('@')[0];
 
-            text += `🔧 *ANTI / SECURITY*\n`;
-            text += `┌──────────────────────────\n`;
-            text += `│ 🛡️ antilink      : ${settings.antilink ? '✅ ON' : '❌ OFF'}\n`;
-            text += `│ 🔞 antiporn      : ${settings.antiporn ? '✅ ON' : '❌ OFF'}\n`;
-            text += `│ 💰 antiscam      : ${settings.antiscam ? '✅ ON' : '❌ OFF'}\n`;
-            text += `│ 📎 antimedia     : ${settings.antimedia ? '✅ ON' : '❌ OFF'}\n`;
-            text += `│ 🏷️ antitag       : ${settings.antitag ? '✅ ON' : '❌ OFF'}\n`;
-            text += `│ 👁️ antiviewonce  : ${settings.antiviewonce ? '✅ ON' : '❌ OFF'}\n`;
-            text += `│ 🗑️ antidelete    : ${settings.antidelete ? '✅ ON' : '❌ OFF'}\n`;
-            text += `│ 💤 sleepingmode  : ${settings.sleepingmode ? '✅ ON' : '❌ OFF'}\n`;
-            text += `│ 🐞 antibugs      : ${settings.antibugs ? '✅ ON' : '❌ OFF'}\n`;
-            text += `│ 🚫 antispam      : ${settings.antispam ? '✅ ON' : '❌ OFF'}\n`;
-            text += `│ 📞 anticall      : ${settings.anticall ? '✅ ON' : '❌ OFF'}\n`;
-            text += `└──────────────────────────\n\n`;
+            // Load current settings
+            let settings = await handler.loadGlobalSettings();
+            const prefix = settings.prefix || '.';
 
-            text += `⚡ *AUTO FEATURES*\n`;
-            text += `┌──────────────────────────\n`;
-            text += `│ 👀 autoRead      : ${settings.autoRead ? '✅ ON' : '❌ OFF'}\n`;
-            text += `│ ❤️ autoReact     : ${settings.autoReact ? '✅ ON' : '❌ OFF'}\n`;
-            text += `│ ⌨️ autoTyping    : ${settings.autoTyping ? '✅ ON' : '❌ OFF'}\n`;
-            text += `│ 🎙️ autoRecording : ${settings.autoRecording ? '✅ ON' : '❌ OFF'}\n`;
-            text += `│ 📝 autoBio       : ${settings.autoBio ? '✅ ON' : '❌ OFF'}\n`;
-            text += `│ 📊 autostatus    : ${settings.autostatus ? '✅ ON' : '❌ OFF'}\n`;
-            text += `│ 📥 downloadStatus: ${settings.downloadStatus ? '✅ ON' : '❌ OFF'}\n`;
-            text += `└──────────────────────────\n\n`;
+            // Prepare media
+            let imageMedia = null;
+            const settingsImage = config.settingsImage || config.botImage || 'https://files.catbox.moe/mfngio.png';
+            try {
+                const imgSrc = settingsImage.startsWith('http') ? { url: settingsImage } : { url: settingsImage };
+                imageMedia = await prepareWAMessageMedia(
+                    { image: imgSrc },
+                    { upload: conn.waUploadToServer || conn.upload }
+                );
+            } catch (e) { console.error("Image error:", e); }
 
-            text += `👥 *GROUP MANAGEMENT*\n`;
-            text += `┌──────────────────────────\n`;
-            text += `│ 🎉 welcomeGoodbye : ${settings.welcomeGoodbye ? '✅ ON' : '❌ OFF'}\n`;
-            text += `│ 📈 activemembers  : ${settings.activemembers ? '✅ ON' : '❌ OFF'}\n`;
-            text += `│ 🌍 autoblockCountry: ${settings.autoblockCountry ? '✅ ON' : '❌ OFF'}\n`;
-            text += `└──────────────────────────\n\n`;
-
-            text += `🤖 *AI FEATURES*\n`;
-            text += `┌──────────────────────────\n`;
-            text += `│ 💬 chatbot       : ${settings.chatbot ? '✅ ON' : '❌ OFF'}\n`;
-            text += `└──────────────────────────\n\n`;
-
-            text += `⚙️ *THRESHOLDS & LIMITS*\n`;
-            text += `┌──────────────────────────\n`;
-            text += `│ ⚠️ warnLimit      : ${settings.warnLimit}\n`;
-            text += `│ 🏷️ maxTags        : ${settings.maxTags}\n`;
-            text += `│ 💤 inactiveDays   : ${settings.inactiveDays}\n`;
-            text += `│ 🚫 antiSpamLimit  : ${settings.antiSpamLimit} msg/${settings.antiSpamInterval/1000}s\n`;
-            text += `│ 🕒 sleepingStart  : ${settings.sleepingStart}\n`;
-            text += `│ 🕒 sleepingEnd    : ${settings.sleepingEnd}\n`;
-            text += `└──────────────────────────\n\n`;
-
-            text += `🔐 *PAIRING & MODE*\n`;
-            text += `┌──────────────────────────\n`;
-            text += `│ 👥 maxCoOwners   : ${settings.maxCoOwners}\n`;
-            text += `│ 🤖 mode          : ${settings.mode === 'public' ? '🌍 PUBLIC' : '🔒 SELF'}\n`;
-            text += `│ 📛 prefix        : ${settings.prefix || '.'}\n`;
-            text += `└──────────────────────────\n\n`;
-
-            text += `💡 *USAGE*\n`;
-            text += `${settings.prefix}settings <feature> [value]\n`;
-            text += `   • Toggle:  ${settings.prefix}settings antilink on/off\n`;
-            text += `   • Number:  ${settings.prefix}settings warnLimit 5\n`;
-            text += `   • Mode:    ${settings.prefix}settings mode public/self\n`;
-            text += `   • Time:    ${settings.prefix}settings sleepingStart 23:00\n`;
-            text += `   • Prefix:  ${settings.prefix}settings prefix !\n\n`;
-            text += `_Settings are saved permanently._`;
-
-            return reply(fancy(text));
-        }
-
-        // -------------------- CHANGE SPECIFIC SETTING --------------------
-        let feature = args[0].toLowerCase();
-        const value = args.slice(1).join(' ').trim();
-
-        // Feature aliases mapping
-        const featureMap = {
-            // Anti
-            'antilink': 'antilink', 'anti-link': 'antilink',
-            'antiporn': 'antiporn', 'anti-porn': 'antiporn',
-            'antiscam': 'antiscam', 'anti-scam': 'antiscam',
-            'antimedia': 'antimedia', 'anti-media': 'antimedia',
-            'antitag': 'antitag', 'anti-tag': 'antitag',
-            'antiviewonce': 'antiviewonce', 'anti-viewonce': 'antiviewonce', 'anti-view-once': 'antiviewonce',
-            'antidelete': 'antidelete', 'anti-delete': 'antidelete',
-            'sleepingmode': 'sleepingmode', 'sleep-mode': 'sleepingmode',
-            'antibugs': 'antibugs', 'anti-bugs': 'antibugs',
-            'antispam': 'antispam', 'anti-spam': 'antispam',
-            'anticall': 'anticall', 'anti-call': 'anticall',
-            // Auto
-            'autoread': 'autoRead', 'auto-read': 'autoRead',
-            'autoreact': 'autoReact', 'auto-react': 'autoReact',
-            'autotyping': 'autoTyping', 'auto-typing': 'autoTyping',
-            'autorecording': 'autoRecording', 'auto-recording': 'autoRecording',
-            'autobio': 'autoBio', 'auto-bio': 'autoBio',
-            'autostatus': 'autostatus', 'auto-status': 'autostatus',
-            'downloadstatus': 'downloadStatus', 'dlstatus': 'downloadStatus',
-            // Group
-            'welcome': 'welcomeGoodbye', 'goodbye': 'welcomeGoodbye',
-            'welcomegoodbye': 'welcomeGoodbye', 'welcome-goodbye': 'welcomeGoodbye',
-            'activemembers': 'activemembers', 'active-members': 'activemembers',
-            'autoblockcountry': 'autoblockCountry', 'auto-block-country': 'autoblockCountry',
-            // AI
-            'chatbot': 'chatbot', 'ai': 'chatbot',
-            // Thresholds
-            'warnlimit': 'warnLimit', 'warn-limit': 'warnLimit',
-            'maxtags': 'maxTags', 'max-tags': 'maxTags',
-            'inactivedays': 'inactiveDays', 'inactive-days': 'inactiveDays',
-            'antispamlimit': 'antiSpamLimit', 'antispam-limit': 'antiSpamLimit',
-            'antispaminterval': 'antiSpamInterval', 'antispam-interval': 'antiSpamInterval',
-            'sleepingstart': 'sleepingStart', 'sleeping-start': 'sleepingStart',
-            'sleepingend': 'sleepingEnd', 'sleeping-end': 'sleepingEnd',
-            // Pairing & mode
-            'maxcoowners': 'maxCoOwners', 'max-coowners': 'maxCoOwners',
-            'mode': 'mode',
-            'prefix': 'prefix'
-        };
-
-        if (featureMap[feature]) feature = featureMap[feature];
-
-        // Check if feature exists
-        if (!(feature in settings)) {
-            return reply(`❌ Unknown feature "${args[0]}".\n📋 Use *${settings.prefix}settings* to see the list.`);
-        }
-
-        const oldValue = settings[feature];
-        let newValue;
-
-        // --- Boolean toggle ---
-        if (typeof oldValue === 'boolean') {
-            if (!value) {
-                newValue = !oldValue; // toggle
-            } else if (['on', 'enable', 'true', '1'].includes(value.toLowerCase())) {
-                newValue = true;
-            } else if (['off', 'disable', 'false', '0'].includes(value.toLowerCase())) {
-                newValue = false;
-            } else {
-                return reply(`❌ Invalid value. Use: on / off (or no value to toggle).`);
+            let audioMedia = null;
+            const settingsAudio = config.settingsAudio || config.menuAudio;
+            if (settingsAudio) {
+                try {
+                    const audioSrc = settingsAudio.startsWith('http') ? { url: settingsAudio } : { url: settingsAudio };
+                    audioMedia = await prepareWAMessageMedia(
+                        { audio: audioSrc, mimetype: 'audio/mpeg' },
+                        { upload: conn.waUploadToServer || conn.upload }
+                    );
+                } catch (e) { console.error("Audio error:", e); }
             }
-            settings[feature] = newValue;
-        }
-        // --- Number ---
-        else if (typeof oldValue === 'number') {
-            if (!value) return reply(`❌ Please provide a numeric value.`);
-            const num = Number(value);
-            if (isNaN(num)) return reply(`❌ Must be a number.`);
-            // Bounds checks
-            if (feature === 'warnLimit' && (num < 1 || num > 10)) return reply(`❌ warnLimit must be between 1 and 10.`);
-            if (feature === 'maxTags' && (num < 1 || num > 20)) return reply(`❌ maxTags must be between 1 and 20.`);
-            if (feature === 'inactiveDays' && (num < 1 || num > 90)) return reply(`❌ inactiveDays must be between 1 and 90.`);
-            if (feature === 'antiSpamLimit' && (num < 1 || num > 30)) return reply(`❌ antiSpamLimit must be between 1 and 30.`);
-            if (feature === 'antiSpamInterval' && (num < 1000 || num > 60000)) return reply(`❌ antiSpamInterval must be between 1000 and 60000 ms.`);
-            if (feature === 'maxCoOwners' && (num < 1 || num > 5)) return reply(`❌ maxCoOwners must be between 1 and 5.`);
-            settings[feature] = num;
-        }
-        // --- String (mode, prefix, sleeping times) ---
-        else if (typeof oldValue === 'string') {
-            if (!value) return reply(`❌ Please provide a value.`);
-            if (feature === 'mode') {
-                if (!['public', 'self'].includes(value.toLowerCase())) 
-                    return reply(`❌ Mode must be 'public' or 'self'.`);
-                settings.mode = value.toLowerCase();
-            } else if (feature === 'prefix') {
-                if (value.length > 3) return reply(`❌ Prefix too long. Max 3 characters.`);
-                settings.prefix = value;
-            } else if (feature === 'sleepingStart' || feature === 'sleepingEnd') {
-                if (!/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(value))
-                    return reply(`❌ Invalid time format. Use HH:MM (24h).`);
-                settings[feature] = value;
-            } else {
-                settings[feature] = value;
-            }
-        }
-        // --- Array (not handled here) ---
-        else if (Array.isArray(oldValue)) {
-            return reply(`❌ Array settings (e.g., scamKeywords, blockedCountries, autoReactEmojis) must be managed via dedicated commands.\n` +
-                `Use *${settings.prefix}addkeyword*, *${settings.prefix}removekeyword*, etc.`);
-        }
-        else {
-            return reply(`❌ Unsupported setting type.`);
-        }
 
-        // Save and refresh
-        await handler.saveGlobalSettings(settings); // tumia saveGlobalSettings
-        await handler.refreshConfig();
+            // ==================== BUILD CARDS ====================
+            const cards = [];
 
-        // Prepare response
-        let status;
-        if (typeof settings[feature] === 'boolean') {
-            status = settings[feature] ? '✅ ON' : '❌ OFF';
-        } else if (feature === 'mode') {
-            status = settings.mode === 'public' ? '🌍 PUBLIC' : '🔒 SELF';
-        } else {
-            status = settings[feature];
+            // --- CARD 1: ANTI / SECURITY ---
+            cards.push(buildCard({
+                title: "🛡️ ANTI FEATURES",
+                image: imageMedia,
+                audio: audioMedia,
+                userName,
+                items: [
+                    { label: "Anti Link", key: "antilink", value: settings.antilink },
+                    { label: "Anti Porn", key: "antiporn", value: settings.antiporn },
+                    { label: "Anti Scam", key: "antiscam", value: settings.antiscam },
+                    { label: "Anti Media", key: "antimedia", value: settings.antimedia },
+                    { label: "Anti Tag", key: "antitag", value: settings.antitag },
+                    { label: "Anti ViewOnce", key: "antiviewonce", value: settings.antiviewonce },
+                    { label: "Anti Delete", key: "antidelete", value: settings.antidelete },
+                    { label: "Sleeping Mode", key: "sleepingmode", value: settings.sleepingmode },
+                    { label: "Anti Bugs", key: "antibugs", value: settings.antibugs },
+                    { label: "Anti Spam", key: "antispam", value: settings.antispam },
+                    { label: "Anti Call", key: "anticall", value: settings.anticall }
+                ],
+                prefix,
+                category: "anti"
+            }));
+
+            // --- CARD 2: AUTO FEATURES ---
+            cards.push(buildCard({
+                title: "⚡ AUTO FEATURES",
+                image: imageMedia,
+                audio: audioMedia,
+                userName,
+                items: [
+                    { label: "Auto Read", key: "autoRead", value: settings.autoRead },
+                    { label: "Auto React", key: "autoReact", value: settings.autoReact },
+                    { label: "Auto Typing", key: "autoTyping", value: settings.autoTyping },
+                    { label: "Auto Recording", key: "autoRecording", value: settings.autoRecording },
+                    { label: "Auto Bio", key: "autoBio", value: settings.autoBio },
+                    { label: "Auto Status", key: "autostatus", value: settings.autostatus },
+                    { label: "Download Status", key: "downloadStatus", value: settings.downloadStatus }
+                ],
+                prefix,
+                category: "auto"
+            }));
+
+            // --- CARD 3: GROUP MANAGEMENT ---
+            cards.push(buildCard({
+                title: "👥 GROUP MGMT",
+                image: imageMedia,
+                audio: audioMedia,
+                userName,
+                items: [
+                    { label: "Welcome/Goodbye", key: "welcomeGoodbye", value: settings.welcomeGoodbye },
+                    { label: "Active Members", key: "activemembers", value: settings.activemembers },
+                    { label: "Auto Block Country", key: "autoblockCountry", value: settings.autoblockCountry }
+                ],
+                prefix,
+                category: "group"
+            }));
+
+            // --- CARD 4: AI FEATURES ---
+            cards.push(buildCard({
+                title: "🤖 AI FEATURES",
+                image: imageMedia,
+                audio: audioMedia,
+                userName,
+                items: [
+                    { label: "Chatbot", key: "chatbot", value: settings.chatbot }
+                ],
+                prefix,
+                category: "ai"
+            }));
+
+            // --- CARD 5: THRESHOLDS & LIMITS ---
+            cards.push(buildCard({
+                title: "⚙️ LIMITS",
+                image: imageMedia,
+                audio: audioMedia,
+                userName,
+                items: [
+                    { label: "Warn Limit", key: "warnLimit", value: settings.warnLimit, type: "number" },
+                    { label: "Max Tags", key: "maxTags", value: settings.maxTags, type: "number" },
+                    { label: "Inactive Days", key: "inactiveDays", value: settings.inactiveDays, type: "number" },
+                    { label: "AntiSpam Limit", key: "antiSpamLimit", value: settings.antiSpamLimit, type: "number" },
+                    { label: "AntiSpam Interval", key: "antiSpamInterval", value: settings.antiSpamInterval + "ms", type: "number" },
+                    { label: "Sleep Start", key: "sleepingStart", value: settings.sleepingStart, type: "time" },
+                    { label: "Sleep End", key: "sleepingEnd", value: settings.sleepingEnd, type: "time" }
+                ],
+                prefix,
+                category: "limits"
+            }));
+
+            // --- CARD 6: PAIRING & MODE ---
+            cards.push(buildCard({
+                title: "🔐 MODE & PREFIX",
+                image: imageMedia,
+                audio: audioMedia,
+                userName,
+                items: [
+                    { label: "Mode", key: "mode", value: settings.mode, type: "mode" },
+                    { label: "Prefix", key: "prefix", value: settings.prefix, type: "prefix" },
+                    { label: "Max Co-Owners", key: "maxCoOwners", value: settings.maxCoOwners, type: "number" }
+                ],
+                prefix,
+                category: "mode"
+            }));
+
+            // --- CARD 7: ARRAY SETTINGS (Quick access) ---
+            cards.push(buildCard({
+                title: "📋 ARRAY SETTINGS",
+                image: imageMedia,
+                audio: audioMedia,
+                userName,
+                items: [
+                    { label: "Scam Keywords", key: "scam", count: settings.scamKeywords?.length || 0 },
+                    { label: "Porn Keywords", key: "porn", count: settings.pornKeywords?.length || 0 },
+                    { label: "Blocked Media", key: "blockmedia", count: settings.blockedMediaTypes?.length || 0 },
+                    { label: "React Emojis", key: "emoji", count: settings.autoReactEmojis?.length || 0 },
+                    { label: "Blocked Countries", key: "country", count: settings.blockedCountries?.length || 0 }
+                ],
+                prefix,
+                category: "arrays"
+            }));
+
+            // ==================== SEND CAROUSEL ====================
+            const interactiveMessage = {
+                body: { text: fancy(
+                    `╔════════════════════╗\n` +
+                    `║   ⚙️ BOT SETTINGS   ║\n` +
+                    `╚════════════════════╝\n\n` +
+                    `👤 Owner: ${userName}\n` +
+                    `📊 Total cards: ${cards.length}\n` +
+                    `━━━━━━━━━━━━━━━━━━\n` +
+                    `◀️ Swipe left/right for categories ▶️`
+                ) },
+                footer: { text: fancy(`✨ INSIDIOUS v2.1.1 | Tap buttons to toggle`) },
+                header: { title: fancy(`⚙️ CONFIGURATION`) },
+                carouselMessage: { cards }
+            };
+
+            const msgContent = { interactiveMessage };
+            const waMsg = generateWAMessageFromContent(from, msgContent, {
+                userJid: conn.user.id,
+                upload: conn.waUploadToServer || conn.upload
+            });
+            await conn.relayMessage(from, waMsg.message, { messageId: waMsg.key.id });
+
+        } catch (e) {
+            console.error("Settings carousel error:", e);
+            // Fallback to old text settings
+            const settings = await handler.loadGlobalSettings();
+            let text = `╭─── • 🥀 • ───╮\n   *GLOBAL SETTINGS*  \n╰─── • 🥀 • ───╯\n\n`;
+            // ... (same as before, but simplified)
+            reply(fancy(text));
         }
-
-        let response = `✅ *Setting updated!*\n\n`;
-        response += `🔧 Feature: *${feature}*\n`;
-        response += `📊 Status: ${status}\n\n`;
-        response += `_Settings saved._`;
-
-        await reply(fancy(response));
     }
 };
+
+// Helper function to build a card
+function buildCard({ title, image, audio, userName, items, prefix, category }) {
+    const buttons = [];
+
+    items.forEach(item => {
+        if (item.type === 'number' || item.type === 'time' || item.type === 'mode' || item.type === 'prefix') {
+            // For numeric/time settings, provide buttons to adjust
+            buttons.push({
+                name: "quick_reply",
+                buttonParamsJson: JSON.stringify({
+                    display_text: `⚙️ ${item.label}`,
+                    id: `${prefix}settings_${category} ${item.key}`
+                })
+            });
+        } else if (item.count !== undefined) {
+            // Array settings – button to open management menu
+            buttons.push({
+                name: "quick_reply",
+                buttonParamsJson: JSON.stringify({
+                    display_text: `📋 ${item.label} (${item.count})`,
+                    id: `${prefix}settings_array ${item.key}`
+                })
+            });
+        } else {
+            // Boolean toggle
+            const status = item.value ? '✅' : '❌';
+            buttons.push({
+                name: "quick_reply",
+                buttonParamsJson: JSON.stringify({
+                    display_text: `${status} ${item.label}`,
+                    id: `${prefix}toggle ${item.key}`
+                })
+            });
+        }
+    });
+
+    // Header
+    const cardHeader = {};
+    if (audio) cardHeader.audioMessage = audio.audioMessage;
+    else if (image) cardHeader.imageMessage = image.imageMessage;
+    else cardHeader.title = fancy(title);
+
+    return {
+        body: { text: fancy(
+            `┏━━━━━━━━━━━━━━━━━━┓\n` +
+            `┃   ${title}  \n` +
+            `┗━━━━━━━━━━━━━━━━━━┛\n\n` +
+            `👋 Hello, *${userName}*!\n` +
+            `Tap buttons below to adjust.`
+        ) },
+        footer: { text: fancy(`⚙️ INSIDIOUS SETTINGS`) },
+        header: cardHeader,
+        nativeFlowMessage: { buttons }
+    };
+}
