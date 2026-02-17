@@ -36,7 +36,7 @@ function fancy(text) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ **MONGODB CONNECTION**
+// ✅ **MONGODB CONNECTION (OPTIONAL)**
 console.log(fancy("🔗 Connecting to MongoDB..."));
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
 
@@ -82,12 +82,13 @@ try {
     config = require('./config');
     console.log(fancy("📋 Config loaded"));
 } catch (error) {
-    console.log(fancy("❌ Config file error"));
+    console.log(fancy("❌ Config file error, using defaults"));
     config = {
         prefix: '.',
         ownerNumber: ['255000000000'],
         botName: 'INSIDIOUS',
-        workMode: 'public'
+        workMode: 'public',
+        botImage: 'https://files.catbox.moe/f3c07u.jpg'
     };
 }
 
@@ -137,7 +138,7 @@ async function startBot() {
                     botNumber = conn.user.id.split(':')[0] || "Unknown";
                 }
                 
-                // 🔥 GET BOT ID AND PAIRED COUNT FROM HANDLER
+                // 🔥 GET BOT ID AND PAIRED COUNT FROM HANDLER (after handler init)
                 const botSecret = handler.getBotId ? handler.getBotId() : 'Unknown';
                 const pairedCount = handler.getPairedNumbers ? handler.getPairedNumbers().length : 0;
                 
@@ -146,7 +147,7 @@ async function startBot() {
                 console.log(fancy(`🆔 Bot ID: ${botSecret}`));
                 console.log(fancy(`👥 Paired Owners: ${pairedCount}`));
                 
-                // ✅ **INITIALIZE HANDLER FIRST**
+                // ✅ **INITIALIZE HANDLER**
                 try {
                     if (handler && typeof handler.init === 'function') {
                         await handler.init(conn);
@@ -156,7 +157,7 @@ async function startBot() {
                     console.error(fancy("❌ Handler init error:"), e.message);
                 }
                 
-                // ✅ **SEND WELCOME MESSAGE TO OWNER (after handler init)**
+                // ✅ **SEND WELCOME MESSAGE TO OWNER**
                 setTimeout(async () => {
                     try {
                         if (config.ownerNumber && config.ownerNumber.length > 0) {
@@ -197,22 +198,23 @@ async function startBot() {
                                 // Send with image and forwarded style
                                 await conn.sendMessage(ownerJid, { 
                                     image: { 
-                                        url: "https://files.catbox.moe/f3c07u.jpg" 
+                                        url: config.botImage || "https://files.catbox.moe/f3c07u.jpg"
                                     },
                                     caption: welcomeMsg,
                                     contextInfo: { 
                                         isForwarded: true,
                                         forwardingScore: 999,
                                         forwardedNewsletterMessageInfo: { 
-                                            newsletterJid: "120363404317544295@newsletter",
-                                            newsletterName: "INSIDIOUS BOT"
+                                            newsletterJid: config.newsletterJid || "120363404317544295@newsletter",
+                                            newsletterName: config.botName || "INSIDIOUS BOT"
                                         }
                                     }
                                 });
+                                console.log(fancy("✅ Welcome message sent to owner"));
                             }
                         }
                     } catch (e) {
-                        console.log(fancy("⚠️ Could not send welcome message"));
+                        console.log(fancy("⚠️ Could not send welcome message:"), e.message);
                     }
                 }, 3000);
             }
@@ -287,17 +289,9 @@ startBot();
 
 // ==================== HTTP ENDPOINTS ====================
 
-// ✅ **PAIRING ENDPOINT (8-DIGIT CODE) – FIXED**
+// ✅ **PAIRING ENDPOINT (8-DIGIT CODE) – INAFANYA KAZI HATA KAMA BOT HAIIA-CONNECT**
 app.get('/pair', async (req, res) => {
     try {
-        // Check if bot is connected
-        if (!isConnected) {
-            return res.json({ 
-                success: false,
-                error: "Bot is currently disconnected. Please wait a few seconds and try again." 
-            });
-        }
-
         let num = req.query.num;
         if (!num) {
             return res.json({ success: false, error: "Provide number! Example: /pair?num=255123456789" });
@@ -305,33 +299,35 @@ app.get('/pair', async (req, res) => {
         
         const cleanNum = num.replace(/[^0-9]/g, '');
         if (cleanNum.length < 10) {
-            return res.json({ success: false, error: "Invalid number" });
+            return res.json({ success: false, error: "Invalid number. Must be at least 10 digits." });
+        }
+        
+        // Hakikisha globalConn ipo
+        if (!globalConn) {
+            return res.json({ success: false, error: "Bot is initializing. Please try again in a few seconds." });
         }
         
         console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum}`));
         
-        try {
-            // Generate 8-digit pairing code using global connection
-            const code = await globalConn.requestPairingCode(cleanNum);
-            res.json({ 
-                success: true, 
-                code: code,
-                message: `8-digit pairing code: ${code}`
-            });
-        } catch (err) {
-            if (err.message.includes("already paired")) {
-                res.json({ 
-                    success: true, 
-                    message: "Number already paired"
-                });
-            } else {
-                throw err;
-            }
-        }
+        // Jaribu kupata code kwa timeout ya sekunde 30
+        const code = await Promise.race([
+            globalConn.requestPairingCode(cleanNum),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout - no response from WhatsApp')), 30000))
+        ]);
+        
+        res.json({ 
+            success: true, 
+            code: code,
+            message: `8-digit pairing code: ${code}`
+        });
         
     } catch (err) {
         console.error("Pairing error:", err.message);
-        res.json({ success: false, error: "Failed: " + err.message });
+        if (err.message.includes("already paired")) {
+            res.json({ success: true, message: "Number already paired" });
+        } else {
+            res.json({ success: false, error: "Failed: " + err.message });
+        }
     }
 });
 
@@ -352,6 +348,8 @@ app.get('/unpair', async (req, res) => {
         let result = false;
         if (handler && handler.unpairNumber) {
             result = await handler.unpairNumber(cleanNum);
+        } else {
+            return res.json({ success: false, error: "Unpair function not available in handler" });
         }
         
         res.json({ 
@@ -383,16 +381,21 @@ app.get('/health', (req, res) => {
 // ✅ **BOT INFO ENDPOINT**
 app.get('/botinfo', (req, res) => {
     if (!globalConn || !globalConn.user) {
-        return res.json({ error: "Bot not connected" });
+        return res.json({ 
+            success: false,
+            error: "Bot not connected",
+            connected: isConnected
+        });
     }
     
     const botSecret = handler.getBotId ? handler.getBotId() : 'Unknown';
     const pairedCount = handler.getPairedNumbers ? handler.getPairedNumbers().length : 0;
     
     res.json({
+        success: true,
         botName: globalConn.user?.name || "INSIDIOUS",
         botNumber: globalConn.user?.id?.split(':')[0] || "Unknown",
-        botId: globalConn.user?.id || "Unknown",
+        botJid: globalConn.user?.id || "Unknown",
         botSecret: botSecret,
         pairedOwners: pairedCount,
         connected: isConnected,
