@@ -1,139 +1,71 @@
 const fs = require('fs-extra');
 const path = require('path');
-const { generateWAMessageFromContent, prepareWAMessageMedia, proto } = require("@whiskeysockets/baileys");
+const config = require('../../config');
 const { fancy, runtime } = require('../../lib/tools');
-const handler = require('../../handler');
 
 module.exports = {
     name: "menu",
-    aliases: ["help", "commands"],
-    execute: async (conn, msg, args, { from, sender, pushname }) => {
+    execute: async (conn, msg, args, { from, pushname }) => {
         try {
-            let userName = pushname || sender.split('@')[0];
-            const settings = await handler.loadGlobalSettings();
-            const prefix = settings.prefix || '.';
+            // 1. Ionekane bot inaandika (Typing...)
+            await conn.sendPresenceUpdate('composing', from);
 
-            const cmdPath = path.join(__dirname, '../');
-            const categories = fs.readdirSync(cmdPath).filter(c => fs.statSync(path.join(cmdPath, c)).isDirectory());
-            const cards = [];
+            // 2. Njia ya kuelekea kwenye folder la commands
+            const cmdPath = path.join(__dirname, '../../commands');
+            const categories = fs.readdirSync(cmdPath);
+            let totalCmds = 0;
+            
+            // 3. Header ya Menu (Premium Horror Style)
+            let menuTxt = `╭── • 🥀 • ──╮\n  ${fancy(config.botName)}\n╰── • 🥀 • ──╯\n\n`;
+            menuTxt += `│ ◦ ${fancy("ꜱᴏᴜʟ")}: ${pushname}\n`;
+            menuTxt += `│ ◦ ${fancy("ᴏᴡɴᴇʀ")}: ${config.ownerName}\n`;
+            menuTxt += `│ ◦ ${fancy("ᴜᴘᴛɪᴍᴇ")}: ${runtime(process.uptime())}\n`;
+            menuTxt += `│ ◦ ${fancy("ᴍᴏᴅᴇ")}: ${config.workMode.toUpperCase()}\n`;
+            menuTxt += `│ ◦ ${fancy("ᴘʀᴇꜰɪx")}: ${config.prefix}\n\n`;
 
-            // Prepare image media (same for all cards)
-            let imageMedia = null;
-            if (settings.menuImage) {
-                try {
-                    const imgSrc = settings.menuImage.startsWith('http') ? { url: settings.menuImage } : { url: settings.menuImage };
-                    imageMedia = await prepareWAMessageMedia({ image: imgSrc }, { upload: conn.waUploadToServer || conn.upload });
-                } catch (e) { console.error("Menu image error:", e); }
-            }
-
-            for (const cat of categories) {
+            // 4. Kupitia kila sub-folder na kupanga commands KWA WIMA
+            categories.forEach(cat => {
                 const catPath = path.join(cmdPath, cat);
-                const files = fs.readdirSync(catPath).filter(f => f.endsWith('.js')).map(f => f.replace('.js', ''));
-                if (files.length === 0) continue;
-
-                // Split files into pages (max 4 buttons per page for better UX)
-                const perPage = 4;
-                const pages = [];
-                for (let i = 0; i < files.length; i += perPage) pages.push(files.slice(i, i + perPage));
-
-                pages.forEach((pageFiles, idx) => {
-                    // Create buttons for each command on this page
-                    const buttons = pageFiles.map(cmd => ({
-                        name: "quick_reply",
-                        buttonParamsJson: JSON.stringify({
-                            display_text: `${prefix}${cmd}`,
-                            id: `${prefix}${cmd}`
-                        })
-                    }));
-
-                    // Navigation buttons if multiple pages
-                    if (pages.length > 1) {
-                        if (idx > 0) {
-                            buttons.push({
-                                name: "quick_reply",
-                                buttonParamsJson: JSON.stringify({
-                                    display_text: "◀️ Prev",
-                                    id: `${prefix}menu ${cat} ${idx-1}`
-                                })
-                            });
-                        }
-                        if (idx < pages.length-1) {
-                            buttons.push({
-                                name: "quick_reply",
-                                buttonParamsJson: JSON.stringify({
-                                    display_text: "Next ▶️",
-                                    id: `${prefix}menu ${cat} ${idx+1}`
-                                })
-                            });
-                        }
+                // Hakikisha ni folder kweli
+                if (fs.statSync(catPath).isDirectory()) {
+                    const files = fs.readdirSync(catPath)
+                        .filter(f => f.endsWith('.js'))
+                        .map(f => f.replace('.js', ''));
+                    
+                    if (files.length > 0) {
+                        totalCmds += files.length;
+                        menuTxt += `🥀 *${fancy(cat.toUpperCase())}*\n`;
+                        
+                        // Kupanga commands kwa wima
+                        files.forEach(file => {
+                            menuTxt += `│ ◦ ${file}\n`;
+                        });
+                        menuTxt += `│\n`; // Nafasi baada ya kila category
                     }
+                }
+            });
 
-                    // Card header (image or title)
-                    const cardHeader = imageMedia ? { imageMessage: imageMedia.imageMessage } : { title: fancy(cat.toUpperCase()) };
+            menuTxt += `│ ◦ ${fancy("ᴛᴏᴛᴀʟ ᴄᴍᴅꜱ")}: ${totalCmds}\n`;
+            menuTxt += `└──────────────\n${fancy(config.footer)}`;
 
-                    const cardBody = `╭─── • 🥀 • ───╮\n` +
-                                     `   *${cat.toUpperCase()}*   \n` +
-                                     `╰─── • 🥀 • ───╯\n\n` +
-                                     `👋 Hello, *${userName}*\n` +
-                                     `Page ${idx+1}/${pages.length}\n` +
-                                     `Select a command below.`;
-
-                    const card = {
-                        body: proto.Message.InteractiveMessage.Body.fromObject({
-                            text: fancy(cardBody)
-                        }),
-                        footer: proto.Message.InteractiveMessage.Footer.fromObject({
-                            text: fancy(settings.footer)
-                        }),
-                        header: cardHeader,
-                        nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
-                            buttons: buttons
-                        })
-                    };
-                    cards.push(card);
-                });
-            }
-
-            const mainHeader = `╭─── • 🥀 • ───╮\n` +
-                               `   *INSIDIOUS MENU*   \n` +
-                               `╰─── • 🥀 • ───╯\n\n` +
-                               `Uptime: ${runtime(process.uptime())}\n` +
-                               `👤 User: ${userName}\n\n` +
-                               `◀️ Swipe to explore categories ▶️`;
-
-            const interactiveMsg = {
-                body: proto.Message.InteractiveMessage.Body.fromObject({
-                    text: fancy(mainHeader)
-                }),
-                footer: proto.Message.InteractiveMessage.Footer.fromObject({
-                    text: fancy("STANYTZ AUTOMATION")
-                }),
-                carouselMessage: proto.Message.CarouselMessage.fromObject({
-                    cards: cards
-                }),
-                contextInfo: {
-                    isForwarded: true,
+            // 5. Tuma Menu kwa kutumia picha na Branding ya Newsletter
+            await conn.sendMessage(from, { 
+                image: { url: config.menuImage }, 
+                caption: menuTxt,
+                contextInfo: { 
+                    isForwarded: true, 
                     forwardingScore: 999,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: settings.newsletterJid || "120363404317544295@newsletter",
-                        newsletterName: settings.botName
+                    forwardedNewsletterMessageInfo: { 
+                        newsletterJid: config.newsletterJid, 
+                        newsletterName: config.botName,
+                        serverMessageId: 100
                     }
-                }
-            };
-
-            const msgContent = generateWAMessageFromContent(from, {
-                viewOnceMessage: {
-                    message: {
-                        interactiveMessage: interactiveMsg
-                    }
-                }
-            }, { userJid: conn.user.id, upload: conn.waUploadToServer });
-
-            await conn.relayMessage(from, msgContent.message, { messageId: msgContent.key.id });
+                } 
+            }, { quoted: msg });
 
         } catch (e) {
-            console.error("Menu error:", e);
-            await msg.reply("❌ Menu error. Check console.");
+            console.error(e);
+            msg.reply(fancy("🥀 Shadows failed to summon the menu. Check folder structure."));
         }
     }
 };
