@@ -1,193 +1,244 @@
 const handler = require('../../handler');
+const { generateWAMessageFromContent, prepareWAMessageMedia } = require('@whiskeysockets/baileys');
+const { fancy } = require('../../lib/tools');
 
 module.exports = {
     name: "settings",
     aliases: ["setting", "config"],
     ownerOnly: true,
-    description: "Manage all bot settings (global & arrays)",
-    usage: "[subcommand] [args]",
+    description: "Manage all bot settings with interactive carousel",
     
-    execute: async (conn, msg, args, { from, fancy, isOwner, reply }) => {
+    execute: async (conn, msg, args, { from, sender, fancy, isOwner, reply }) => {
         if (!isOwner) return;
 
-        const settings = await handler.loadGlobalSettings();
-        const prefix = settings.prefix || '.';
+        try {
+            const settings = await handler.loadGlobalSettings();
+            const prefix = settings.prefix || '.';
+            let userName = sender.split('@')[0];
 
-        if (args.length === 0) {
-            // Show summary
-            let text = `╭─── • 🥀 • ───╮\n`;
-            text += `   *BOT SETTINGS*   \n`;
-            text += `╰─── • 🥀 • ───╯\n\n`;
-            text += `🔧 *ANTI*\n`;
-            text += `antilink: ${settings.antilink ? '✅' : '❌'}\n`;
-            text += `antiporn: ${settings.antiporn ? '✅' : '❌'}\n`;
-            text += `antiscam: ${settings.antiscam ? '✅' : '❌'}\n`;
-            text += `antimedia: ${settings.antimedia ? '✅' : '❌'}\n`;
-            text += `antitag: ${settings.antitag ? '✅' : '❌'}\n`;
-            text += `antiviewonce: ${settings.antiviewonce ? '✅' : '❌'}\n`;
-            text += `antidelete: ${settings.antidelete ? '✅' : '❌'}\n`;
-            text += `antibugs: ${settings.antibugs ? '✅' : '❌'}\n`;
-            text += `antispam: ${settings.antispam ? '✅' : '❌'}\n`;
-            text += `anticall: ${settings.anticall ? '✅' : '❌'}\n\n`;
-            text += `⚡ *AUTO*\n`;
-            text += `autoRead: ${settings.autoRead ? '✅' : '❌'} (scope: ${settings.autoReadScope})\n`;
-            text += `autoReact: ${settings.autoReact ? '✅' : '❌'} (scope: ${settings.autoReactScope})\n`;
-            text += `autoTyping: ${settings.autoTyping ? '✅' : '❌'}\n`;
-            text += `autoRecording: ${settings.autoRecording ? '✅' : '❌'}\n`;
-            text += `autoBio: ${settings.autoBio ? '✅' : '❌'}\n`;
-            text += `autostatus: ${settings.autostatus ? '✅' : '❌'} (limit: ${settings.autoStatusLimit}/day)\n`;
-            text += `chatbot: ${settings.chatbot ? '✅' : '❌'}\n\n`;
-            text += `👥 *GROUP*\n`;
-            text += `welcomeGoodbye: ${settings.welcomeGoodbye ? '✅' : '❌'}\n`;
-            text += `activemembers: ${settings.activemembers ? '✅' : '❌'}\n`;
-            text += `autoblockCountry: ${settings.autoblockCountry ? '✅' : '❌'}\n\n`;
-            text += `⚙️ *LIMITS*\n`;
-            text += `warnLimit: ${settings.warnLimit}\n`;
-            text += `maxTags: ${settings.maxTags}\n`;
-            text += `inactiveDays: ${settings.inactiveDays}\n`;
-            text += `antiSpamLimit: ${settings.antiSpamLimit}\n`;
-            text += `antiSpamInterval: ${settings.antiSpamInterval}ms\n`;
-            text += `sleepingStart: ${settings.sleepingStart}\n`;
-            text += `sleepingEnd: ${settings.sleepingEnd}\n`;
-            text += `maxCoOwners: ${settings.maxCoOwners}\n\n`;
-            text += `🔐 *MODE*\n`;
-            text += `mode: ${settings.mode}\n`;
-            text += `prefix: ${settings.prefix}\n`;
-            text += `alwaysOnline: ${settings.alwaysOnline ? '✅' : '❌'}\n\n`;
-            text += `📋 *ARRAYS*\n`;
-            text += `scamKeywords: ${settings.scamKeywords?.length || 0} items\n`;
-            text += `pornKeywords: ${settings.pornKeywords?.length || 0} items\n`;
-            text += `blockedMediaTypes: ${settings.blockedMediaTypes?.length || 0} items\n`;
-            text += `autoReactEmojis: ${settings.autoReactEmojis?.length || 0} items\n`;
-            text += `blockedCountries: ${settings.blockedCountries?.length || 0} items\n\n`;
-            text += `💡 *USAGE*\n`;
-            text += `${prefix}settings toggle <feature>          # toggle boolean\n`;
-            text += `${prefix}settings set <feature> <value>     # set number/string\n`;
-            text += `${prefix}settings list <array>              # list array items\n`;
-            text += `${prefix}settings add <array> <item>        # add to array\n`;
-            text += `${prefix}settings remove <array> <item>     # remove from array\n`;
-            text += `Examples:\n`;
-            text += `${prefix}settings toggle antilink\n`;
-            text += `${prefix}settings set warnLimit 5\n`;
-            text += `${prefix}settings add scam win\n`;
-            text += `${prefix}settings list scam\n`;
-            return reply(fancy(text));
-        }
-
-        const sub = args[0].toLowerCase();
-
-        // ========== TOGGLE BOOLEAN ==========
-        if (sub === 'toggle') {
-            const feature = args[1];
-            if (!feature) return reply("❌ Specify feature to toggle.");
-            if (!(feature in settings) || typeof settings[feature] !== 'boolean') {
-                return reply("❌ Invalid boolean feature.");
-            }
-            settings[feature] = !settings[feature];
-            await handler.saveGlobalSettings(settings);
-            await handler.refreshConfig();
-            return reply(fancy(`✅ ${feature} is now ${settings[feature] ? 'ON' : 'OFF'}`));
-        }
-
-        // ========== SET VALUE (number/string) ==========
-        if (sub === 'set') {
-            const feature = args[1];
-            const value = args.slice(2).join(' ');
-            if (!feature || !value) return reply("❌ Usage: .settings set <feature> <value>");
-
-            if (!(feature in settings)) return reply("❌ Feature not found.");
-
-            // Type handling
-            if (typeof settings[feature] === 'number') {
-                const num = Number(value);
-                if (isNaN(num)) return reply("❌ Must be a number.");
-                settings[feature] = num;
-            } else if (typeof settings[feature] === 'string') {
-                settings[feature] = value;
-            } else {
-                return reply("❌ Cannot set this feature with 'set'. Use toggle/add/remove.");
+            // Prepare media (optional)
+            let imageMedia = null;
+            if (settings.settingsImage || settings.menuImage) {
+                try {
+                    const imgSrc = (settings.settingsImage || settings.menuImage).startsWith('http') 
+                        ? { url: settings.settingsImage || settings.menuImage } 
+                        : { url: settings.settingsImage || settings.menuImage };
+                    imageMedia = await prepareWAMessageMedia(
+                        { image: imgSrc },
+                        { upload: conn.waUploadToServer || conn.upload }
+                    );
+                } catch (e) { console.error("Settings image error:", e); }
             }
 
-            await handler.saveGlobalSettings(settings);
-            await handler.refreshConfig();
-            return reply(fancy(`✅ ${feature} set to ${settings[feature]}`));
-        }
+            // ==================== BUILD CARDS ====================
+            const cards = [];
 
-        // ========== LIST ARRAY ==========
-        if (sub === 'list') {
-            const arrayName = args[1];
-            const validArrays = ['scam', 'porn', 'blockmedia', 'emoji', 'country'];
-            const map = {
-                scam: 'scamKeywords',
-                porn: 'pornKeywords',
-                blockmedia: 'blockedMediaTypes',
-                emoji: 'autoReactEmojis',
-                country: 'blockedCountries'
+            // --- CARD 1: ANTI FEATURES ---
+            cards.push(buildCard({
+                title: "ANTI FEATURES",
+                image: imageMedia,
+                userName,
+                items: [
+                    { label: "Anti Link", key: "antilink", value: settings.antilink },
+                    { label: "Anti Porn", key: "antiporn", value: settings.antiporn },
+                    { label: "Anti Scam", key: "antiscam", value: settings.antiscam },
+                    { label: "Anti Media", key: "antimedia", value: settings.antimedia },
+                    { label: "Anti Tag", key: "antitag", value: settings.antitag },
+                    { label: "Anti ViewOnce", key: "antiviewonce", value: settings.antiviewonce },
+                    { label: "Anti Delete", key: "antidelete", value: settings.antidelete },
+                    { label: "Sleeping Mode", key: "sleepingmode", value: settings.sleepingmode },
+                    { label: "Anti Bugs", key: "antibugs", value: settings.antibugs },
+                    { label: "Anti Spam", key: "antispam", value: settings.antispam },
+                    { label: "Anti Call", key: "anticall", value: settings.anticall }
+                ],
+                prefix,
+                category: "anti"
+            }));
+
+            // --- CARD 2: AUTO FEATURES ---
+            cards.push(buildCard({
+                title: "AUTO FEATURES",
+                image: imageMedia,
+                userName,
+                items: [
+                    { label: "Auto Read", key: "autoRead", value: settings.autoRead, scope: settings.autoReadScope },
+                    { label: "Auto React", key: "autoReact", value: settings.autoReact, scope: settings.autoReactScope },
+                    { label: "Auto Typing", key: "autoTyping", value: settings.autoTyping },
+                    { label: "Auto Recording", key: "autoRecording", value: settings.autoRecording },
+                    { label: "Auto Bio", key: "autoBio", value: settings.autoBio },
+                    { label: "Auto Status", key: "autostatus", value: settings.autostatus },
+                    { label: "Download Status", key: "downloadStatus", value: settings.downloadStatus }
+                ],
+                prefix,
+                category: "auto"
+            }));
+
+            // --- CARD 3: GROUP MANAGEMENT ---
+            cards.push(buildCard({
+                title: "GROUP MGMT",
+                image: imageMedia,
+                userName,
+                items: [
+                    { label: "Welcome/Goodbye", key: "welcomeGoodbye", value: settings.welcomeGoodbye },
+                    { label: "Active Members", key: "activemembers", value: settings.activemembers },
+                    { label: "Auto Block Country", key: "autoblockCountry", value: settings.autoblockCountry }
+                ],
+                prefix,
+                category: "group"
+            }));
+
+            // --- CARD 4: AI FEATURES ---
+            cards.push(buildCard({
+                title: "AI FEATURES",
+                image: imageMedia,
+                userName,
+                items: [
+                    { label: "Chatbot", key: "chatbot", value: settings.chatbot }
+                ],
+                prefix,
+                category: "ai"
+            }));
+
+            // --- CARD 5: LIMITS ---
+            cards.push(buildCard({
+                title: "LIMITS",
+                image: imageMedia,
+                userName,
+                items: [
+                    { label: "Warn Limit", key: "warnLimit", value: settings.warnLimit, type: "number" },
+                    { label: "Max Tags", key: "maxTags", value: settings.maxTags, type: "number" },
+                    { label: "Inactive Days", key: "inactiveDays", value: settings.inactiveDays, type: "number" },
+                    { label: "AntiSpam Limit", key: "antiSpamLimit", value: settings.antiSpamLimit, type: "number" },
+                    { label: "AntiSpam Interval", key: "antiSpamInterval", value: settings.antiSpamInterval + "ms", type: "number" },
+                    { label: "Sleep Start", key: "sleepingStart", value: settings.sleepingStart, type: "time" },
+                    { label: "Sleep End", key: "sleepingEnd", value: settings.sleepingEnd, type: "time" },
+                    { label: "Status Reply Limit", key: "autoStatusLimit", value: settings.autoStatusLimit, type: "number" }
+                ],
+                prefix,
+                category: "limits"
+            }));
+
+            // --- CARD 6: MODE & PREFIX ---
+            cards.push(buildCard({
+                title: "MODE & PREFIX",
+                image: imageMedia,
+                userName,
+                items: [
+                    { label: "Mode", key: "mode", value: settings.mode, type: "mode" },
+                    { label: "Prefix", key: "prefix", value: settings.prefix, type: "prefix" },
+                    { label: "Max Co-Owners", key: "maxCoOwners", value: settings.maxCoOwners, type: "number" },
+                    { label: "Always Online", key: "alwaysOnline", value: settings.alwaysOnline }
+                ],
+                prefix,
+                category: "mode"
+            }));
+
+            // --- CARD 7: SCOPE SETTINGS ---
+            cards.push(buildCard({
+                title: "SCOPES",
+                image: imageMedia,
+                userName,
+                items: [
+                    { label: "Auto Read Scope", key: "autoReadScope", value: settings.autoReadScope, type: "scope" },
+                    { label: "Auto React Scope", key: "autoReactScope", value: settings.autoReactScope, type: "scope" }
+                ],
+                prefix,
+                category: "scope"
+            }));
+
+            // --- CARD 8: ARRAY SETTINGS ---
+            cards.push(buildCard({
+                title: "ARRAY SETTINGS",
+                image: imageMedia,
+                userName,
+                items: [
+                    { label: "Scam Keywords", key: "scam", count: settings.scamKeywords?.length || 0 },
+                    { label: "Porn Keywords", key: "porn", count: settings.pornKeywords?.length || 0 },
+                    { label: "Blocked Media", key: "blockmedia", count: settings.blockedMediaTypes?.length || 0 },
+                    { label: "React Emojis", key: "emoji", count: settings.autoReactEmojis?.length || 0 },
+                    { label: "Blocked Countries", key: "country", count: settings.blockedCountries?.length || 0 }
+                ],
+                prefix,
+                category: "arrays"
+            }));
+
+            // ==================== SEND CAROUSEL ====================
+            const interactiveMsg = {
+                body: { text: fancy(
+                    `╭─── • 🥀 • ───╮\n` +
+                    `   ⚙️ BOT SETTINGS   \n` +
+                    `╰─── • 🥀 • ───╯\n\n` +
+                    `👤 Owner: ${userName}\n` +
+                    `📊 Total cards: ${cards.length}\n` +
+                    `◀️ Swipe left/right for categories ▶️`
+                ) },
+                footer: { text: fancy(settings.footer) },
+                header: { title: fancy(`⚙️ CONFIGURATION`) },
+                carouselMessage: { cards }
             };
-            if (!validArrays.includes(arrayName)) return reply(`❌ Valid arrays: ${validArrays.join(', ')}`);
 
-            const key = map[arrayName];
-            const list = settings[key] || [];
-            let text = `╭─── • 🥀 • ───╮\n`;
-            text += `   *${key.toUpperCase()}*   \n`;
-            text += `╰─── • 🥀 • ───╯\n\n`;
-            text += `Total: ${list.length}\n\n`;
-            list.forEach((item, i) => { text += `${i+1}. ${item}\n`; });
-            return reply(fancy(text));
+            const msgContent = { interactiveMessage: interactiveMsg };
+            const waMsg = generateWAMessageFromContent(from, msgContent, {
+                userJid: conn.user.id,
+                upload: conn.waUploadToServer || conn.upload
+            });
+            await conn.relayMessage(from, waMsg.message, { messageId: waMsg.key.id });
+
+        } catch (e) {
+            console.error("Settings carousel error:", e);
+            reply("Error loading settings carousel. Check console.");
         }
-
-        // ========== ADD TO ARRAY ==========
-        if (sub === 'add') {
-            const arrayName = args[1];
-            const item = args.slice(2).join(' ').trim();
-            const validArrays = ['scam', 'porn', 'blockmedia', 'emoji', 'country'];
-            const map = {
-                scam: 'scamKeywords',
-                porn: 'pornKeywords',
-                blockmedia: 'blockedMediaTypes',
-                emoji: 'autoReactEmojis',
-                country: 'blockedCountries'
-            };
-            if (!validArrays.includes(arrayName)) return reply(`❌ Valid arrays: ${validArrays.join(', ')}`);
-            if (!item) return reply("❌ Provide item to add.");
-
-            const key = map[arrayName];
-            let list = settings[key] || [];
-            if (list.includes(item)) return reply("❌ Item already exists.");
-            list.push(item);
-            settings[key] = list;
-            await handler.saveGlobalSettings(settings);
-            await handler.refreshConfig();
-            return reply(fancy(`✅ Added to ${key}: ${item}`));
-        }
-
-        // ========== REMOVE FROM ARRAY ==========
-        if (sub === 'remove') {
-            const arrayName = args[1];
-            const item = args.slice(2).join(' ').trim();
-            const validArrays = ['scam', 'porn', 'blockmedia', 'emoji', 'country'];
-            const map = {
-                scam: 'scamKeywords',
-                porn: 'pornKeywords',
-                blockmedia: 'blockedMediaTypes',
-                emoji: 'autoReactEmojis',
-                country: 'blockedCountries'
-            };
-            if (!validArrays.includes(arrayName)) return reply(`❌ Valid arrays: ${validArrays.join(', ')}`);
-            if (!item) return reply("❌ Provide item to remove.");
-
-            const key = map[arrayName];
-            let list = settings[key] || [];
-            const index = list.indexOf(item);
-            if (index === -1) return reply("❌ Item not found.");
-            list.splice(index, 1);
-            settings[key] = list;
-            await handler.saveGlobalSettings(settings);
-            await handler.refreshConfig();
-            return reply(fancy(`✅ Removed from ${key}: ${item}`));
-        }
-
-        // ========== HELP ==========
-        reply("❌ Unknown subcommand. Use .settings with no arguments for help.");
     }
 };
+
+// Helper to build a card
+function buildCard({ title, image, userName, items, prefix, category }) {
+    const buttons = [];
+
+    items.forEach(item => {
+        if (item.type === 'number' || item.type === 'time' || item.type === 'mode' || item.type === 'prefix' || item.type === 'scope') {
+            // For numeric/time/scope settings, provide a button to adjust
+            buttons.push({
+                name: "quick_reply",
+                buttonParamsJson: JSON.stringify({
+                    display_text: `⚙️ ${item.label}`,
+                    id: `${prefix}set_${category} ${item.key}`
+                })
+            });
+        } else if (item.count !== undefined) {
+            // Array settings – button to manage
+            buttons.push({
+                name: "quick_reply",
+                buttonParamsJson: JSON.stringify({
+                    display_text: `📋 ${item.label} (${item.count})`,
+                    id: `${prefix}manage_${item.key}`
+                })
+            });
+        } else {
+            // Boolean toggle
+            const status = item.value ? '✅' : '❌';
+            buttons.push({
+                name: "quick_reply",
+                buttonParamsJson: JSON.stringify({
+                    display_text: `${status} ${item.label}`,
+                    id: `${prefix}toggle ${item.key}`
+                })
+            });
+        }
+    });
+
+    const cardHeader = image ? { imageMessage: image.imageMessage } : { title: fancy(title) };
+
+    return {
+        body: { text: fancy(
+            `╭─── • 🥀 • ───╮\n` +
+            `   ${title}  \n` +
+            `╰─── • 🥀 • ───╯\n\n` +
+            `👋 Hello, *${userName}*\n` +
+            `Tap buttons to adjust.`
+        ) },
+        footer: { text: fancy(`⚙️ INSIDIOUS SETTINGS`) },
+        header: cardHeader,
+        nativeFlowMessage: { buttons }
+    };
+}
