@@ -1,21 +1,23 @@
 const fs = require('fs-extra');
 const path = require('path');
-const { generateWAMessageFromContent, prepareWAMessageMedia } = require('@whiskeysockets/baileys');
-const { fancy, runtime } = require('../lib/tools');
-const handler = require('../handler');
+const { generateWAMessageFromContent, prepareWAMessageMedia, proto } = require("@whiskeysockets/baileys");
+const { fancy, runtime } = require('../../lib/tools');
+const handler = require('../../handler');
 
 module.exports = {
     name: "menu",
+    aliases: ["help", "commands"],
     execute: async (conn, msg, args, { from, sender, pushname }) => {
         try {
             let userName = pushname || sender.split('@')[0];
             const settings = await handler.loadGlobalSettings();
             const prefix = settings.prefix || '.';
 
-            const cmdPath = path.join(__dirname, '../commands');
+            const cmdPath = path.join(__dirname, '../');
             const categories = fs.readdirSync(cmdPath).filter(c => fs.statSync(path.join(cmdPath, c)).isDirectory());
             const cards = [];
 
+            // Prepare image media (same for all cards)
             let imageMedia = null;
             if (settings.menuImage) {
                 try {
@@ -27,63 +29,111 @@ module.exports = {
             for (const cat of categories) {
                 const catPath = path.join(cmdPath, cat);
                 const files = fs.readdirSync(catPath).filter(f => f.endsWith('.js')).map(f => f.replace('.js', ''));
-                if (!files.length) continue;
+                if (files.length === 0) continue;
 
-                const perPage = 6;
+                // Split files into pages (max 4 buttons per page for better UX)
+                const perPage = 4;
                 const pages = [];
                 for (let i = 0; i < files.length; i += perPage) pages.push(files.slice(i, i + perPage));
 
                 pages.forEach((pageFiles, idx) => {
+                    // Create buttons for each command on this page
                     const buttons = pageFiles.map(cmd => ({
                         name: "quick_reply",
-                        buttonParamsJson: JSON.stringify({ display_text: `${prefix}${cmd}`, id: `${prefix}${cmd}` })
+                        buttonParamsJson: JSON.stringify({
+                            display_text: `${prefix}${cmd}`,
+                            id: `${prefix}${cmd}`
+                        })
                     }));
 
+                    // Navigation buttons if multiple pages
                     if (pages.length > 1) {
-                        if (idx > 0) buttons.push({
-                            name: "quick_reply",
-                            buttonParamsJson: JSON.stringify({ display_text: "◀️ Prev", id: `${prefix}menu ${cat} ${idx-1}` })
-                        });
-                        if (idx < pages.length-1) buttons.push({
-                            name: "quick_reply",
-                            buttonParamsJson: JSON.stringify({ display_text: "Next ▶️", id: `${prefix}menu ${cat} ${idx+1}` })
-                        });
+                        if (idx > 0) {
+                            buttons.push({
+                                name: "quick_reply",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: "◀️ Prev",
+                                    id: `${prefix}menu ${cat} ${idx-1}`
+                                })
+                            });
+                        }
+                        if (idx < pages.length-1) {
+                            buttons.push({
+                                name: "quick_reply",
+                                buttonParamsJson: JSON.stringify({
+                                    display_text: "Next ▶️",
+                                    id: `${prefix}menu ${cat} ${idx+1}`
+                                })
+                            });
+                        }
                     }
 
+                    // Card header (image or title)
                     const cardHeader = imageMedia ? { imageMessage: imageMedia.imageMessage } : { title: fancy(cat.toUpperCase()) };
+
+                    const cardBody = `╭─── • 🥀 • ───╮\n` +
+                                     `   *${cat.toUpperCase()}*   \n` +
+                                     `╰─── • 🥀 • ───╯\n\n` +
+                                     `👋 Hello, *${userName}*\n` +
+                                     `Page ${idx+1}/${pages.length}\n` +
+                                     `Select a command below.`;
+
                     const card = {
-                        body: { text: fancy(
-                            `╭─── • 🥀 • ───╮\n` +
-                            `   ${cat.toUpperCase()}  ${pages.length>1 ? `(${idx+1}/${pages.length})` : ''}\n` +
-                            `╰─── • 🥀 • ───╯\n\n` +
-                            `👋 Hello, *${userName}*\nTap a button to execute.`
-                        ) },
-                        footer: { text: fancy(settings.footer) },
+                        body: proto.Message.InteractiveMessage.Body.fromObject({
+                            text: fancy(cardBody)
+                        }),
+                        footer: proto.Message.InteractiveMessage.Footer.fromObject({
+                            text: fancy(settings.footer)
+                        }),
                         header: cardHeader,
-                        nativeFlowMessage: { buttons }
+                        nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+                            buttons: buttons
+                        })
                     };
                     cards.push(card);
                 });
             }
 
+            const mainHeader = `╭─── • 🥀 • ───╮\n` +
+                               `   *INSIDIOUS MENU*   \n` +
+                               `╰─── • 🥀 • ───╯\n\n` +
+                               `Uptime: ${runtime(process.uptime())}\n` +
+                               `👤 User: ${userName}\n\n` +
+                               `◀️ Swipe to explore categories ▶️`;
+
             const interactiveMsg = {
-                body: { text: fancy(
-                    `╭─── • 🥀 • ───╮\n` +
-                    `   👹 INSIDIOUS   \n` +
-                    `╰─── • 🥀 • ───╯\n\n` +
-                    `⏱️ Uptime: ${runtime(process.uptime())}\n` +
-                    `👤 User: ${userName}`
-                ) },
-                footer: { text: fancy("◀️ Swipe for categories ▶️") },
-                header: { title: fancy(settings.botName) },
-                carouselMessage: { cards }
+                body: proto.Message.InteractiveMessage.Body.fromObject({
+                    text: fancy(mainHeader)
+                }),
+                footer: proto.Message.InteractiveMessage.Footer.fromObject({
+                    text: fancy("STANYTZ AUTOMATION")
+                }),
+                carouselMessage: proto.Message.CarouselMessage.fromObject({
+                    cards: cards
+                }),
+                contextInfo: {
+                    isForwarded: true,
+                    forwardingScore: 999,
+                    forwardedNewsletterMessageInfo: {
+                        newsletterJid: settings.newsletterJid || "120363404317544295@newsletter",
+                        newsletterName: settings.botName
+                    }
+                }
             };
 
-            const waMsg = generateWAMessageFromContent(from, { interactiveMessage: interactiveMsg }, { userJid: conn.user.id, upload: conn.waUploadToServer });
-            await conn.relayMessage(from, waMsg.message, { messageId: waMsg.key.id });
+            const msgContent = generateWAMessageFromContent(from, {
+                viewOnceMessage: {
+                    message: {
+                        interactiveMessage: interactiveMsg
+                    }
+                }
+            }, { userJid: conn.user.id, upload: conn.waUploadToServer });
+
+            await conn.relayMessage(from, msgContent.message, { messageId: msgContent.key.id });
+
         } catch (e) {
             console.error("Menu error:", e);
-            await msg.reply("Menu error, check console.");
+            await msg.reply("❌ Menu error. Check console.");
         }
     }
 };
