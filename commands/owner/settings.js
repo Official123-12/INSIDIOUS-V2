@@ -19,44 +19,44 @@ module.exports = {
             manual += `╰─── • 🥀 • ───╯\n\n`;
 
             manual += `*🔧 BASIC COMMANDS*\n`;
-            manual += `┌─────────────────────\n`;
+            manual += `┌───────────────\n`;
             manual += `│ ${prefix}settings                      # Show this manual\n`;
             manual += `│ ${prefix}settings list                  # Show all current settings\n`;
-            manual += `└─────────────────────\n\n`;
+            manual += `└───────────────\n\n`;
 
             manual += `*🔁 TOGGLE FEATURES (on/off)*\n`;
-            manual += `┌─────────────────────\n`;
+            manual += `┌────────────────\n`;
             manual += `│ ${prefix}settings <feature> on/off\n`;
             manual += `│ Example: ${prefix}settings antilink on\n`;
             manual += `│ Example: ${prefix}settings antiporn off\n`;
-            manual += `└─────────────────────\n\n`;
+            manual += `└────────────────\n\n`;
 
             manual += `*🌐 TOGGLE WITH SCOPE (all/group/private)*\n`;
-            manual += `┌─────────────────────\n`;
+            manual += `┌───────────────\n`;
             manual += `│ For features that support scope:\n`;
-            manual += `│ • autoRead\n`;
-            manual += `│ • autoReact\n`;
+            manual += `│ • autoread\n`;
+            manual += `│ • autoreact\n`;
             manual += `│ • chatbot\n`;
             manual += `│ • antiviewonce\n`;
             manual += `│ • antidelete\n`;
             manual += `│\n`;
             manual += `│ ${prefix}settings <feature> <scope> on/off\n`;
-            manual += `│ Example: ${prefix}settings autoReact group on\n`;
-            manual += `│ Example: ${prefix}settings autoRead all off\n`;
-            manual += `└─────────────────────\n\n`;
+            manual += `│ Example: ${prefix}settings autoreact group on\n`;
+            manual += `│ Example: ${prefix}settings autoread all off\n`;
+            manual += `└───────────────\n\n`;
 
             manual += `*🔢 SET NUMERIC VALUES*\n`;
-            manual += `┌─────────────────────\n`;
+            manual += `┌───────────────\n`;
             manual += `│ ${prefix}settings set <feature> <value>\n`;
             manual += `│ Features: warnLimit, maxTags, inactiveDays, antiSpamLimit,\n`;
             manual += `│           antiSpamInterval, sleepingStart, sleepingEnd,\n`;
-            manual += `│           maxCoOwners, autoStatusLimit\n`;
+            manual += `│           maxCoOwners, autoStatusLimit, autoDeleteTimeout\n`;
             manual += `│ Example: ${prefix}settings set warnLimit 5\n`;
             manual += `│ Example: ${prefix}settings set sleepingStart 22:00\n`;
-            manual += `└────────────────────\n\n`;
+            manual += `└───────────────\n\n`;
 
             manual += `*📋 MANAGE ARRAYS (keywords, emojis, countries)*\n`;
-            manual += `┌──────────────────────────\n`;
+            manual += `┌───────────────\n`;
             manual += `│ Available arrays:\n`;
             manual += `│ • scam       (scam keywords)\n`;
             manual += `│ • porn       (porn keywords)\n`;
@@ -72,12 +72,23 @@ module.exports = {
             manual += `│ ${prefix}settings list scam\n`;
             manual += `│ ${prefix}settings add scam win\n`;
             manual += `│ ${prefix}settings remove scam win\n`;
-            manual += `└───────────────────────\n\n`;
+            manual += `└───────────────\n\n`;
+
+            manual += `*⚙️ OTHER SETTINGS*\n`;
+            manual += `┌───────────────\n`;
+            manual += `│ autoDeleteMessages: ${settings.autoDeleteMessages ? '✅' : '❌'}\n`;
+            manual += `│ autoDeleteTimeout: ${settings.autoDeleteTimeout}ms\n`;
+            manual += `│ autoStatusActions: ${settings.autoStatusActions?.join(', ') || 'view,react,reply'}\n`;
+            manual += `│\n`;
+            manual += `│ ${prefix}settings autodelete on/off\n`;
+            manual += `│ ${prefix}settings set autoDeleteTimeout <ms>\n`;
+            manual += `│ ${prefix}settings statusactions <view/react/reply> ...\n`;
+            manual += `└───────────────\n\n`;
 
             manual += `*📊 VIEW CURRENT SETTINGS*\n`;
-            manual += `┌────────────────────────────\n`;
+            manual += `┌───────────────\n`;
             manual += `│ ${prefix}settings list\n`;
-            manual += `└────────────────────────────\n`;
+            manual += `└───────────────\n`;
 
             await conn.sendMessage(from, {
                 image: { url: settings.botImage || 'https://files.catbox.moe/f3c07u.jpg' },
@@ -93,7 +104,6 @@ module.exports = {
             text += `   *CURRENT SETTINGS*   \n`;
             text += `╰─── • 🥀 • ───╯\n\n`;
 
-            // ANTI FEATURES
             text += `🔧 *ANTI FEATURES*\n`;
             text += `┌───────────\n`;
             text += `│ antilink       : ${settings.antilink ? '✅' : '❌'}\n`;
@@ -108,9 +118,8 @@ module.exports = {
             text += `│ anticall       : ${settings.anticall ? '✅' : '❌'}\n`;
             text += `└───────────\n\n`;
 
-            // AUTO FEATURES
             text += `⚡ *AUTO FEATURES*\n`;
-            text += `┌────────────\n`;
+            text += `┌───────────\n`;
             text += `│ autoRead       : ${settings.autoRead ? '✅' : '❌'} (scope: ${settings.autoReadScope || 'all'})\n`;
             text += `│ autoReact      : ${settings.autoReact ? '✅' : '❌'} (scope: ${settings.autoReactScope || 'all'})\n`;
             text += `│ autoTyping     : ${settings.autoTyping ? '✅' : '❌'}\n`;
@@ -120,13 +129,11 @@ module.exports = {
             text += `│ downloadStatus : ${settings.downloadStatus ? '✅' : '❌'}\n`;
             text += `└───────────\n\n`;
 
-            // CHATBOT
             text += `🤖 *CHATBOT*\n`;
             text += `┌───────────\n`;
             text += `│ chatbot        : ${settings.chatbot ? '✅' : '❌'} (scope: ${settings.chatbotScope || 'all'})\n`;
-            text += `└───────────\n\n`;
+            text += `└────────────n\n`;
 
-            // GROUP MANAGEMENT
             text += `👥 *GROUP MANAGEMENT*\n`;
             text += `┌───────────\n`;
             text += `│ welcomeGoodbye : ${settings.welcomeGoodbye ? '✅' : '❌'}\n`;
@@ -134,7 +141,6 @@ module.exports = {
             text += `│ autoblockCountry: ${settings.autoblockCountry ? '✅' : '❌'}\n`;
             text += `└───────────\n\n`;
 
-            // LIMITS
             text += `⚙️ *LIMITS*\n`;
             text += `┌───────────\n`;
             text += `│ warnLimit      : ${settings.warnLimit}\n`;
@@ -146,9 +152,8 @@ module.exports = {
             text += `│ sleepingEnd    : ${settings.sleepingEnd}\n`;
             text += `│ maxCoOwners    : ${settings.maxCoOwners}\n`;
             text += `│ autoStatusLimit: ${settings.autoStatusLimit}\n`;
-            text += `└───────────\n\n`;
+            text += `└────────────\n\n`;
 
-            // MODE & PREFIX
             text += `🔐 *MODE & PREFIX*\n`;
             text += `┌───────────\n`;
             text += `│ mode           : ${settings.mode}\n`;
@@ -156,9 +161,15 @@ module.exports = {
             text += `│ alwaysOnline   : ${settings.alwaysOnline ? '✅' : '❌'}\n`;
             text += `└───────────\n\n`;
 
-            // ARRAYS
-            text += `📋 *ARRAY SETTINGS*\n`;
+            text += `⚙️ *OTHER SETTINGS*\n`;
             text += `┌───────────\n`;
+            text += `│ autoDeleteMessages: ${settings.autoDeleteMessages ? '✅' : '❌'}\n`;
+            text += `│ autoDeleteTimeout : ${settings.autoDeleteTimeout}ms\n`;
+            text += `│ autoStatusActions : ${settings.autoStatusActions?.join(', ') || 'view,react,reply'}\n`;
+            text += `└───────────\n`;
+
+            text += `📋 *ARRAY SETTINGS*\n`;
+            text += `┌────────────\n`;
             text += `│ scamKeywords   : ${settings.scamKeywords?.length || 0} items\n`;
             text += `│ pornKeywords   : ${settings.pornKeywords?.length || 0} items\n`;
             text += `│ blockedMediaTypes: ${settings.blockedMediaTypes?.length || 0} items\n`;
@@ -174,15 +185,36 @@ module.exports = {
             return;
         }
 
-        // ========== PARSE ARGUMENTS ==========
+        // ========== SPECIAL SETTINGS ==========
         const first = args[0].toLowerCase();
+
+        if (first === 'autodelete') {
+            if (args.length < 2) return reply("❌ Usage: .settings autodelete on/off");
+            const action = args[1].toLowerCase();
+            if (!['on', 'off'].includes(action)) return reply("❌ Specify on or off.");
+            settings.autoDeleteMessages = action === 'on';
+            await handler.saveGlobalSettings(settings);
+            await handler.refreshConfig();
+            return reply(`✅ Auto-delete messages is now ${action.toUpperCase()}`);
+        }
+
+        if (first === 'statusactions') {
+            if (args.length < 2) return reply("❌ Usage: .settings statusactions view/react/reply ...");
+            const actions = args.slice(1).map(a => a.toLowerCase());
+            const valid = ['view', 'react', 'reply'];
+            if (!actions.every(a => valid.includes(a))) return reply(`❌ Valid actions: ${valid.join(', ')}`);
+            settings.autoStatusActions = actions;
+            await handler.saveGlobalSettings(settings);
+            await handler.refreshConfig();
+            return reply(`✅ Auto status actions set to: ${actions.join(', ')}`);
+        }
+
+        // ========== PARSE ARGUMENTS ==========
         const subcommands = ['set', 'list', 'add', 'remove'];
 
-        // Handle array subcommands
         if (subcommands.includes(first)) {
             const sub = first;
 
-            // ----- SET NUMBER -----
             if (sub === 'set') {
                 const feature = args[1];
                 const value = args.slice(2).join(' ');
@@ -203,7 +235,6 @@ module.exports = {
                 return reply(`✅ ${feature} set to ${settings[feature]}`);
             }
 
-            // ----- LIST ARRAY -----
             if (sub === 'list') {
                 const arrayName = args[1];
                 const validArrays = ['scam', 'porn', 'blockmedia', 'emoji', 'country'];
@@ -218,15 +249,13 @@ module.exports = {
 
                 const key = map[arrayName];
                 const list = settings[key] || [];
-                let text = `╭─── • 🥀 • ───╮\n`;
-                text += `   *${key.toUpperCase()}*   \n`;
-                text += `╰─── • 🥀 • ───╯\n\n`;
+                // Build plain list without borders – reply will add borders
+                let text = `*${key.toUpperCase()}*\n\n`;
                 text += `Total: ${list.length}\n\n`;
                 list.forEach((item, i) => { text += `${i+1}. ${item}\n`; });
                 return reply(text);
             }
 
-            // ----- ADD TO ARRAY -----
             if (sub === 'add') {
                 const arrayName = args[1];
                 const item = args.slice(2).join(' ').trim();
@@ -251,7 +280,6 @@ module.exports = {
                 return reply(`✅ Added to ${key}: ${item}`);
             }
 
-            // ----- REMOVE FROM ARRAY -----
             if (sub === 'remove') {
                 const arrayName = args[1];
                 const item = args.slice(2).join(' ').trim();
@@ -279,13 +307,41 @@ module.exports = {
         }
 
         // ========== TOGGLE FEATURE (with optional scope) ==========
+        const featureMap = {
+            'antilink': 'antilink',
+            'antiporn': 'antiporn',
+            'antiscam': 'antiscam',
+            'antimedia': 'antimedia',
+            'antitag': 'antitag',
+            'antiviewonce': 'antiviewonce',
+            'antidelete': 'antidelete',
+            'sleepingmode': 'sleepingmode',
+            'antispam': 'antispam',
+            'anticall': 'anticall',
+            'autoread': 'autoRead',
+            'autoreact': 'autoReact',
+            'autotyping': 'autoTyping',
+            'autorecording': 'autoRecording',
+            'autobio': 'autoBio',
+            'autostatus': 'autostatus',
+            'downloadstatus': 'downloadStatus',
+            'chatbot': 'chatbot',
+            'welcomegoodbye': 'welcomeGoodbye',
+            'activemembers': 'activemembers',
+            'autoblockcountry': 'autoblockCountry',
+            'alwaysonline': 'alwaysOnline',
+            'autodeletemessages': 'autoDeleteMessages'
+        };
+
         let feature = first;
+        if (featureMap[feature]) {
+            feature = featureMap[feature];
+        }
+
         let scope = null;
         let action = null;
-
         const possibleScopes = ['all', 'group', 'private'];
 
-        // Check if second argument is a valid scope
         if (args.length >= 3 && possibleScopes.includes(args[1].toLowerCase())) {
             scope = args[1].toLowerCase();
             action = args[2].toLowerCase();
@@ -303,14 +359,11 @@ module.exports = {
             return reply(`❌ Feature '${feature}' not found.`);
         }
 
-        // Features that support scope
         const scopeFeatures = ['autoRead', 'autoReact', 'chatbot', 'antiviewonce', 'antidelete'];
         const scopeKey = feature + 'Scope';
 
         if (scopeFeatures.includes(feature)) {
-            // Feature supports scope
             if (!scope) {
-                // If no scope provided, just toggle boolean (keep current scope)
                 if (typeof settings[feature] !== 'boolean') {
                     return reply(`❌ '${feature}' is not a boolean.`);
                 }
@@ -319,7 +372,6 @@ module.exports = {
                 await handler.refreshConfig();
                 return reply(`✅ ${feature} is now ${action.toUpperCase()} (scope: ${settings[scopeKey] || 'all'})`);
             } else {
-                // Set both boolean and scope
                 if (!possibleScopes.includes(scope)) {
                     return reply("❌ Scope must be 'all', 'group', or 'private'.");
                 }
@@ -330,7 +382,6 @@ module.exports = {
                 return reply(`✅ ${feature} is now ${action.toUpperCase()} (scope: ${scope})`);
             }
         } else {
-            // Simple boolean (no scope)
             if (scope) {
                 return reply(`❌ '${feature}' does not support scope. Use just on/off.`);
             }
