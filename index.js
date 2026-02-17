@@ -138,7 +138,7 @@ async function startBot() {
                     botNumber = conn.user.id.split(':')[0] || "Unknown";
                 }
                 
-                // 🔥 GET BOT ID AND PAIRED COUNT FROM HANDLER (after handler init)
+                // 🔥 GET BOT ID AND PAIRED COUNT FROM HANDLER
                 const botSecret = handler.getBotId ? handler.getBotId() : 'Unknown';
                 const pairedCount = handler.getPairedNumbers ? handler.getPairedNumbers().length : 0;
                 
@@ -289,7 +289,7 @@ startBot();
 
 // ==================== HTTP ENDPOINTS ====================
 
-// ✅ **PAIRING ENDPOINT (8-DIGIT CODE) – INAFANYA KAZI HATA KAMA BOT HAIIA-CONNECT**
+// ✅ **PAIRING ENDPOINT (8-DIGIT CODE) – HAKUNA CONNECTION CLOSE**
 app.get('/pair', async (req, res) => {
     try {
         let num = req.query.num;
