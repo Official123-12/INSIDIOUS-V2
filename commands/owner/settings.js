@@ -4,7 +4,7 @@ module.exports = {
     name: "settings",
     aliases: ["setting", "config"],
     ownerOnly: true,
-    description: "Complete bot settings manager",
+    description: "Complete bot settings manager – all in one",
     
     execute: async (conn, msg, args, { from, fancy, isOwner, reply }) => {
         if (!isOwner) return;
@@ -25,24 +25,18 @@ module.exports = {
             manual += `└───────────────\n\n`;
 
             manual += `*🔁 TOGGLE FEATURES (on/off)*\n`;
-            manual += `┌────────────────\n`;
+            manual += `┌───────────────\n`;
             manual += `│ ${prefix}settings <feature> on/off\n`;
             manual += `│ Example: ${prefix}settings antilink on\n`;
             manual += `│ Example: ${prefix}settings antiporn off\n`;
-            manual += `└────────────────\n\n`;
+            manual += `└───────────────\n\n`;
 
-            manual += `*🌐 TOGGLE WITH SCOPE (all/group/private)*\n`;
+            manual += `*🌐 WHERE TO USE (all/group/private)*\n`;
             manual += `┌───────────────\n`;
-            manual += `│ For features that support scope:\n`;
-            manual += `│ • autoread\n`;
-            manual += `│ • autoreact\n`;
-            manual += `│ • chatbot\n`;
-            manual += `│ • antiviewonce\n`;
-            manual += `│ • antidelete\n`;
-            manual += `│\n`;
-            manual += `│ ${prefix}settings <feature> <scope> on/off\n`;
-            manual += `│ Example: ${prefix}settings autoreact group on\n`;
-            manual += `│ Example: ${prefix}settings autoread all off\n`;
+            manual += `│ ${prefix}settings where <feature> <all/group/private>\n`;
+            manual += `│ Features: autoRead, autoReact, chatbot, antiviewonce, antidelete\n`;
+            manual += `│ Example: ${prefix}settings where autoReact group\n`;
+            manual += `│ Example: ${prefix}settings where autoRead all\n`;
             manual += `└───────────────\n\n`;
 
             manual += `*🔢 SET NUMERIC VALUES*\n`;
@@ -55,23 +49,19 @@ module.exports = {
             manual += `│ Example: ${prefix}settings set sleepingStart 22:00\n`;
             manual += `└───────────────\n\n`;
 
-            manual += `*📋 MANAGE ARRAYS (keywords, emojis, countries)*\n`;
+            manual += `*📋 MANAGE LISTS*\n`;
             manual += `┌───────────────\n`;
-            manual += `│ Available arrays:\n`;
+            manual += `│ Available lists:\n`;
             manual += `│ • scam       (scam keywords)\n`;
             manual += `│ • porn       (porn keywords)\n`;
-            manual += `│ • blockmedia (blocked media types: photo, video, sticker, etc.)\n`;
+            manual += `│ • blockmedia (blocked media types: photo, video, sticker)\n`;
             manual += `│ • emoji      (auto-react emojis)\n`;
             manual += `│ • country    (blocked country codes)\n`;
             manual += `│\n`;
-            manual += `│ ${prefix}settings list <array>                # Show all items\n`;
-            manual += `│ ${prefix}settings add <array> <item>          # Add an item\n`;
-            manual += `│ ${prefix}settings remove <array> <item>       # Remove an item\n`;
-            manual += `│\n`;
-            manual += `│ Examples:\n`;
-            manual += `│ ${prefix}settings list scam\n`;
-            manual += `│ ${prefix}settings add scam win\n`;
-            manual += `│ ${prefix}settings remove scam win\n`;
+            manual += `│ ${prefix}settings list <list>                # Show all items\n`;
+            manual += `│ ${prefix}settings add <list> <item>          # Add an item\n`;
+            manual += `│ ${prefix}settings remove <list> <item>       # Remove an item\n`;
+            manual += `│ Example: ${prefix}settings add scam win\n`;
             manual += `└───────────────\n\n`;
 
             manual += `*⚙️ OTHER SETTINGS*\n`;
@@ -83,6 +73,9 @@ module.exports = {
             manual += `│ ${prefix}settings autodelete on/off\n`;
             manual += `│ ${prefix}settings set autoDeleteTimeout <ms>\n`;
             manual += `│ ${prefix}settings statusactions <view/react/reply> ...\n`;
+            manual += `│ ${prefix}settings mode public/self\n`;
+            manual += `│ ${prefix}settings prefix <new>\n`;
+            manual += `│ ${prefix}settings withoutprefix on/off\n`;
             manual += `└───────────────\n\n`;
 
             manual += `*📊 VIEW CURRENT SETTINGS*\n`;
@@ -111,8 +104,8 @@ module.exports = {
             text += `│ antiscam       : ${settings.antiscam ? '✅' : '❌'}\n`;
             text += `│ antimedia      : ${settings.antimedia ? '✅' : '❌'}\n`;
             text += `│ antitag        : ${settings.antitag ? '✅' : '❌'}\n`;
-            text += `│ antiviewonce   : ${settings.antiviewonce ? '✅' : '❌'} (scope: ${settings.antiviewonceScope || 'all'})\n`;
-            text += `│ antidelete     : ${settings.antidelete ? '✅' : '❌'} (scope: ${settings.antideleteScope || 'all'})\n`;
+            text += `│ antiviewonce   : ${settings.antiviewonce ? '✅' : '❌'} (where: ${settings.antiviewonceScope || 'all'})\n`;
+            text += `│ antidelete     : ${settings.antidelete ? '✅' : '❌'} (where: ${settings.antideleteScope || 'all'})\n`;
             text += `│ sleepingmode   : ${settings.sleepingmode ? '✅' : '❌'}\n`;
             text += `│ antispam       : ${settings.antispam ? '✅' : '❌'}\n`;
             text += `│ anticall       : ${settings.anticall ? '✅' : '❌'}\n`;
@@ -120,8 +113,8 @@ module.exports = {
 
             text += `⚡ *AUTO FEATURES*\n`;
             text += `┌───────────\n`;
-            text += `│ autoRead       : ${settings.autoRead ? '✅' : '❌'} (scope: ${settings.autoReadScope || 'all'})\n`;
-            text += `│ autoReact      : ${settings.autoReact ? '✅' : '❌'} (scope: ${settings.autoReactScope || 'all'})\n`;
+            text += `│ autoRead       : ${settings.autoRead ? '✅' : '❌'} (where: ${settings.autoReadScope || 'all'})\n`;
+            text += `│ autoReact      : ${settings.autoReact ? '✅' : '❌'} (where: ${settings.autoReactScope || 'all'})\n`;
             text += `│ autoTyping     : ${settings.autoTyping ? '✅' : '❌'}\n`;
             text += `│ autoRecording  : ${settings.autoRecording ? '✅' : '❌'}\n`;
             text += `│ autoBio        : ${settings.autoBio ? '✅' : '❌'}\n`;
@@ -131,8 +124,8 @@ module.exports = {
 
             text += `🤖 *CHATBOT*\n`;
             text += `┌───────────\n`;
-            text += `│ chatbot        : ${settings.chatbot ? '✅' : '❌'} (scope: ${settings.chatbotScope || 'all'})\n`;
-            text += `└────────────n\n`;
+            text += `│ chatbot        : ${settings.chatbot ? '✅' : '❌'} (where: ${settings.chatbotScope || 'all'})\n`;
+            text += `└───────────\n\n`;
 
             text += `👥 *GROUP MANAGEMENT*\n`;
             text += `┌───────────\n`;
@@ -152,13 +145,14 @@ module.exports = {
             text += `│ sleepingEnd    : ${settings.sleepingEnd}\n`;
             text += `│ maxCoOwners    : ${settings.maxCoOwners}\n`;
             text += `│ autoStatusLimit: ${settings.autoStatusLimit}\n`;
-            text += `└────────────\n\n`;
+            text += `└───────────\n\n`;
 
             text += `🔐 *MODE & PREFIX*\n`;
             text += `┌───────────\n`;
             text += `│ mode           : ${settings.mode}\n`;
             text += `│ prefix         : ${settings.prefix}\n`;
             text += `│ alwaysOnline   : ${settings.alwaysOnline ? '✅' : '❌'}\n`;
+            text += `│ withoutPrefix  : ${settings.commandWithoutPrefix ? '✅' : '❌'}\n`;
             text += `└───────────\n\n`;
 
             text += `⚙️ *OTHER SETTINGS*\n`;
@@ -166,14 +160,14 @@ module.exports = {
             text += `│ autoDeleteMessages: ${settings.autoDeleteMessages ? '✅' : '❌'}\n`;
             text += `│ autoDeleteTimeout : ${settings.autoDeleteTimeout}ms\n`;
             text += `│ autoStatusActions : ${settings.autoStatusActions?.join(', ') || 'view,react,reply'}\n`;
-            text += `└───────────\n`;
+            text += `└───────────\n\n`;
 
             text += `📋 *ARRAY SETTINGS*\n`;
-            text += `┌────────────\n`;
+            text += `┌───────────\n`;
             text += `│ scamKeywords   : ${settings.scamKeywords?.length || 0} items\n`;
             text += `│ pornKeywords   : ${settings.pornKeywords?.length || 0} items\n`;
-            text += `│ blockedMediaTypes: ${settings.blockedMediaTypes?.length || 0} items\n`;
-            text += `│ autoReactEmojis: ${settings.autoReactEmojis?.length || 0} items\n`;
+            text += `│ blockedMedia   : ${settings.blockedMediaTypes?.length || 0} items\n`;
+            text += `│ reactEmojis    : ${settings.autoReactEmojis?.length || 0} items\n`;
             text += `│ blockedCountries: ${settings.blockedCountries?.length || 0} items\n`;
             text += `└───────────\n`;
 
@@ -185,19 +179,21 @@ module.exports = {
             return;
         }
 
-        // ========== SPECIAL SETTINGS ==========
+        // ========== PARSE ARGUMENTS ==========
         const first = args[0].toLowerCase();
 
+        // ----- SPECIAL: autodelete -----
         if (first === 'autodelete') {
             if (args.length < 2) return reply("❌ Usage: .settings autodelete on/off");
             const action = args[1].toLowerCase();
-            if (!['on', 'off'].includes(action)) return reply("❌ Specify on or off.");
+            if (!['on', 'off'].includes(action)) return reply("❌ Use on or off.");
             settings.autoDeleteMessages = action === 'on';
             await handler.saveGlobalSettings(settings);
             await handler.refreshConfig();
             return reply(`✅ Auto-delete messages is now ${action.toUpperCase()}`);
         }
 
+        // ----- SPECIAL: statusactions -----
         if (first === 'statusactions') {
             if (args.length < 2) return reply("❌ Usage: .settings statusactions view/react/reply ...");
             const actions = args.slice(1).map(a => a.toLowerCase());
@@ -209,95 +205,68 @@ module.exports = {
             return reply(`✅ Auto status actions set to: ${actions.join(', ')}`);
         }
 
-        // ========== PARSE ARGUMENTS ==========
-        const subcommands = ['set', 'list', 'add', 'remove'];
+        // ----- SPECIAL: mode -----
+        if (first === 'mode' && args.length === 2) {
+            const mode = args[1].toLowerCase();
+            if (!['public', 'self'].includes(mode)) return reply("❌ Mode must be public or self.");
+            settings.mode = mode;
+            await handler.saveGlobalSettings(settings);
+            await handler.refreshConfig();
+            return reply(`✅ Mode set to ${mode}`);
+        }
 
-        if (subcommands.includes(first)) {
+        // ----- SPECIAL: prefix -----
+        if (first === 'prefix' && args.length === 2) {
+            settings.prefix = args[1];
+            await handler.saveGlobalSettings(settings);
+            await handler.refreshConfig();
+            return reply(`✅ Prefix set to ${args[1]}`);
+        }
+
+        // ----- SPECIAL: withoutprefix -----
+        if (first === 'withoutprefix' && args.length === 2) {
+            const val = args[1].toLowerCase();
+            if (!['on', 'off'].includes(val)) return reply("❌ Use on or off.");
+            settings.commandWithoutPrefix = val === 'on';
+            await handler.saveGlobalSettings(settings);
+            await handler.refreshConfig();
+            return reply(`✅ Command without prefix is now ${val.toUpperCase()}`);
+        }
+
+        // ----- ARRAY MANAGEMENT (list, add, remove) -----
+        const listCmds = ['list', 'add', 'remove'];
+        if (listCmds.includes(first)) {
             const sub = first;
-
-            if (sub === 'set') {
-                const feature = args[1];
-                const value = args.slice(2).join(' ');
-                if (!feature || !value) return reply("❌ Usage: .settings set <feature> <value>");
-                if (!(feature in settings)) return reply(`❌ Feature '${feature}' not found.`);
-
-                if (typeof settings[feature] === 'number') {
-                    const num = Number(value);
-                    if (isNaN(num)) return reply("❌ Must be a number.");
-                    settings[feature] = num;
-                } else if (typeof settings[feature] === 'string') {
-                    settings[feature] = value;
-                } else {
-                    return reply("❌ Cannot set this feature. Use toggle or array commands.");
-                }
-                await handler.saveGlobalSettings(settings);
-                await handler.refreshConfig();
-                return reply(`✅ ${feature} set to ${settings[feature]}`);
-            }
+            const arrayName = args[1];
+            const validArrays = ['scam', 'porn', 'blockmedia', 'emoji', 'country'];
+            const map = {
+                scam: 'scamKeywords',
+                porn: 'pornKeywords',
+                blockmedia: 'blockedMediaTypes',
+                emoji: 'autoReactEmojis',
+                country: 'blockedCountries'
+            };
+            if (!validArrays.includes(arrayName)) return reply(`❌ Valid arrays: ${validArrays.join(', ')}`);
+            const key = map[arrayName];
+            let list = settings[key] || [];
 
             if (sub === 'list') {
-                const arrayName = args[1];
-                const validArrays = ['scam', 'porn', 'blockmedia', 'emoji', 'country'];
-                const map = {
-                    scam: 'scamKeywords',
-                    porn: 'pornKeywords',
-                    blockmedia: 'blockedMediaTypes',
-                    emoji: 'autoReactEmojis',
-                    country: 'blockedCountries'
-                };
-                if (!validArrays.includes(arrayName)) return reply(`❌ Valid arrays: ${validArrays.join(', ')}`);
-
-                const key = map[arrayName];
-                const list = settings[key] || [];
-                // Build plain list without borders – reply will add borders
-                let text = `*${key.toUpperCase()}*\n\n`;
-                text += `Total: ${list.length}\n\n`;
-                list.forEach((item, i) => { text += `${i+1}. ${item}\n`; });
+                let text = `*${key.toUpperCase()}*\n\nTotal: ${list.length}\n\n`;
+                list.forEach((item, i) => text += `${i+1}. ${item}\n`);
                 return reply(text);
             }
-
+            const item = args.slice(2).join(' ').trim();
+            if (!item) return reply("❌ Provide item.");
             if (sub === 'add') {
-                const arrayName = args[1];
-                const item = args.slice(2).join(' ').trim();
-                const validArrays = ['scam', 'porn', 'blockmedia', 'emoji', 'country'];
-                const map = {
-                    scam: 'scamKeywords',
-                    porn: 'pornKeywords',
-                    blockmedia: 'blockedMediaTypes',
-                    emoji: 'autoReactEmojis',
-                    country: 'blockedCountries'
-                };
-                if (!validArrays.includes(arrayName)) return reply(`❌ Valid arrays: ${validArrays.join(', ')}`);
-                if (!item) return reply("❌ Provide item to add.");
-
-                const key = map[arrayName];
-                let list = settings[key] || [];
-                if (list.includes(item)) return reply("❌ Item already exists.");
+                if (list.includes(item)) return reply("❌ Already exists.");
                 list.push(item);
                 settings[key] = list;
                 await handler.saveGlobalSettings(settings);
                 await handler.refreshConfig();
                 return reply(`✅ Added to ${key}: ${item}`);
-            }
-
-            if (sub === 'remove') {
-                const arrayName = args[1];
-                const item = args.slice(2).join(' ').trim();
-                const validArrays = ['scam', 'porn', 'blockmedia', 'emoji', 'country'];
-                const map = {
-                    scam: 'scamKeywords',
-                    porn: 'pornKeywords',
-                    blockmedia: 'blockedMediaTypes',
-                    emoji: 'autoReactEmojis',
-                    country: 'blockedCountries'
-                };
-                if (!validArrays.includes(arrayName)) return reply(`❌ Valid arrays: ${validArrays.join(', ')}`);
-                if (!item) return reply("❌ Provide item to remove.");
-
-                const key = map[arrayName];
-                let list = settings[key] || [];
+            } else if (sub === 'remove') {
                 const index = list.indexOf(item);
-                if (index === -1) return reply("❌ Item not found.");
+                if (index === -1) return reply("❌ Not found.");
                 list.splice(index, 1);
                 settings[key] = list;
                 await handler.saveGlobalSettings(settings);
@@ -306,7 +275,49 @@ module.exports = {
             }
         }
 
-        // ========== TOGGLE FEATURE (with optional scope) ==========
+        // ----- WHERE (SCOPE) -----
+        if (first === 'where' && args.length >= 3) {
+            const feature = args[1];
+            const where = args[2].toLowerCase();
+            const valid = ['all', 'group', 'private'];
+            if (!valid.includes(where)) return reply("❌ Use: all, group, or private.");
+            
+            const scopeMap = {
+                autoRead: 'autoReadScope',
+                autoReact: 'autoReactScope',
+                chatbot: 'chatbotScope',
+                antiviewonce: 'antiviewonceScope',
+                antidelete: 'antideleteScope'
+            };
+            const scopeKey = scopeMap[feature];
+            if (!scopeKey) return reply(`❌ Feature '${feature}' cannot have a location.`);
+            if (!(scopeKey in settings)) return reply(`❌ Feature '${feature}' not found.`);
+
+            settings[scopeKey] = where;
+            await handler.saveGlobalSettings(settings);
+            await handler.refreshConfig();
+            return reply(`✅ ${feature} will now work in: ${where.toUpperCase()}`);
+        }
+
+        // ----- SET NUMERIC/STRING -----
+        if (first === 'set' && args.length >= 3) {
+            const feature = args[1];
+            const value = args.slice(2).join(' ');
+            if (!(feature in settings)) return reply(`❌ Feature '${feature}' not found.`);
+            if (typeof settings[feature] === 'number') {
+                const num = Number(value);
+                if (isNaN(num)) return reply("❌ Must be a number.");
+                settings[feature] = num;
+            } else if (typeof settings[feature] === 'string') {
+                settings[feature] = value;
+            } else return reply("❌ Cannot set this feature.");
+            await handler.saveGlobalSettings(settings);
+            await handler.refreshConfig();
+            return reply(`✅ ${feature} set to ${settings[feature]}`);
+        }
+
+        // ----- TOGGLE BOOLEAN (with optional scope) -----
+        // Map aliases to actual feature names
         const featureMap = {
             'antilink': 'antilink',
             'antiporn': 'antiporn',
@@ -334,9 +345,7 @@ module.exports = {
         };
 
         let feature = first;
-        if (featureMap[feature]) {
-            feature = featureMap[feature];
-        }
+        if (featureMap[feature]) feature = featureMap[feature];
 
         let scope = null;
         let action = null;
@@ -370,7 +379,7 @@ module.exports = {
                 settings[feature] = action === 'on';
                 await handler.saveGlobalSettings(settings);
                 await handler.refreshConfig();
-                return reply(`✅ ${feature} is now ${action.toUpperCase()} (scope: ${settings[scopeKey] || 'all'})`);
+                return reply(`✅ ${feature} is now ${action.toUpperCase()} (where: ${settings[scopeKey] || 'all'})`);
             } else {
                 if (!possibleScopes.includes(scope)) {
                     return reply("❌ Scope must be 'all', 'group', or 'private'.");
@@ -379,11 +388,11 @@ module.exports = {
                 settings[scopeKey] = scope;
                 await handler.saveGlobalSettings(settings);
                 await handler.refreshConfig();
-                return reply(`✅ ${feature} is now ${action.toUpperCase()} (scope: ${scope})`);
+                return reply(`✅ ${feature} is now ${action.toUpperCase()} (where: ${scope})`);
             }
         } else {
             if (scope) {
-                return reply(`❌ '${feature}' does not support scope. Use just on/off.`);
+                return reply(`❌ '${feature}' does not support location. Use just on/off.`);
             }
             if (typeof settings[feature] !== 'boolean') {
                 return reply(`❌ '${feature}' is not a boolean.`);
