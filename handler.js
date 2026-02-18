@@ -22,8 +22,7 @@ function fancy(text) {
 function formatMessage(text) {
     if (!text) return text;
     const topBorder = '╭─── • 🥀 • ───╮\n';
-    const bottomBorder = '\n╰─── • 🥀 • ───╯';
-    return topBorder + fancy(text) + bottomBorder;
+    return topBorder + fancy(text);
 }
 
 function runtime(seconds) {
@@ -41,10 +40,14 @@ const DEFAULT_SETTINGS = {
     autoRead: true,
     alwaysOnline: true,
     autoDeleteMessages: false,
-    autoDeleteTimeout: 60000,
+    autoDeleteTimeout: 600000, // 10 minutes
     statusReplyCount: new Map(),
     warnCounts: new Map(),
     warnActions: new Map(),
+    antiCall: true,
+    antiMentionStatus: true,
+    commandWithoutPrefix: false,
+    chatbotPrompt: `You are INSIDIOUS AI, created by STANYTZ (the developer). You are a helpful WhatsApp bot assistant. Respond in the same language as the user. Be friendly, warm, and human-like. Keep responses concise but meaningful. If someone asks who created you, say you were created by STANYTZ. If they ask about themselves, use their name if available and be personal.`,
 };
 
 const SETTINGS_FILE = path.join(__dirname, '.settings.json');
@@ -60,6 +63,7 @@ const messageStore = new Map();
 const spamTracker = new Map();
 const inactiveTracker = new Map();
 const statusCache = new Map();
+const userContacts = new Map();
 
 // ==================== LOAD/SAVE FUNCTIONS ====================
 async function loadGlobalSettings() {
@@ -183,6 +187,12 @@ async function getGroupDesc(conn, groupJid) {
     } catch { return 'No description'; }
 }
 
+async function getGroupInviteCode(conn, groupJid) {
+    try {
+        return await conn.groupInviteCode(groupJid);
+    } catch { return null; }
+}
+
 async function isBotAdmin(conn, groupJid) {
     try {
         if (!conn.user?.id) return false;
@@ -211,8 +221,22 @@ function enhanceMessage(conn, msg) {
     return msg;
 }
 
+async function saveContact(conn, jid) {
+    try {
+        if (!userContacts.has(jid)) {
+            const contact = await conn.getContact(jid);
+            if (contact) {
+                userContacts.set(jid, { name: contact.name || contact.pushname || jid.split('@')[0], jid });
+            }
+        }
+    } catch (e) {}
+}
+
 // ==================== WARNING SYSTEM ====================
 async function applyWarning(conn, from, sender, reason, increment = 1) {
+    if (!from.endsWith('@g.us')) return;
+    const botIsAdmin = await isBotAdmin(conn, from);
+    if (!botIsAdmin) return;
     const warnLimit = getGroupSetting(from, 'warnLimit');
     const warnKey = `${from}:${sender}`;
     let warnData = globalSettings.warnCounts.get(warnKey) || { count: 0, reasons: [] };
@@ -228,6 +252,8 @@ async function applyWarning(conn, from, sender, reason, increment = 1) {
         if (globalSettings.warnActions.has(actionKey)) {
             clearTimeout(globalSettings.warnActions.get(actionKey));
         }
+        const finalMsg = `⚠️ @${sender.split('@')[0]} • *FINAL WARNING*\n\nYou have reached ${warnLimit} warnings. You will be removed in 10 seconds.`;
+        await conn.sendMessage(from, { text: formatMessage(finalMsg), mentions: [sender] });
         const timeout = setTimeout(async () => {
             try {
                 await conn.groupParticipantsUpdate(from, [sender], 'remove');
@@ -238,32 +264,26 @@ async function applyWarning(conn, from, sender, reason, increment = 1) {
             } catch (e) {}
         }, 10000);
         globalSettings.warnActions.set(actionKey, timeout);
-
-        const finalWarning = `⚠️ @${sender.split('@')[0]} • *FINAL WARNING*\n\nYou have reached ${warnLimit} warnings. You will be removed in 10 seconds if you continue.`;
-        await conn.sendMessage(from, { text: formatMessage(finalWarning), mentions: [sender] });
     }
 }
 
-// ==================== ANTI FEATURES ====================
+// ==================== ANTI FEATURES (Group Only) ====================
 async function handleAntiLink(conn, msg, body, from, sender) {
-    if (!from.endsWith('@g.us') || !getGroupSetting(from, 'antilink')) return false;
+    if (!from.endsWith('@g.us')) return false;
+    if (!getGroupSetting(from, 'antilink')) return false;
     const linkRegex = /(?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-\/a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi;
     if (!linkRegex.test(body)) return false;
-    
     await conn.sendMessage(from, { delete: msg.key }).catch(() => {});
-    const name = await getContactName(conn, sender);
-    const warnMsg = `⚠️ @${sender.split('@')[0]} (${name}) • *ANTI-LINK*\n\nLinks are not allowed here. Your message has been deleted.`;
     await applyWarning(conn, from, sender, 'Sending links', 1);
     return true;
 }
 
 async function handleAntiPorn(conn, msg, body, from, sender) {
-    if (!from.endsWith('@g.us') || !getGroupSetting(from, 'antiporn')) return false;
+    if (!from.endsWith('@g.us')) return false;
+    if (!getGroupSetting(from, 'antiporn')) return false;
     const keywords = getGroupSetting(from, 'pornKeywords');
     if (keywords.some(w => body.toLowerCase().includes(w))) {
         await conn.sendMessage(from, { delete: msg.key }).catch(() => {});
-        const name = await getContactName(conn, sender);
-        const warnMsg = `⚠️ @${sender.split('@')[0]} (${name}) • *ADULT CONTENT DETECTED*\n\nAdult content is strictly forbidden. Your message has been deleted.`;
         await applyWarning(conn, from, sender, 'Adult content', 2);
         return true;
     }
@@ -271,15 +291,15 @@ async function handleAntiPorn(conn, msg, body, from, sender) {
 }
 
 async function handleAntiScam(conn, msg, body, from, sender) {
-    if (!from.endsWith('@g.us') || !getGroupSetting(from, 'antiscam')) return false;
+    if (!from.endsWith('@g.us')) return false;
+    if (!getGroupSetting(from, 'antiscam')) return false;
     const keywords = getGroupSetting(from, 'scamKeywords');
     if (keywords.some(w => body.toLowerCase().includes(w))) {
         await conn.sendMessage(from, { delete: msg.key }).catch(() => {});
         const meta = await conn.groupMetadata(from);
         const allMentions = meta.participants.map(p => p.id);
-        const name = await getContactName(conn, sender);
         await conn.sendMessage(from, {
-            text: formatMessage(`🚨 *SCAM ALERT!*\n\n@${sender.split('@')[0]} (${name}) sent a message that appears to be a scam.\nThe message has been deleted. Do not engage.`),
+            text: formatMessage(`🚨 *SCAM ALERT!*\n\n@${sender.split('@')[0]} sent a message that appears to be a scam.\nThe message has been deleted. Do not engage.`),
             mentions: allMentions
         }).catch(() => {});
         await applyWarning(conn, from, sender, 'Scam content', 2);
@@ -289,7 +309,8 @@ async function handleAntiScam(conn, msg, body, from, sender) {
 }
 
 async function handleAntiMedia(conn, msg, from, sender) {
-    if (!from.endsWith('@g.us') || !getGroupSetting(from, 'antimedia')) return false;
+    if (!from.endsWith('@g.us')) return false;
+    if (!getGroupSetting(from, 'antimedia')) return false;
     const blocked = getGroupSetting(from, 'blockedMediaTypes') || [];
     const isPhoto = !!msg.message?.imageMessage;
     const isVideo = !!msg.message?.videoMessage;
@@ -309,8 +330,6 @@ async function handleAntiMedia(conn, msg, from, sender) {
         (blocked.includes('document') && isDocument) ||
         (blocked.includes('all') && (isPhoto || isVideo || isSticker || isAudio || isDocument))) {
         await conn.sendMessage(from, { delete: msg.key }).catch(() => {});
-        const name = await getContactName(conn, sender);
-        const warnMsg = `⚠️ @${sender.split('@')[0]} (${name}) • *MEDIA NOT ALLOWED*\n\nYou sent a ${mediaType} which is not allowed. Your message has been deleted.`;
         await applyWarning(conn, from, sender, `Sending ${mediaType}`, 1);
         return true;
     }
@@ -318,17 +337,18 @@ async function handleAntiMedia(conn, msg, from, sender) {
 }
 
 async function handleAntiTag(conn, msg, from, sender) {
-    if (!from.endsWith('@g.us') || !getGroupSetting(from, 'antitag')) return false;
+    if (!from.endsWith('@g.us')) return false;
+    if (!getGroupSetting(from, 'antitag')) return false;
     const mentions = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid;
-    if (!mentions || mentions.length < getGroupSetting(from, 'maxTags')) return false;
+    const maxTags = getGroupSetting(from, 'maxTags');
+    if (!mentions || mentions.length < maxTags) return false;
     await conn.sendMessage(from, { delete: msg.key }).catch(() => {});
-    const name = await getContactName(conn, sender);
-    const warnMsg = `⚠️ @${sender.split('@')[0]} (${name}) • *EXCESSIVE TAGGING*\n\nYou tagged ${mentions.length} people. Excessive tagging is not allowed.`;
     await applyWarning(conn, from, sender, 'Excessive tagging', 1);
     return true;
 }
 
 async function handleAntiSpam(conn, msg, from, sender) {
+    if (!from.endsWith('@g.us')) return false;
     if (!getGroupSetting(from, 'antispam')) return false;
     const now = Date.now();
     const key = `${from}:${sender}`;
@@ -343,45 +363,59 @@ async function handleAntiSpam(conn, msg, from, sender) {
     spamTracker.set(key, record);
     if (record.count > limit) {
         await conn.sendMessage(from, { delete: msg.key }).catch(() => {});
-        const name = await getContactName(conn, sender);
-        const warnMsg = `⚠️ @${sender.split('@')[0]} (${name}) • *ANTI-SPAM*\n\nYou are sending messages too fast! Please slow down.`;
         await applyWarning(conn, from, sender, 'Spamming', 1);
         return true;
     }
     return false;
 }
 
+// ==================== ANTI CALL ====================
 async function handleAntiCall(conn, call) {
-    if (!globalSettings.anticall) return;
+    if (!globalSettings.antiCall) return;
     await conn.rejectCall(call.id, call.from).catch(() => {});
     if (!isOwner(call.from.split('@')[0])) {
         await conn.updateBlockStatus(call.from, 'block').catch(() => {});
     }
 }
 
-// ==================== VIEW ONCE – Tuma kwa OWNERS WOTE ====================
+// ==================== ANTI MENTION STATUS ====================
+async function handleAntiMentionStatus(conn, statusMsg) {
+    // Not fully implemented – could ignore mentions in status
+}
+
+// ==================== VIEW ONCE – Send to all owners ====================
 async function handleViewOnce(conn, msg) {
     if (!getGroupSetting('global', 'antiviewonce')) return false;
     if (!msg.message?.viewOnceMessageV2 && !msg.message?.viewOnceMessage) return false;
-    
     const sender = msg.key.participant || msg.key.remoteJid;
     const name = await getContactName(conn, sender);
     const time = new Date().toLocaleString();
+    const groupJid = msg.key.remoteJid.endsWith('@g.us') ? msg.key.remoteJid : null;
+    const groupName = groupJid ? await getGroupName(conn, groupJid) : 'Private Chat';
+
+    let caption = `🔐 *VIEW-ONCE RECOVERED*\n\nFrom: @${sender.split('@')[0]} (${name})\n`;
+    if (groupJid) caption += `Group: ${groupName}\n`;
+    caption += `Time: ${time}`;
 
     for (const num of Array.from(pairedNumbers)) {
         const ownerJid = num + '@s.whatsapp.net';
         try {
-            await conn.sendMessage(ownerJid, {
+            const sentMsg = await conn.sendMessage(ownerJid, {
                 forward: msg,
-                caption: formatMessage(`🔐 *VIEW-ONCE RECOVERED*\n\nFrom: @${sender.split('@')[0]} (${name})\nTime: ${time}`),
+                caption: formatMessage(caption),
                 contextInfo: { mentionedJid: [sender] }
             });
+            if (globalSettings.autoDeleteMessages && sentMsg) {
+                setTimeout(async () => {
+                    try { await conn.sendMessage(ownerJid, { delete: sentMsg.key }); } catch (e) {}
+                }, globalSettings.autoDeleteTimeout);
+            }
         } catch (e) {}
     }
     return true;
 }
 
-// ==================== ANTI DELETE – Tuma kwa OWNERS WOTE ====================
+// ==================== ANTI DELETE – Send to all owners ====================
 async function handleAntiDelete(conn, msg) {
     if (!getGroupSetting('global', 'antidelete')) return false;
     if (!msg.message?.protocolMessage || msg.message.protocolMessage.type !== 0) return false;
@@ -393,6 +427,8 @@ async function handleAntiDelete(conn, msg) {
     const name = await getContactName(conn, sender);
     const content = stored.content;
     const time = stored.timestamp?.toLocaleString() || 'Unknown';
+    const groupJid = stored.from?.endsWith('@g.us') ? stored.from : null;
+    const groupName = groupJid ? await getGroupName(conn, groupJid) : 'Private Chat';
 
     let mediaInfo = '';
     if (stored.mediaType) {
@@ -400,13 +436,22 @@ async function handleAntiDelete(conn, msg) {
         if (stored.caption) mediaInfo += `\nCaption: ${stored.caption}`;
     }
 
+    let caption = `🗑️ *DELETED MESSAGE RECOVERED*\n\nFrom: @${sender.split('@')[0]} (${name})\n`;
+    if (groupJid) caption += `Group: ${groupName}\n`;
+    caption += `Message: ${content}${mediaInfo}\nTime: ${time}`;
+
     for (const num of Array.from(pairedNumbers)) {
         const ownerJid = num + '@s.whatsapp.net';
         try {
-            await conn.sendMessage(ownerJid, {
-                text: formatMessage(`🗑️ *DELETED MESSAGE RECOVERED*\n\nFrom: @${sender.split('@')[0]} (${name})\nMessage: ${content}${mediaInfo}\nTime: ${time}`),
+            const sentMsg = await conn.sendMessage(ownerJid, {
+                text: formatMessage(caption),
                 mentions: [sender]
             });
+            if (globalSettings.autoDeleteMessages && sentMsg) {
+                setTimeout(async () => {
+                    try { await conn.sendMessage(ownerJid, { delete: sentMsg.key }); } catch (e) {}
+                }, globalSettings.autoDeleteTimeout);
+            }
         } catch (e) {}
     }
     messageStore.delete(deletedMsgId);
@@ -417,17 +462,13 @@ async function handleAntiDelete(conn, msg) {
 async function handleAutoStatus(conn, statusMsg) {
     if (!globalSettings.autostatus) return;
     if (statusMsg.key.remoteJid !== 'status@broadcast') return;
-    
     const actions = globalSettings.autoStatusActions;
     const statusId = statusMsg.key.id;
     const statusSender = statusMsg.key.participant;
-    
     if (statusCache.has(statusId)) return;
     statusCache.set(statusId, true);
-    
-    if (actions.includes('view')) {
-        await conn.readMessages([statusMsg.key]).catch(() => {});
-    }
+
+    if (actions.includes('view')) await conn.readMessages([statusMsg.key]).catch(() => {});
     if (actions.includes('react')) {
         const emoji = globalSettings.autoReactEmojis[Math.floor(Math.random() * globalSettings.autoReactEmojis.length)];
         await conn.sendMessage('status@broadcast', { react: { text: emoji, key: statusMsg.key } }).catch(() => {});
@@ -441,162 +482,159 @@ async function handleAutoStatus(conn, statusMsg) {
                         statusMsg.message?.videoMessage?.caption || 
                         statusMsg.message?.conversation || '';
         if (caption) {
-            try {
-                const aiResponse = await getDeepAIResponse(caption, true);
-                let replyText = `📱 *Status Reply*\n\n_Replying to your status:_ "${caption}"\n\n💭 ${aiResponse}`;
-                await conn.sendMessage(statusSender, {
-                    text: fancy(replyText),
-                    contextInfo: {
-                        isForwarded: true,
-                        forwardingScore: 999,
-                        forwardedNewsletterMessageInfo: {
-                            newsletterJid: globalSettings.newsletterJid,
-                            newsletterName: globalSettings.botName
-                        },
-                        quotedMessage: statusMsg.message,
-                        stanzaId: statusMsg.key.id,
-                        participant: statusSender
-                    }
-                }).catch(() => {});
-                globalSettings.statusReplyCount.set(key, count + 1);
-            } catch {}
+            const aiResponse = await getDeepAIResponse(caption, true, '');
+            const replyText = `📱 *Status Reply*\n\n_Replying to your status:_ "${caption}"\n\n💭 ${aiResponse}`;
+            const sentMsg = await conn.sendMessage(statusSender, {
+                text: fancy(replyText),
+                contextInfo: {
+                    isForwarded: true,
+                    forwardedNewsletterMessageInfo: {
+                        newsletterJid: globalSettings.newsletterJid,
+                        newsletterName: globalSettings.botName
+                    },
+                    quotedMessage: statusMsg.message,
+                    stanzaId: statusMsg.key.id,
+                    participant: statusSender
+                }
+            }).catch(() => {});
+            if (sentMsg && globalSettings.autoDeleteMessages) {
+                setTimeout(async () => {
+                    try { await conn.sendMessage(statusSender, { delete: sentMsg.key }); } catch (e) {}
+                }, globalSettings.autoDeleteTimeout);
+            }
+            globalSettings.statusReplyCount.set(key, count + 1);
         }
     }
 }
 
-cron.schedule('0 0 * * *', () => {
-    globalSettings.statusReplyCount.clear();
-});
+cron.schedule('0 0 * * *', () => globalSettings.statusReplyCount.clear());
 
-async function getDeepAIResponse(text, isStatus = false) {
+// ==================== DEEP AI RESPONSE (Human-like) ====================
+async function getDeepAIResponse(text, isStatus = false, pushname = '') {
     try {
-        const systemPrompt = isStatus 
-            ? `You are INSIDIOUS AI replying to a WhatsApp status. Be thoughtful, warm, and insightful. Show that you've actually read and understood their status. Use deep thinking and emotional intelligence. Keep it concise but meaningful. Match their language.`
-            : globalSettings.chatbotPrompt || `You are INSIDIOUS AI, a helpful WhatsApp bot assistant. Respond in the same language as the user. Be friendly, warm, and human-like. Keep responses concise but meaningful.`;
-        
+        const systemPrompt = isStatus
+            ? `You are INSIDIOUS AI replying to a WhatsApp status. Be thoughtful, warm, and insightful. Match the user's language.`
+            : globalSettings.chatbotPrompt || `You are INSIDIOUS AI, created by STANYTZ. Respond in the user's language. Be friendly and personal.`;
+        const userContext = pushname ? `The user's name is ${pushname}. ` : '';
+        const fullPrompt = userContext + systemPrompt;
         const response = await axios.get(
-            `${globalSettings.aiApiUrl}${encodeURIComponent(text)}?system=${encodeURIComponent(systemPrompt)}`,
+            `${globalSettings.aiApiUrl}${encodeURIComponent(text)}?system=${encodeURIComponent(fullPrompt)}`,
             { timeout: 20000 }
         );
         let reply = response.data;
         reply = reply.replace(/^AI:|^Assistant:|^Bot:/i, '').trim();
-        if (isStatus && !reply.includes('?')) {
-            reply += " How are you feeling about that?";
-        }
-        return reply || "That's interesting! Tell me more when you have time.";
-    } catch (error) {
-        console.error("AI Error:", error);
-        const deepFallbacks = [
-            "That's profound. Makes me think about life.",
-            "I sense there's more to this story.",
-            "Your status resonates deeply with me.",
-            "Interesting perspective. Thanks for sharing.",
-            "That's worth reflecting on."
-        ];
-        return deepFallbacks[Math.floor(Math.random() * deepFallbacks.length)];
+        return reply || "That's interesting!";
+    } catch (e) {
+        console.error('AI Error:', e);
+        return "I'm here! How can I help?";
     }
 }
 
-async function handleChatbot(conn, msg, from, body, sender, isOwner) {
+// ==================== CHATBOT (with scope) ====================
+async function handleChatbot(conn, msg, from, body, sender, isOwner, pushname) {
     const isGroup = from.endsWith('@g.us');
+    const scope = globalSettings.chatbotScope || 'all';
+    if (scope === 'group' && !isGroup) return false;
+    if (scope === 'private' && isGroup) return false;
+    if (!globalSettings.chatbot) return false;
+
     if (isGroup) {
-        if (!getGroupSetting(from, 'chatbot')) return false;
         const mentioned = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
         const botJid = conn.user.id.split(':')[0] + '@s.whatsapp.net';
         const isReplyToBot = msg.message?.extendedTextMessage?.contextInfo?.stanzaId &&
                              msg.message.extendedTextMessage.contextInfo.participant === botJid;
         if (!mentioned.includes(botJid) && !isReplyToBot) return false;
-    } else {
-        if (!globalSettings.chatbot) return false;
     }
-    
+
     await conn.sendPresenceUpdate('composing', from);
-    try {
-        const aiResponse = await getDeepAIResponse(body, false);
-        await conn.sendMessage(from, {
-            text: fancy(aiResponse),
-            contextInfo: {
-                isForwarded: true,
-                forwardingScore: 999,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: globalSettings.newsletterJid,
-                    newsletterName: globalSettings.botName
-                }
+    const aiResponse = await getDeepAIResponse(body, false, pushname);
+    const sentMsg = await conn.sendMessage(from, {
+        text: fancy(aiResponse),
+        contextInfo: {
+            isForwarded: true,
+            forwardedNewsletterMessageInfo: {
+                newsletterJid: globalSettings.newsletterJid,
+                newsletterName: globalSettings.botName
             }
-        }, { quoted: msg }).catch(() => {});
-        return true;
-    } catch {
-        return false;
+        }
+    }, { quoted: msg }).catch(() => {});
+    if (sentMsg && globalSettings.autoDeleteMessages) {
+        setTimeout(async () => {
+            try { await conn.sendMessage(from, { delete: sentMsg.key }); } catch (e) {}
+        }, globalSettings.autoDeleteTimeout);
     }
+    return true;
 }
 
-// ==================== WELCOME / GOODBYE (with group description and member pic) ====================
+// ==================== WELCOME / GOODBYE ====================
 async function handleWelcome(conn, participant, groupJid, action = 'add') {
     if (!getGroupSetting(groupJid, 'welcomeGoodbye')) return;
     try {
         const groupMeta = await conn.groupMetadata(groupJid);
         const groupName = groupMeta.subject || 'Group';
         const groupDesc = groupMeta.desc || 'No description';
-        
+        const inviteCode = await getGroupInviteCode(conn, groupJid);
+        const groupLink = inviteCode ? `https://chat.whatsapp.com/${inviteCode}` : 'Unavailable';
         const memberName = await getContactName(conn, participant);
         const memberNumber = participant.split('@')[0];
         const memberPic = await conn.profilePictureUrl(participant, 'image').catch(() => null);
-        
         const total = groupMeta.participants.length;
-        const time = new Date().toLocaleString();
-
-        let imageMedia = null;
-        if (memberPic) {
-            try {
-                imageMedia = await prepareWAMessageMedia(
-                    { image: { url: memberPic } },
-                    { upload: conn.waUploadToServer || conn.upload }
-                );
-            } catch (e) {}
+        const now = Date.now();
+        let activeCount = 0;
+        for (const p of groupMeta.participants) {
+            const lastActive = inactiveTracker.get(p.id) || 0;
+            if (now - lastActive < globalSettings.inactiveDays * 24 * 60 * 60 * 1000) activeCount++;
         }
+        const time = new Date().toLocaleString();
+        let quote = '';
+        try {
+            const res = await axios.get(globalSettings.quoteApiUrl);
+            quote = res.data.content;
+        } catch { quote = action === 'add' ? 'Welcome!' : 'Goodbye!'; }
 
         let caption = action === 'add'
-            ? `📨 *NEW MEMBER JOINED*\n\nGroup: ${groupName}\nDescription: ${groupDesc}\nMember: @${memberNumber} (${memberName})\nNumber: ${memberNumber}\nTotal: ${total}\nTime: ${time}`
-            : `👋 *MEMBER LEFT*\n\nGroup: ${groupName}\nDescription: ${groupDesc}\nMember: @${memberNumber} (${memberName})\nNumber: ${memberNumber}\nTotal: ${total}\nTime: ${time}`;
+            ? `📨 *NEW MEMBER JOINED*\n\nGroup: ${groupName}\nDescription: ${groupDesc}\nMember: @${memberNumber} (${memberName})\nNumber: ${memberNumber}\nTotal Members: ${total}\nActive Members: ${activeCount}\nGroup Link: ${groupLink}\nTime: ${time}\n\n💬 Quote: "${quote}"`
+            : `👋 *MEMBER LEFT*\n\nGroup: ${groupName}\nMember: @${memberNumber} (${memberName})\nNumber: ${memberNumber}\nRemaining Members: ${total}\nTime: ${time}\n\n💬 Quote: "${quote}"`;
 
         caption = formatMessage(caption);
 
-        // Send to group with member picture if available
+        // Send to group with member pic
+        let imageMedia = null;
+        if (memberPic) {
+            try {
+                imageMedia = await prepareWAMessageMedia({ image: { url: memberPic } }, { upload: conn.waUploadToServer || conn.upload });
+            } catch (e) {}
+        }
         const interactiveMsg = {
             body: { text: caption },
             footer: { text: fancy(globalSettings.footer) },
             header: imageMedia ? { imageMessage: imageMedia.imageMessage } : { title: fancy(action === 'add' ? 'WELCOME' : 'GOODBYE') },
         };
-        
         const waMsg = generateWAMessageFromContent(groupJid, { interactiveMessage: interactiveMsg }, {
             userJid: conn.user.id,
             upload: conn.waUploadToServer || conn.upload
         });
         await conn.relayMessage(groupJid, waMsg.message, { messageId: waMsg.key.id });
 
-        // DM to owners (without picture, just text)
+        // DM to owners
         if (action === 'add') {
             for (const num of Array.from(pairedNumbers)) {
                 const ownerJid = num + '@s.whatsapp.net';
-                let ownerMsg = `📨 *NEW MEMBER JOINED*\n\nGroup: ${groupName}\nDescription: ${groupDesc}\nMember: @${memberNumber} (${memberName})\nNumber: ${memberNumber}\nTime: ${time}`;
+                let ownerMsg = `📨 *NEW MEMBER JOINED*\n\nGroup: ${groupName}\nDescription: ${groupDesc}\nMember: @${memberNumber} (${memberName})\nNumber: ${memberNumber}\nTotal Members: ${total}\nActive Members: ${activeCount}\nGroup Link: ${groupLink}\nTime: ${time}`;
                 ownerMsg = formatMessage(ownerMsg);
-                await conn.sendMessage(ownerJid, {
+                const sentMsg = await conn.sendMessage(ownerJid, {
                     text: ownerMsg,
                     mentions: [participant],
-                    contextInfo: {
-                        isForwarded: true,
-                        forwardingScore: 999,
-                        forwardedNewsletterMessageInfo: {
-                            newsletterJid: globalSettings.newsletterJid,
-                            newsletterName: globalSettings.botName
-                        }
-                    }
+                    contextInfo: { isForwarded: true }
                 }).catch(() => {});
+                if (sentMsg && globalSettings.autoDeleteMessages) {
+                    setTimeout(async () => {
+                        try { await conn.sendMessage(ownerJid, { delete: sentMsg.key }); } catch (e) {}
+                    }, globalSettings.autoDeleteTimeout);
+                }
             }
         }
-    } catch (e) {
-        console.error("Welcome error:", e);
-    }
+    } catch (e) { console.error('Welcome error:', e); }
 }
 
 // ==================== AUTO REMOVE INACTIVE ====================
@@ -614,13 +652,11 @@ async function autoRemoveInactive(conn) {
         const toRemove = [];
         for (const p of meta.participants) {
             const lastActive = inactiveTracker.get(p.id) || 0;
-            if (now - lastActive > inactiveDays * 24 * 60 * 60 * 1000) {
-                toRemove.push(p.id);
-            }
+            if (now - lastActive > inactiveDays * 24 * 60 * 60 * 1000) toRemove.push(p.id);
         }
         if (toRemove.length) {
             await conn.groupParticipantsUpdate(jid, toRemove, 'remove').catch(() => {});
-            let msg = `🧹 *Inactive Members Removed*\n\nRemoved ${toRemove.length} inactive members (${inactiveDays} days without activity).`;
+            const msg = `🧹 *Inactive Members Removed*\n\nRemoved ${toRemove.length} inactive members (${inactiveDays} days without activity).`;
             await conn.sendMessage(jid, { text: formatMessage(msg) });
         }
     }
@@ -679,13 +715,10 @@ async function handleAutoBlockCountry(conn, participant, isExempt = false) {
     const blocked = globalSettings.blockedCountries || [];
     if (!blocked.length) return false;
     const number = participant.split('@')[0];
-    const countryMatch = number.match(/^(\d{1,3})/);
-    if (countryMatch) {
-        const code = countryMatch[1];
-        if (blocked.includes(code)) {
-            await conn.updateBlockStatus(participant, 'block').catch(() => {});
-            return true;
-        }
+    const match = number.match(/^(\d{1,3})/);
+    if (match && blocked.includes(match[1])) {
+        await conn.updateBlockStatus(participant, 'block').catch(() => {});
+        return true;
     }
     return false;
 }
@@ -701,7 +734,7 @@ function startAlwaysOnline(conn) {
 }
 
 // ==================== COMMAND HANDLER ====================
-async function handleCommand(conn, msg, body, from, sender, isOwnerUser) {
+async function handleCommand(conn, msg, body, from, sender, isOwnerUser, pushname) {
     let prefix = globalSettings.prefix;
     if (!body.startsWith(prefix)) return false;
     const args = body.slice(prefix.length).trim().split(/ +/);
@@ -719,52 +752,51 @@ async function handleCommand(conn, msg, body, from, sender, isOwnerUser) {
     }
 
     const cmdPath = path.join(__dirname, 'commands');
-    if (await fs.pathExists(cmdPath)) {
-        const categories = await fs.readdir(cmdPath);
-        let found = false;
-        for (const cat of categories) {
-            const catPath = path.join(cmdPath, cat);
-            if (!(await fs.stat(catPath)).isDirectory()) continue;
-            const filePath = path.join(catPath, `${cmd}.js`);
-            if (await fs.pathExists(filePath)) {
-                delete require.cache[require.resolve(filePath)];
-                const command = require(filePath);
-                if (command.ownerOnly && !isOwnerUser) {
-                    await msg.reply('❌ This command is for owner only!');
-                    return true;
-                }
-                if (command.adminOnly && !isPrivileged) {
-                    await msg.reply('❌ This command is for group admins only!');
-                    return true;
-                }
-                try {
-                    await command.execute(conn, msg, args, {
-                        from,
-                        sender,
-                        fancy,
-                        config: globalSettings,
-                        isOwner: isOwnerUser,
-                        reply: msg.reply,
-                        botId: botSecretId,
-                        isBotAdmin: (jid) => isBotAdmin(conn, jid),
-                        isParticipantAdmin: (jid, participant) => isParticipantAdmin(conn, jid, participant),
-                        getGroupSetting: (key) => getGroupSetting(from, key),
-                        setGroupSetting: (key, val) => setGroupSetting(from, key, val)
-                    });
-                } catch (e) {
-                    console.error(`Command error (${cmd}):`, e);
-                    await msg.reply(`❌ Command error: ${e.message}`);
-                }
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            // Do nothing or send a short message
-            // await msg.reply('❌ Command not found.');
-        }
-    } else {
+    if (!await fs.pathExists(cmdPath)) {
         await msg.reply('❌ Commands folder not found.');
+        return true;
+    }
+    const categories = await fs.readdir(cmdPath);
+    let found = false;
+    for (const cat of categories) {
+        const catPath = path.join(cmdPath, cat);
+        if (!(await fs.stat(catPath)).isDirectory()) continue;
+        const filePath = path.join(catPath, `${cmd}.js`);
+        if (await fs.pathExists(filePath)) {
+            delete require.cache[require.resolve(filePath)];
+            const command = require(filePath);
+            if (command.ownerOnly && !isOwnerUser) {
+                await msg.reply('❌ This command is for owner only!');
+                return true;
+            }
+            if (command.adminOnly && !isPrivileged) {
+                await msg.reply('❌ This command is for group admins only!');
+                return true;
+            }
+            try {
+                await command.execute(conn, msg, args, {
+                    from,
+                    sender,
+                    fancy,
+                    config: globalSettings,
+                    isOwner: isOwnerUser,
+                    reply: msg.reply,
+                    botId: botSecretId,
+                    isBotAdmin: (jid) => isBotAdmin(conn, jid),
+                    isParticipantAdmin: (jid, participant) => isParticipantAdmin(conn, jid, participant),
+                    getGroupSetting: (key) => getGroupSetting(from, key),
+                    setGroupSetting: (key, val) => setGroupSetting(from, key, val)
+                });
+            } catch (e) {
+                console.error(`Command error (${cmd}):`, e);
+                await msg.reply(`❌ Command error: ${e.message}`);
+            }
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        // Silent ignore – no "command not found"
     }
     return true;
 }
@@ -777,6 +809,7 @@ module.exports = async (conn, m) => {
         if (!msg.message) return;
 
         if (msg.key.remoteJid === 'status@broadcast') {
+            await handleAntiMentionStatus(conn, msg);
             await handleAutoStatus(conn, msg);
             return;
         }
@@ -793,85 +826,53 @@ module.exports = async (conn, m) => {
         const type = Object.keys(msg.message)[0];
         let body = "";
 
-        // BUTTON CLICK HANDLING
+        // Button click handling
         if (type === 'interactiveResponseMessage') {
             try {
-                const interactiveMsg = msg.message.interactiveResponseMessage;
-                const nativeFlow = interactiveMsg?.nativeFlowResponseMessage;
-                if (nativeFlow && nativeFlow.paramsJson) {
+                const interactive = msg.message.interactiveResponseMessage;
+                const nativeFlow = interactive?.nativeFlowResponseMessage;
+                if (nativeFlow?.paramsJson) {
                     const parsed = JSON.parse(nativeFlow.paramsJson);
                     body = parsed.id || "";
                     console.log('🔘 Button clicked:', body);
-                } else if (interactiveMsg?.body?.text) {
-                    body = interactiveMsg.body.text;
-                    console.log('🔘 Button clicked (fallback):', body);
+                } else if (interactive?.body?.text) {
+                    body = interactive.body.text;
                 }
-            } catch (e) {
-                console.error('Button parsing error:', e);
-                body = "";
-            }
+            } catch (e) { body = ""; }
         } else if (type === 'conversation') {
             body = msg.message.conversation || "";
         } else if (type === 'extendedTextMessage') {
             body = msg.message.extendedTextMessage.text || "";
         } else if (type === 'imageMessage') {
             body = msg.message.imageMessage.caption || "";
-            messageStore.set(msg.key.id, { 
-                content: '[Image]', 
-                sender, 
-                timestamp: new Date(),
-                mediaType: 'image',
-                caption: body
-            });
+            messageStore.set(msg.key.id, { content: '[Image]', sender, from, timestamp: new Date(), mediaType: 'image', caption: body });
         } else if (type === 'videoMessage') {
             body = msg.message.videoMessage.caption || "";
-            messageStore.set(msg.key.id, { 
-                content: '[Video]', 
-                sender, 
-                timestamp: new Date(),
-                mediaType: 'video',
-                caption: body
-            });
+            messageStore.set(msg.key.id, { content: '[Video]', sender, from, timestamp: new Date(), mediaType: 'video', caption: body });
         } else if (type === 'audioMessage') {
             body = '';
-            messageStore.set(msg.key.id, { 
-                content: '[Audio]', 
-                sender, 
-                timestamp: new Date(),
-                mediaType: 'audio'
-            });
+            messageStore.set(msg.key.id, { content: '[Audio]', sender, from, timestamp: new Date(), mediaType: 'audio' });
         } else if (type === 'stickerMessage') {
             body = '';
-            messageStore.set(msg.key.id, { 
-                content: '[Sticker]', 
-                sender, 
-                timestamp: new Date(),
-                mediaType: 'sticker'
-            });
+            messageStore.set(msg.key.id, { content: '[Sticker]', sender, from, timestamp: new Date(), mediaType: 'sticker' });
         } else if (type === 'documentMessage') {
             body = msg.message.documentMessage.caption || '';
-            messageStore.set(msg.key.id, { 
-                content: '[Document]', 
-                sender, 
-                timestamp: new Date(),
-                mediaType: 'document',
-                caption: body
-            });
-        } else {
-            body = "";
+            messageStore.set(msg.key.id, { content: '[Document]', sender, from, timestamp: new Date(), mediaType: 'document', caption: body });
         }
 
         body = body.trim();
 
         if (body && !type.includes('interactive') && !['imageMessage','videoMessage','audioMessage','stickerMessage','documentMessage'].includes(type)) {
-            messageStore.set(msg.key.id, { content: body, sender, timestamp: new Date() });
+            messageStore.set(msg.key.id, { content: body, sender, from, timestamp: new Date() });
         }
-
         if (messageStore.size > 1000) {
             const keys = Array.from(messageStore.keys()).slice(0, 200);
             keys.forEach(k => messageStore.delete(k));
         }
 
+        await saveContact(conn, sender);
+
+        const pushname = msg.pushName || (await getContactName(conn, sender)) || senderNumber;
         const isFromMe = msg.key.fromMe || false;
         const isOwnerUser = isOwner(senderNumber) || isFromMe;
 
@@ -879,9 +880,7 @@ module.exports = async (conn, m) => {
         const isChannel = from.endsWith('@newsletter');
 
         let isGroupAdmin = false;
-        if (isGroup) {
-            isGroupAdmin = await isParticipantAdmin(conn, from, sender);
-        }
+        if (isGroup) isGroupAdmin = await isParticipantAdmin(conn, from, sender);
         const isExempt = isOwnerUser || isGroupAdmin;
 
         // Auto presence
@@ -892,34 +891,42 @@ module.exports = async (conn, m) => {
             await conn.readMessages([msg.key]).catch(() => {});
         }
 
+        // Auto react with scope
+        const reactScope = globalSettings.autoReactScope || 'all';
         if (globalSettings.autoReact && !msg.key.fromMe && !isChannel && !type.includes('interactive')) {
-            const emoji = globalSettings.autoReactEmojis[Math.floor(Math.random() * globalSettings.autoReactEmojis.length)];
-            await conn.sendMessage(from, { react: { text: emoji, key: msg.key } }).catch(() => {});
+            const should = (reactScope === 'all') || (reactScope === 'group' && isGroup) || (reactScope === 'private' && !isGroup);
+            if (should) {
+                const emoji = globalSettings.autoReactEmojis[Math.floor(Math.random() * globalSettings.autoReactEmojis.length)];
+                await conn.sendMessage(from, { react: { text: emoji, key: msg.key } }).catch(() => {});
+            }
         }
 
         startAlwaysOnline(conn);
 
-        // Security features – only in groups and if bot is admin (skip if exempt)
+        // Security features (group only, bot admin, enabled)
         if (isGroup && !isExempt && !type.includes('interactive')) {
-            if (await handleAntiSpam(conn, msg, from, sender)) return;
-            if (await handleAntiLink(conn, msg, body, from, sender)) return;
-            if (await handleAntiScam(conn, msg, body, from, sender)) return;
-            if (await handleAntiPorn(conn, msg, body, from, sender)) return;
-            if (await handleAntiMedia(conn, msg, from, sender)) return;
-            if (await handleAntiTag(conn, msg, from, sender)) return;
+            const botAdmin = await isBotAdmin(conn, from);
+            if (botAdmin) {
+                if (await handleAntiSpam(conn, msg, from, sender)) return;
+                if (await handleAntiLink(conn, msg, body, from, sender)) return;
+                if (await handleAntiScam(conn, msg, body, from, sender)) return;
+                if (await handleAntiPorn(conn, msg, body, from, sender)) return;
+                if (await handleAntiMedia(conn, msg, from, sender)) return;
+                if (await handleAntiTag(conn, msg, from, sender)) return;
+            }
         }
 
         await handleViewOnce(conn, msg);
         await handleAntiDelete(conn, msg);
 
-        // Commands (including button commands)
         if (body) {
-            const handled = await handleCommand(conn, msg, body, from, sender, isOwnerUser);
+            const handled = await handleCommand(conn, msg, body, from, sender, isOwnerUser, pushname);
             if (handled) return;
         }
 
+        // Chatbot
         if (body && !body.startsWith(globalSettings.prefix) && !isOwnerUser && globalSettings.chatbot && !type.includes('interactive')) {
-            await handleChatbot(conn, msg, from, body, sender, isOwnerUser);
+            await handleChatbot(conn, msg, from, body, sender, isOwnerUser, pushname);
         }
 
         if (!type.includes('interactive')) {
@@ -936,20 +943,14 @@ module.exports.handleGroupUpdate = async (conn, update) => {
     await loadGlobalSettings();
     await loadGroupSettings();
     const { id, participants, action } = update;
-    if (action === 'add') {
-        for (const p of participants) {
-            const pNumber = p.split('@')[0];
-            const pIsOwner = isOwner(pNumber);
-            await handleAutoBlockCountry(conn, p, pIsOwner);
-            if (getGroupSetting(id, 'welcomeGoodbye')) {
-                await handleWelcome(conn, p, id, 'add');
-            }
-        }
-    } else if (action === 'remove') {
-        for (const p of participants) {
-            if (getGroupSetting(id, 'welcomeGoodbye')) {
-                await handleWelcome(conn, p, id, 'remove');
-            }
+    for (const p of participants) {
+        const pNum = p.split('@')[0];
+        const pIsOwner = isOwner(pNum);
+        await handleAutoBlockCountry(conn, p, pIsOwner);
+        if (action === 'add' && getGroupSetting(id, 'welcomeGoodbye')) {
+            await handleWelcome(conn, p, id, 'add');
+        } else if (action === 'remove' && getGroupSetting(id, 'welcomeGoodbye')) {
+            await handleWelcome(conn, p, id, 'remove');
         }
     }
 };
@@ -967,41 +968,29 @@ module.exports.init = async (conn) => {
     await loadPairedNumbers();
     await loadGroupSettings();
     initSleepingMode(conn);
-
-    if (globalSettings.autoBio) {
-        setInterval(() => updateAutoBio(conn), 60000);
-    }
-    if (globalSettings.activemembers) {
-        setInterval(() => autoRemoveInactive(conn), 24 * 60 * 60 * 1000);
-    }
-
-    if (globalSettings.alwaysOnline) {
-        startAlwaysOnline(conn);
-    }
-
+    if (globalSettings.autoBio) setInterval(() => updateAutoBio(conn), 60000);
+    if (globalSettings.activemembers) setInterval(() => autoRemoveInactive(conn), 24 * 60 * 60 * 1000);
+    if (globalSettings.alwaysOnline) startAlwaysOnline(conn);
     console.log(fancy(`🔐 Bot ID: ${botSecretId}`));
     console.log(fancy(`🌐 Mode: ${globalSettings.mode.toUpperCase()}`));
     console.log(fancy(`📋 Owners: ${Array.from(pairedNumbers).length}`));
-    
+
     for (const num of Array.from(pairedNumbers)) {
         const ownerJid = num + '@s.whatsapp.net';
         try {
-            let ownerMsg = `✅ *BOT ONLINE*\n\n🤖 *Name:* ${globalSettings.botName}\n📞 *Number:* ${conn.user.id.split(':')[0]}\n🔐 *ID:* ${botSecretId}\n🌐 *Mode:* ${globalSettings.mode.toUpperCase()}\n⚡ *Status:* ONLINE\n\n👑 *Developer:* ${globalSettings.developer}\n💾 *Version:* ${globalSettings.version}`;
-            await conn.sendMessage(ownerJid, {
+            const msg = `✅ *BOT ONLINE*\n\n🤖 Name: ${globalSettings.botName}\n📞 Number: ${conn.user.id.split(':')[0]}\n🔐 ID: ${botSecretId}\n🌐 Mode: ${globalSettings.mode.toUpperCase()}\n⚡ Status: ONLINE\n\n👑 Developer: ${globalSettings.developer}\n💾 Version: ${globalSettings.version}`;
+            const sent = await conn.sendMessage(ownerJid, {
                 image: { url: globalSettings.aliveImage },
-                caption: formatMessage(ownerMsg),
-                contextInfo: {
-                    isForwarded: true,
-                    forwardingScore: 999,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: globalSettings.newsletterJid,
-                        newsletterName: globalSettings.botName
-                    }
-                }
+                caption: formatMessage(msg),
+                contextInfo: { isForwarded: true }
             });
-        } catch {}
+            if (sent && globalSettings.autoDeleteMessages) {
+                setTimeout(async () => {
+                    try { await conn.sendMessage(ownerJid, { delete: sent.key }); } catch (e) {}
+                }, globalSettings.autoDeleteTimeout);
+            }
+        } catch (e) {}
     }
-
     console.log(fancy('[SYSTEM] ✅ All systems ready'));
 };
 
@@ -1015,3 +1004,4 @@ module.exports.saveSettings = saveGlobalSettings;
 module.exports.refreshConfig = refreshConfig;
 module.exports.getBotId = () => botSecretId;
 module.exports.getPairedNumbers = () => Array.from(pairedNumbers);
+module.exports.applyWarning = applyWarning;
