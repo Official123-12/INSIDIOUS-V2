@@ -62,7 +62,7 @@ module.exports = {
                     isForwarded: true,
                     forwardingScore: 999,
                     forwardedNewsletterMessageInfo: {
-                        newsletterJid: config.NEWSLETTER_JID || "120363404317544295@newsletter", // replace with your channel JID
+                        newsletterJid: config.NEWSLETTER_JID || "120363404317544295@newsletter",
                         newsletterName: config.BOT_NAME || "INSIDIOUS BOT",
                         serverMessageId: 100
                     }
