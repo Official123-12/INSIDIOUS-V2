@@ -1,5 +1,5 @@
 const express = require('express');
-const { default: makeWASocket, useMultiFileAuthState, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys");
+const { default: makeWASocket, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, DisconnectReason, initAuthCreds } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
@@ -36,7 +36,7 @@ function fancy(text) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ **MONGODB CONNECTION (OPTIONAL)**
+// ✅ **MONGODB CONNECTION**
 console.log(fancy("🔗 Connecting to MongoDB..."));
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
 
@@ -53,9 +53,9 @@ mongoose.connect(MONGODB_URI, {
     console.log(fancy("💡 Error: " + err.message));
 });
 
-// ==================== MONGODB AUTH STATE ====================
+// ==================== MONGODB AUTH STATE (with unique index) ====================
 const AuthSchema = new mongoose.Schema({
-  sessionId: { type: String, default: 'default' },
+  sessionId: { type: String, default: 'default', unique: true },
   creds: { type: mongoose.Schema.Types.Mixed, default: {} },
   keys: { type: mongoose.Schema.Types.Mixed, default: {} }
 }, { timestamps: true });
@@ -75,11 +75,7 @@ async function useMongoDBAuthState(sessionId = 'default') {
     return doc ? doc[type] : null;
   };
 
-  const removeData = async () => {
-    await AuthModel.deleteOne({ sessionId });
-  };
-
-  const creds = (await readData('creds')) || (await (await import('@whiskeysockets/baileys')).initAuthCreds)(sessionId);
+  const creds = (await readData('creds')) || initAuthCreds(sessionId);
 
   return {
     state: {
@@ -136,7 +132,7 @@ let botStartTime = Date.now();
 let isStarting = false;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
-const RECONNECT_BACKOFF = [5000, 10000, 30000, 60000, 120000]; // exponential backoff
+const RECONNECT_BACKOFF = [5000, 10000, 30000, 60000, 120000];
 
 // ✅ **LOAD CONFIG**
 let config = {};
@@ -160,16 +156,25 @@ async function startBot() {
     console.log(fancy("⏳ Bot already starting, skipping..."));
     return;
   }
+
+  // Clean up old connection to prevent memory leaks
+  if (globalConn) {
+    try {
+      globalConn.end(undefined);
+      console.log(fancy("🧹 Closed previous connection"));
+    } catch (e) {
+      // ignore
+    }
+  }
+
   isStarting = true;
 
   try {
     console.log(fancy("🚀 Starting INSIDIOUS..."));
     
-    // ✅ **AUTHENTICATION - MongoDB**
     const { state, saveCreds } = await useMongoDBAuthState('insidious_session');
     const { version } = await fetchLatestBaileysVersion();
 
-    // ✅ **CREATE CONNECTION**
     const conn = makeWASocket({
       version,
       auth: {
@@ -182,15 +187,21 @@ async function startBot() {
       connectTimeoutMs: 60000,
       keepAliveIntervalMs: 10000,
       markOnlineOnConnect: true,
-      generateHighQualityLinkPreview: false, // optional performance
-      shouldSyncHistoryMessage: () => false // prevent history sync
+      generateHighQualityLinkPreview: false,
+      shouldSyncHistoryMessage: () => false
     });
 
     globalConn = conn;
     botStartTime = Date.now();
-    reconnectAttempts = 0; // reset on successful connection
+    reconnectAttempts = 0;
 
-    // ✅ **CONNECTION EVENT HANDLER**
+    // Keep-alive heartbeat
+    const keepAlive = setInterval(() => {
+      if (conn?.ws?.readyState === 1) {
+        conn.sendPresenceUpdate('available', conn.user?.id);
+      }
+    }, 30000);
+
     conn.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect } = update;
       
@@ -198,7 +209,7 @@ async function startBot() {
         console.log(fancy("👹 INSIDIOUS: THE LAST KEY ACTIVATED"));
         console.log(fancy("✅ Bot is now online"));
         isConnected = true;
-        reconnectAttempts = 0; // reset on successful connection
+        reconnectAttempts = 0;
         
         // Get bot info
         let botName = conn.user?.name || "INSIDIOUS";
@@ -209,7 +220,6 @@ async function startBot() {
           botNumber = conn.user.id.split(':')[0] || "Unknown";
         }
         
-        // 🔥 GET BOT ID AND PAIRED COUNT FROM HANDLER
         const botSecret = handler.getBotId ? handler.getBotId() : 'Unknown';
         const pairedCount = handler.getPairedNumbers ? handler.getPairedNumbers().length : 0;
         
@@ -218,7 +228,6 @@ async function startBot() {
         console.log(fancy(`🆔 Bot ID: ${botSecret}`));
         console.log(fancy(`👥 Paired Owners: ${pairedCount}`));
         
-        // ✅ **INITIALIZE HANDLER**
         try {
           if (handler && typeof handler.init === 'function') {
             await handler.init(conn);
@@ -228,7 +237,7 @@ async function startBot() {
           console.error(fancy("❌ Handler init error:"), e.message);
         }
         
-        // ✅ **SEND WELCOME MESSAGE TO OWNER**
+        // Send welcome message to owner
         setTimeout(async () => {
           try {
             if (config.ownerNumber && config.ownerNumber.length > 0) {
@@ -266,7 +275,6 @@ async function startBot() {
 👑 *Developer:* STANYTZ
 💾 *Version:* 2.1.1 | Year: 2025`;
                 
-                // Send with image and forwarded style
                 await conn.sendMessage(ownerJid, { 
                   image: { 
                     url: config.botImage || "https://files.catbox.moe/f3c07u.jpg"
@@ -291,6 +299,8 @@ async function startBot() {
       }
       
       if (connection === 'close') {
+        clearInterval(keepAlive);
+        
         console.log(fancy("🔌 Connection closed"));
         isConnected = false;
         
@@ -308,21 +318,17 @@ async function startBot() {
           console.log(fancy(`🔄 Reconnect attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} in ${delay/1000}s...`));
           
           setTimeout(() => {
-            isStarting = false; // allow restart
+            isStarting = false;
             startBot();
           }, delay);
         } else {
           console.log(fancy("🚫 Logged out. Please re-pair using /pair."));
-          // Optionally clear auth from DB
-          // await AuthModel.deleteOne({ sessionId: 'insidious_session' });
         }
       }
     });
 
-    // ✅ **CREDENTIALS UPDATE**
     conn.ev.on('creds.update', saveCreds);
 
-    // ✅ **MESSAGE HANDLER**
     conn.ev.on('messages.upsert', async (m) => {
       try {
         if (handler && typeof handler === 'function') {
@@ -333,7 +339,6 @@ async function startBot() {
       }
     });
 
-    // ✅ **GROUP UPDATE HANDLER**
     conn.ev.on('group-participants.update', async (update) => {
       try {
         if (handler && handler.handleGroupUpdate) {
@@ -344,7 +349,6 @@ async function startBot() {
       }
     });
 
-    // ✅ **CALL HANDLER**
     conn.ev.on('call', async (call) => {
       try {
         if (handler && handler.handleCall) {
@@ -355,19 +359,10 @@ async function startBot() {
       }
     });
 
-    // ✅ **KEEP-ALIVE HEARTBEAT (NEW)**
-    const keepAlive = setInterval(() => {
-      if (conn?.ws?.readyState === 1) { // WebSocket open
-        conn.sendPresenceUpdate('available', conn.user.id); // or 'composing' to keep alive
-      }
-    }, 30000); // every 30 seconds
-    conn.ev.on('connection.close', () => clearInterval(keepAlive));
-
     console.log(fancy("🚀 Bot ready for pairing via web interface"));
     
   } catch (error) {
     console.error("Start error:", error.message);
-    // Attempt restart with backoff
     reconnectAttempts++;
     if (reconnectAttempts <= MAX_RECONNECT_ATTEMPTS) {
       const delay = RECONNECT_BACKOFF[Math.min(reconnectAttempts - 1, RECONNECT_BACKOFF.length - 1)] || 120000;
@@ -388,7 +383,7 @@ startBot();
 
 // ==================== HTTP ENDPOINTS ====================
 
-// ✅ **PAIRING ENDPOINT (8-DIGIT CODE) – MODIFIED WITH CONNECTION STATE GUARD**
+// ✅ **PAIRING ENDPOINT (FIXED GUARD)**
 app.get('/pair', async (req, res) => {
   try {
     let num = req.query.num;
@@ -401,23 +396,18 @@ app.get('/pair', async (req, res) => {
       return res.json({ success: false, error: "Invalid number. Must be at least 10 digits." });
     }
     
-    // ✅ **CONNECTION STATE GUARD**
+    // ✅ IMPROVED GUARD: Check if socket exists and is open
     if (!globalConn) {
       return res.json({ success: false, error: "Bot is initializing. Please try again in a few seconds." });
     }
     
-    if (!isConnected) {
-      return res.json({ success: false, error: "Bot is not fully connected yet. Please wait for 'Bot is now online' message." });
-    }
-    
-    // Check if connection is actually ready (auth present)
-    if (!globalConn.authState?.creds?.registered) {
-      return res.json({ success: false, error: "Bot session not ready. Please wait." });
+    // WebSocket readyState: 0 = CONNECTING, 1 = OPEN, 2 = CLOSING, 3 = CLOSED
+    if (globalConn.ws?.readyState !== 1) {
+      return res.json({ success: false, error: "Connection is not open yet. Please wait a few seconds." });
     }
     
     console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum}`));
     
-    // Use AbortController for timeout (optional)
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);
     
@@ -453,7 +443,6 @@ app.get('/unpair', async (req, res) => {
             return res.json({ success: false, error: "Invalid number" });
         }
         
-        // Call handler to unpair
         let result = false;
         if (handler && handler.unpairNumber) {
             result = await handler.unpairNumber(cleanNum);
