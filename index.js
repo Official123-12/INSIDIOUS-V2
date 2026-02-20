@@ -4,7 +4,7 @@ const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
 const fs = require('fs');
-const { Session, Settings, User, Group } = require('./models');
+const { Session, Settings, User, Group } = require('./database/models');
 
 // ==================== HANDLER ====================
 const handler = require('./handler');
