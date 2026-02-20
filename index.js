@@ -4,12 +4,11 @@ const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
 const fs = require('fs');
-const { Session } = require('./database/models'); // 🔥 Session model kwa MongoDB
+const { Session } = require('./database/models'); // 🔥 Session model
 
-// ==================== HANDLER ====================
 const handler = require('./handler');
 
-// ✅ **FANCY FUNCTION**
+// ✅ FANCY FUNCTION
 function fancy(text) {
     if (!text || typeof text !== 'string') return text;
     const fancyMap = {
@@ -28,7 +27,7 @@ function fancy(text) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ **MONGODB CONNECTION**
+// ✅ MONGODB
 console.log(fancy("🔗 Connecting to MongoDB..."));
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
 
@@ -43,7 +42,6 @@ mongoose.connect(MONGODB_URI, {
     process.exit(1);
 });
 
-// ✅ **MIDDLEWARE**
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -51,16 +49,14 @@ if (!fs.existsSync(path.join(__dirname, 'public'))) {
     fs.mkdirSync(path.join(__dirname, 'public'), { recursive: true });
 }
 
-// ✅ **SIMPLE ROUTES**
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
 
-// ✅ **GLOBAL VARIABLES**
 let globalConn = null;
 let isConnected = false;
 let botStartTime = Date.now();
 
-// ✅ **LOAD CONFIG**
+// ✅ LOAD CONFIG
 let config = {};
 try {
     config = require('./config');
@@ -77,7 +73,7 @@ try {
     };
 }
 
-// ✅ **SESSION HELPERS (MongoDB)**
+// ✅ SESSION HELPERS (MongoDB)
 async function saveSessionToMongoDB(number, creds, keys = {}) {
     try {
         const sanitizedNumber = number.replace(/[^0-9]/g, '');
@@ -105,13 +101,12 @@ async function loadSessionFromMongoDB(number) {
     }
 }
 
-// ✅ **MAIN BOT FUNCTION (HAKUNA AUTO-RECONNECT)**
+// ✅ MAIN BOT
 async function startBot() {
     try {
         console.log(fancy("🚀 Starting INSIDIOUS..."));
         const botNumber = 'insidious_main';
 
-        // 🔥 Jaribu kupakia session kutoka MongoDB
         const existingSession = await loadSessionFromMongoDB(botNumber);
 
         const sessionPath = path.join(__dirname, 'insidious_session');
@@ -171,12 +166,11 @@ async function startBot() {
                     console.error("Handler init error:", e.message);
                 }
 
-                // 🔥 Hifadhi session kwenye MongoDB
                 if (conn.authState?.creds) {
                     await saveSessionToMongoDB(botNumber, conn.authState.creds, {});
                 }
 
-                // Send welcome message to owner
+                // Welcome message to owner
                 setTimeout(async () => {
                     try {
                         if (config.ownerNumber && config.ownerNumber.length > 0) {
@@ -212,15 +206,13 @@ async function startBot() {
             if (connection === 'close') {
                 console.log(fancy("🔌 Connection closed"));
                 isConnected = false;
-                // 🔥 HAKUNA AUTO-RECONNECT – TUNAACHA TU
-                // PLATFORM (Railway/Render) ITAANZA UPYA
+                // HAKUNA AUTO-RECONNECT – PLATFORM ITARESTART
             }
         });
 
         conn.ev.on('creds.update', async () => {
             if (conn.authState?.creds) {
                 await saveCreds();
-                // 🔥 Hifadhi session kwenye MongoDB
                 await saveSessionToMongoDB('insidious_main', conn.authState.creds, {});
             }
         });
@@ -255,20 +247,19 @@ async function startBot() {
             }
         });
 
-        console.log(fancy("🚀 Bot ready"));
+        console.log(fancy("🚀 Bot ready – inaendelea 24/7"));
         
     } catch (error) {
         console.error("Start error:", error.message);
-        // Hakuna auto-restart
     }
 }
 
-// ✅ **START BOT**
+// ✅ START BOT
 startBot();
 
 // ==================== HTTP ENDPOINTS ====================
 
-// ✅ **PAIRING ENDPOINT (INANGOJA BOT IWE TAYARI)**
+// ✅ PAIRING – HAIANGALII isConnected
 app.get('/pair', async (req, res) => {
     try {
         let num = req.query.num;
@@ -276,14 +267,11 @@ app.get('/pair', async (req, res) => {
         const cleanNum = num.replace(/[^0-9]/g, '');
         if (cleanNum.length < 10) return res.json({ success: false, error: "Invalid number." });
 
-        // 🔥 Subiri hadi bot iwe online (max 30 sec)
-        let timeout = 30;
-        while (!isConnected && timeout > 0) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            timeout--;
+        if (!globalConn) {
+            return res.json({ success: false, error: "Bot is initializing. Please wait a few seconds." });
         }
-        if (!isConnected) return res.json({ success: false, error: "Bot not ready after 30 seconds." });
 
+        console.log(fancy(`🔑 Generating code for: ${cleanNum}`));
         const code = await Promise.race([
             globalConn.requestPairingCode(cleanNum),
             new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 30000))
@@ -299,7 +287,7 @@ app.get('/pair', async (req, res) => {
     }
 });
 
-// ✅ **UNPAIR ENDPOINT**
+// ✅ UNPAIR
 app.get('/unpair', async (req, res) => {
     try {
         let num = req.query.num;
@@ -317,20 +305,17 @@ app.get('/unpair', async (req, res) => {
     }
 });
 
-// ✅ **HEALTH CHECK**
+// ✅ HEALTH CHECK
 app.get('/health', (req, res) => {
-    const uptime = process.uptime();
-    const hours = Math.floor(uptime / 3600);
-    const minutes = Math.floor((uptime % 3600) / 60);
     res.json({
         status: 'healthy',
         connected: isConnected,
-        uptime: `${hours}h ${minutes}m`,
+        uptime: process.uptime(),
         mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
     });
 });
 
-// ✅ **BOT INFO**
+// ✅ BOT INFO
 app.get('/botinfo', (req, res) => {
     if (!globalConn || !globalConn.user) {
         return res.json({ connected: false });
@@ -347,12 +332,12 @@ app.get('/botinfo', (req, res) => {
     });
 });
 
-// ✅ **START SERVER**
+// ✅ START SERVER
 app.listen(PORT, () => {
     console.log(fancy(`🌐 Server running on port ${PORT}`));
     console.log(fancy(`🔗 Pairing: http://localhost:${PORT}/pair?num=255XXXXXXXXX`));
     console.log(fancy("👑 Developer: STANYTZ"));
-    console.log(fancy("📦 Storage: MongoDB"));
+    console.log(fancy("📦 Storage: MongoDB – sessions zinaendelea hata baada ya restart"));
 });
 
 module.exports = app;
