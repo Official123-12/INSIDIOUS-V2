@@ -206,8 +206,7 @@ async function startBot() {
             if (connection === 'close') {
                 console.log(fancy("🔌 Connection closed"));
                 isConnected = false;
-                // 🔥 HAKUNA AUTO-RECONNECT – TUNAACHA TU
-                // PLATFORM (Railway/Render) ITAANZA UPYA
+                // HAKUNA AUTO-RECONNECT – TUNAACHA TU
             }
         });
 
@@ -255,13 +254,14 @@ async function startBot() {
     }
 }
 
-// ✅ START BOT
+// ✅ START MAIN BOT
 startBot();
 
 // ==================== HTTP ENDPOINTS ====================
 
-// ✅ PAIRING – HAIANGALII isConnected, HAKUNA AUTO-RECONNECT
+// ✅ PAIRING – INATUMIA SOCKET YAKE MWENYEWE (HAITEGEMEI BOT KUU)
 app.get('/pair', async (req, res) => {
+    let tempConn = null;
     try {
         let num = req.query.num;
         if (!num) return res.json({ success: false, error: "Provide number! Example: /pair?num=255123456789" });
@@ -269,22 +269,37 @@ app.get('/pair', async (req, res) => {
         const cleanNum = num.replace(/[^0-9]/g, '');
         if (cleanNum.length < 10) return res.json({ success: false, error: "Invalid number. Must be at least 10 digits." });
 
-        // Hakikisha socket ipo
-        if (!globalConn) {
-            return res.json({ success: false, error: "Bot is initializing. Please wait a few seconds." });
-        }
-
         console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum}`));
-        
+
+        // 🔥 UNDA SOCKET MPYA KWA AJILI YA PAIRING
+        const { version } = await fetchLatestBaileysVersion();
+        tempConn = makeWASocket({
+            version,
+            auth: { creds: {}, keys: {} },
+            logger: pino({ level: "silent" }),
+            browser: Browsers.macOS("Safari"),
+            syncFullHistory: false,
+            connectTimeoutMs: 60000
+        });
+
+        // Subiri kidogo socket ianze
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
         const code = await Promise.race([
-            globalConn.requestPairingCode(cleanNum),
+            tempConn.requestPairingCode(cleanNum),
             new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout - no response from WhatsApp')), 30000))
         ]);
+        
+        // Funga socket ya muda
+        if (tempConn?.ws) tempConn.ws.close();
         
         res.json({ success: true, code, message: `8-digit pairing code: ${code}` });
         
     } catch (err) {
         console.error("Pairing error:", err.message);
+        // Funga socket ya muda ikiwa ipo
+        if (tempConn?.ws) tempConn.ws.close();
+        
         if (err.message.includes("already paired")) {
             res.json({ success: true, message: "Number already paired" });
         } else {
