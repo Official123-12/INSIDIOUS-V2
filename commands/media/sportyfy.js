@@ -1,27 +1,51 @@
 const axios = require('axios');
-const config = require('../../config');
 
 module.exports = {
     name: "spotify",
-    execute: async (conn, msg, args, { from, fancy }) => {
-        if (!args[0]) return msg.reply(fancy("ᴘʀᴏᴠɪᴅᴇ ᴀ ꜱᴘᴏᴛɪꜰʏ ʟɪɴᴋ ᴏʀ ꜱᴏɴɢ ɴᴀᴍᴇ!"));
-        msg.reply(fancy("🥀 ᴘᴇɴᴇᴛʀᴀᴛɪɴɢ ꜱᴘᴏᴛɪꜰʏ ᴀʀᴄʜɪᴠᴇꜱ..."));
+    aliases: ["sp", "spdl"],
+    description: "Download Spotify track",
+    usage: ".sp <track_url>",
+    
+    execute: async (conn, msg, args, { from, fancy, reply }) => {
         try {
-            const res = await axios.get(`https://api.darlyn.my.id/api/spotify?url=${encodeURIComponent(args.join(' '))}`);
-            const data = res.data.result;
-            await conn.sendMessage(from, { 
-                audio: { url: data.download }, 
-                mimetype: 'audio/mp4',
-                contextInfo: { 
-                    externalAdReply: { 
-                        title: data.title, 
-                        body: data.artist, 
-                        mediaType: 1, 
-                        thumbnailUrl: data.thumbnail,
-                        renderLargerThumbnail: true
+            if (!args.length) return reply("❌ Please provide a Spotify track URL.\nExample: .sp https://open.spotify.com/track/11dFghVXANMlKmJXsNCbNl");
+            
+            const url = encodeURIComponent(args[0]);
+            await reply("⏳ Downloading from Spotify...");
+            
+            const apiUrl = `https://ef-prime-md-ultra-apis.vercel.app/downloader/sp-dl?url=${url}`;
+            const response = await axios.get(apiUrl, { timeout: 15000 });
+            
+            if (response.status !== 200 || !response.data) {
+                return reply("❌ Failed to download. API returned error.");
+            }
+            
+            const data = response.data;
+            const audioUrl = data.audioUrl || data.downloadUrl || data.url;
+            
+            if (!audioUrl) {
+                return reply("❌ No audio URL found in response.");
+            }
+            
+            await conn.sendMessage(from, {
+                audio: { url: audioUrl },
+                mimetype: 'audio/mpeg',
+                fileName: 'spotify_track.mp3',
+                caption: "✅ Spotify track downloaded",
+                contextInfo: {
+                    isForwarded: true,
+                    forwardingScore: 999,
+                    forwardedNewsletterMessageInfo: {
+                        newsletterJid: "120363404317544295@newsletter",
+                        newsletterName: "INSIDIOUS BOT",
+                        serverMessageId: 100
                     }
-                } 
+                }
             }, { quoted: msg });
-        } catch (e) { msg.reply("🥀 ꜱᴘᴏᴛɪꜰʏ ꜱᴇʀᴠᴇʀ ɪꜱ ɢʜᴏꜱᴛᴇᴅ."); }
+            
+        } catch (error) {
+            console.error('[SPOTIFY] Error:', error);
+            reply("❌ Spotify download failed.");
+        }
     }
 };
