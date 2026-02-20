@@ -4,7 +4,7 @@ const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
 const fs = require('fs');
-const { Session } = require('./database/models'); // 🔥 Session model
+const { Session } = require('./database/models');
 
 const handler = require('./handler');
 
@@ -101,7 +101,7 @@ async function loadSessionFromMongoDB(number) {
     }
 }
 
-// ✅ MAIN BOT
+// ✅ MAIN BOT – HAKUNA AUTO-RECONNECT
 async function startBot() {
     try {
         console.log(fancy("🚀 Starting INSIDIOUS..."));
@@ -206,7 +206,8 @@ async function startBot() {
             if (connection === 'close') {
                 console.log(fancy("🔌 Connection closed"));
                 isConnected = false;
-                // HAKUNA AUTO-RECONNECT – PLATFORM ITARESTART
+                // 🔥 HAKUNA AUTO-RECONNECT – TUNAACHA TU
+                // PLATFORM (Railway/Render) ITAANZA UPYA
             }
         });
 
@@ -259,24 +260,29 @@ startBot();
 
 // ==================== HTTP ENDPOINTS ====================
 
-// ✅ PAIRING – HAIANGALII isConnected
+// ✅ PAIRING – HAIANGALII isConnected, HAKUNA AUTO-RECONNECT
 app.get('/pair', async (req, res) => {
     try {
         let num = req.query.num;
-        if (!num) return res.json({ success: false, error: "Provide number!" });
+        if (!num) return res.json({ success: false, error: "Provide number! Example: /pair?num=255123456789" });
+        
         const cleanNum = num.replace(/[^0-9]/g, '');
-        if (cleanNum.length < 10) return res.json({ success: false, error: "Invalid number." });
+        if (cleanNum.length < 10) return res.json({ success: false, error: "Invalid number. Must be at least 10 digits." });
 
+        // Hakikisha socket ipo
         if (!globalConn) {
             return res.json({ success: false, error: "Bot is initializing. Please wait a few seconds." });
         }
 
-        console.log(fancy(`🔑 Generating code for: ${cleanNum}`));
+        console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum}`));
+        
         const code = await Promise.race([
             globalConn.requestPairingCode(cleanNum),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 30000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout - no response from WhatsApp')), 30000))
         ]);
-        res.json({ success: true, code, message: `8-digit code: ${code}` });
+        
+        res.json({ success: true, code, message: `8-digit pairing code: ${code}` });
+        
     } catch (err) {
         console.error("Pairing error:", err.message);
         if (err.message.includes("already paired")) {
@@ -291,53 +297,70 @@ app.get('/pair', async (req, res) => {
 app.get('/unpair', async (req, res) => {
     try {
         let num = req.query.num;
-        if (!num) return res.json({ success: false, error: "Provide number!" });
+        if (!num) return res.json({ success: false, error: "Provide number! Example: /unpair?num=255123456789" });
+        
         const cleanNum = num.replace(/[^0-9]/g, '');
-        if (cleanNum.length < 10) return res.json({ success: false, error: "Invalid number." });
-
+        if (cleanNum.length < 10) return res.json({ success: false, error: "Invalid number" });
+        
         let result = false;
         if (handler && handler.unpairNumber) {
             result = await handler.unpairNumber(cleanNum);
+        } else {
+            return res.json({ success: false, error: "Unpair function not available in handler" });
         }
-        res.json({ success: result, message: result ? `Unpaired ${cleanNum}` : `Failed to unpair` });
+        
+        res.json({ success: result, message: result ? `Number ${cleanNum} unpaired successfully` : `Failed to unpair ${cleanNum}` });
+        
     } catch (err) {
-        res.json({ success: false, error: err.message });
+        console.error("Unpair error:", err.message);
+        res.json({ success: false, error: "Failed: " + err.message });
     }
 });
 
 // ✅ HEALTH CHECK
 app.get('/health', (req, res) => {
+    const uptime = process.uptime();
+    const hours = Math.floor(uptime / 3600);
+    const minutes = Math.floor((uptime % 3600) / 60);
+    const seconds = Math.floor(uptime % 60);
+    
     res.json({
         status: 'healthy',
         connected: isConnected,
-        uptime: process.uptime(),
-        mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+        uptime: `${hours}h ${minutes}m ${seconds}s`,
+        database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
     });
 });
 
 // ✅ BOT INFO
 app.get('/botinfo', (req, res) => {
     if (!globalConn || !globalConn.user) {
-        return res.json({ connected: false });
+        return res.json({ success: false, error: "Bot not connected", connected: isConnected });
     }
+    
     const botSecret = handler.getBotId ? handler.getBotId() : 'Unknown';
     const pairedCount = handler.getPairedNumbers ? handler.getPairedNumbers().length : 0;
+    
     res.json({
-        connected: true,
-        botName: globalConn.user?.name,
-        botNumber: globalConn.user?.id?.split(':')[0],
-        botSecret,
+        success: true,
+        botName: globalConn.user?.name || "INSIDIOUS",
+        botNumber: globalConn.user?.id?.split(':')[0] || "Unknown",
+        botJid: globalConn.user?.id || "Unknown",
+        botSecret: botSecret,
         pairedOwners: pairedCount,
+        connected: isConnected,
         uptime: Date.now() - botStartTime
     });
 });
 
 // ✅ START SERVER
 app.listen(PORT, () => {
-    console.log(fancy(`🌐 Server running on port ${PORT}`));
-    console.log(fancy(`🔗 Pairing: http://localhost:${PORT}/pair?num=255XXXXXXXXX`));
+    console.log(fancy(`🌐 Web Interface: http://localhost:${PORT}`));
+    console.log(fancy(`🔗 8-digit Pairing: http://localhost:${PORT}/pair?num=255XXXXXXXXX`));
+    console.log(fancy(`❤️ Health: http://localhost:${PORT}/health`));
     console.log(fancy("👑 Developer: STANYTZ"));
-    console.log(fancy("📦 Storage: MongoDB – sessions zinaendelea hata baada ya restart"));
+    console.log(fancy("📅 Version: 2.1.1 | Year: 2025"));
+    console.log(fancy("📦 Storage: MongoDB"));
 });
 
 module.exports = app;
