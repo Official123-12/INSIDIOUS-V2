@@ -12,7 +12,7 @@ const handler = require('./handler');
 // ✅ **FANCY FUNCTION**
 function fancy(text) {
     if (!text || typeof text !== 'string') return text;
-    const fancyMap = {
+    const map = {
         a: 'ᴀ', b: 'ʙ', c: 'ᴄ', d: 'ᴅ', e: 'ᴇ', f: 'ꜰ', g: 'ɢ', h: 'ʜ', i: 'ɪ',
         j: 'ᴊ', k: 'ᴋ', l: 'ʟ', m: 'ᴍ', n: 'ɴ', o: 'ᴏ', p: 'ᴘ', q: 'ǫ', r: 'ʀ',
         s: 'ꜱ', t: 'ᴛ', u: 'ᴜ', v: 'ᴠ', w: 'ᴡ', x: 'x', y: 'ʏ', z: 'ᴢ',
@@ -20,7 +20,9 @@ function fancy(text) {
         J: 'ᴊ', K: 'ᴋ', L: 'ʟ', M: 'ᴍ', N: 'ɴ', O: 'ᴏ', P: 'ᴘ', Q: 'ǫ', R: 'ʀ',
         S: 'ꜱ', T: 'ᴛ', U: 'ᴜ', V: 'ᴠ', W: 'ᴡ', X: 'x', Y: 'ʏ', Z: 'ᴢ'
     };
-    return text.split('').map(c => fancyMap[c] || c).join('');
+    let result = '';
+    for (let i = 0; i < text.length; i++) result += map[text[i]] || text[i];
+    return result;
 }
 
 const app = express();
@@ -59,6 +61,7 @@ app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 
 let globalConn = null;
 let isConnected = false;
 let botStartTime = Date.now();
+let currentBotNumber = null;
 
 // ✅ **LOAD CONFIG**
 let config = {};
@@ -82,15 +85,7 @@ async function saveSessionToMongoDB(number, creds, keys = {}) {
         const sanitizedNumber = number.replace(/[^0-9]/g, '');
         await Session.findOneAndUpdate(
             { sessionId: sanitizedNumber },
-            {
-                $set: {
-                    creds: creds,
-                    keys: keys,
-                    number: sanitizedNumber,
-                    lastActive: new Date(),
-                    isActive: true
-                }
-            },
+            { $set: { creds, keys, number: sanitizedNumber, lastActive: new Date(), isActive: true } },
             { upsert: true, new: true }
         );
         return true;
@@ -104,9 +99,7 @@ async function loadSessionFromMongoDB(number) {
     try {
         const sanitizedNumber = number.replace(/[^0-9]/g, '');
         const session = await Session.findOne({ sessionId: sanitizedNumber });
-        if (session && session.creds) {
-            return { creds: session.creds, keys: session.keys || {} };
-        }
+        if (session && session.creds) return { creds: session.creds, keys: session.keys || {} };
         return null;
     } catch (error) {
         console.error("Error loading session:", error.message);
@@ -125,89 +118,7 @@ async function deleteSessionFromMongoDB(number) {
     }
 }
 
-// ✅ **LOAD ALL ACTIVE SESSIONS FROM DB (KWA WATUMIAJI WENGI)**
-async function loadAllActiveSessions() {
-    try {
-        const sessions = await Session.find({ isActive: true });
-        console.log(fancy(`📦 Found ${sessions.length} active sessions in MongoDB`));
-        
-        for (const session of sessions) {
-            const number = session.sessionId;
-            try {
-                // Skip if already connected
-                if (global.sockets && global.sockets[number]) continue;
-                
-                const sessionPath = path.join(__dirname, 'sessions', `session_${number}`);
-                if (!fs.existsSync(path.join(__dirname, 'sessions'))) {
-                    fs.mkdirSync(path.join(__dirname, 'sessions'), { recursive: true });
-                }
-                if (!fs.existsSync(sessionPath)) {
-                    fs.mkdirSync(sessionPath, { recursive: true });
-                }
-
-                fs.writeFileSync(
-                    path.join(sessionPath, 'creds.json'),
-                    JSON.stringify(session.creds, null, 2)
-                );
-
-                const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
-                const { version } = await fetchLatestBaileysVersion();
-
-                const conn = makeWASocket({
-                    version,
-                    auth: { 
-                        creds: state.creds, 
-                        keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) 
-                    },
-                    logger: pino({ level: "silent" }),
-                    browser: Browsers.macOS("Safari"),
-                    syncFullHistory: false,
-                    connectTimeoutMs: 60000,
-                    keepAliveIntervalMs: 10000,
-                    markOnlineOnConnect: true
-                });
-
-                // Store socket globally (optional)
-                if (!global.sockets) global.sockets = {};
-                global.sockets[number] = conn;
-
-                conn.ev.on('connection.update', async (update) => {
-                    const { connection } = update;
-                    if (connection === 'open') {
-                        console.log(fancy(`✅ Session ${number} connected`));
-                        await Session.findOneAndUpdate(
-                            { sessionId: number },
-                            { $set: { lastActive: new Date(), isActive: true } }
-                        );
-                    }
-                    if (connection === 'close') {
-                        console.log(fancy(`🔌 Session ${number} closed`));
-                        delete global.sockets[number];
-                        // DO NOT RECONNECT – acha platform ifanye restart
-                    }
-                });
-
-                conn.ev.on('creds.update', async () => {
-                    if (conn.authState?.creds) {
-                        await saveCreds();
-                        await saveSessionToMongoDB(number, conn.authState.creds, {});
-                    }
-                });
-
-            } catch (err) {
-                console.error(fancy(`❌ Failed to connect ${number}:`), err.message);
-                await Session.findOneAndUpdate(
-                    { sessionId: number },
-                    { $set: { isActive: false } }
-                );
-            }
-        }
-    } catch (error) {
-        console.error("Error loading sessions:", error);
-    }
-}
-
-// ✅ **MAIN BOT FUNCTION (SINGLE BOT)**
+// ✅ **MAIN BOT FUNCTION (SINGLE BOT, NO AUTO-RECONNECT)**
 async function startBot() {
     try {
         console.log(fancy("🚀 Starting INSIDIOUS..."));
@@ -245,6 +156,10 @@ async function startBot() {
 
         globalConn = conn;
         botStartTime = Date.now();
+
+        if (conn.user && conn.user.id) {
+            currentBotNumber = conn.user.id.split(':')[0];
+        }
 
         conn.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update;
@@ -296,7 +211,7 @@ async function startBot() {
 
 ⚡ *Status:* ONLINE
 📦 *Storage:* MongoDB
-👑 *Developer:* STANYTZ
+👑 *Developer:* STANYTZ (Stanley Assanaly, 23 yrs)
 💾 *Version:* 2.1.1`;
                                 
                                 await conn.sendMessage(ownerJid, { 
@@ -315,12 +230,11 @@ async function startBot() {
                 isConnected = false;
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
                 
-                // Ikiwa ni logged out, futa session
                 if (statusCode === DisconnectReason.loggedOut) {
                     console.log(fancy("🚫 Logged out. Removing session from MongoDB."));
                     await deleteSessionFromMongoDB('insidious_main');
                 }
-                // USIWE NA AUTO-RECONNECT – acha platform ifanye restart
+                // NO AUTO-RECONNECT – PLATFORM ITARE
             }
         });
 
@@ -384,17 +298,12 @@ async function startBot() {
         
     } catch (error) {
         console.error("Start error:", error.message);
-        // Usijaribu kurestart – acha platform ifanye
+        // Hakuna auto-restart – platform itashughulikia
     }
 }
 
 // ✅ **ANZA MAIN BOT**
 startBot();
-
-// ✅ **PANDA SESSIONS ZOTE KUTOKA DATABASE (BAADA YA SEKUNDE 10)**
-setTimeout(() => {
-    loadAllActiveSessions();
-}, 10000);
 
 // ==================== HTTP ENDPOINTS ====================
 
@@ -417,7 +326,30 @@ app.get('/pair', async (req, res) => {
     }
 });
 
-// ✅ **HEALTH CHECK (HAITEGEMEI HANDLER)**
+// ✅ **UNPAIR ENDPOINT**
+app.get('/unpair', async (req, res) => {
+    try {
+        let num = req.query.num;
+        if (!num) return res.json({ success: false, error: "Provide number!" });
+        const cleanNum = num.replace(/[^0-9]/g, '');
+        if (cleanNum.length < 10) return res.json({ success: false, error: "Invalid number." });
+        
+        let result = false;
+        if (handler && handler.unpairNumber) {
+            result = await handler.unpairNumber(cleanNum);
+        }
+        
+        if (result) {
+            await deleteSessionFromMongoDB(cleanNum);
+        }
+        
+        res.json({ success: result, message: result ? `Unpaired ${cleanNum}` : `Failed to unpair` });
+    } catch (err) {
+        res.json({ success: false, error: err.message });
+    }
+});
+
+// ✅ **HEALTH CHECK**
 app.get('/health', (req, res) => {
     res.json({ 
         status: 'ok', 
@@ -442,7 +374,7 @@ app.get('/botinfo', (req, res) => {
 // ✅ **START SERVER**
 app.listen(PORT, () => {
     console.log(fancy(`🌐 Server running on port ${PORT}`));
-    console.log(fancy(`👑 Developer: STANYTZ`));
+    console.log(fancy(`👑 Developer: STANYTZ (Stanley Assanaly, 23 yrs)`));
 });
 
 module.exports = app;
