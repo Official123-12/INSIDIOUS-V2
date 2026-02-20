@@ -20,8 +20,14 @@ function fancy(text) {
     return text.split('').map(c => map[c] || c).join('');
 }
 
+// Format message with top border, but if the message contains a WhatsApp invite link, keep it plain
 function formatMessage(text) {
     if (!text) return text;
+    // Detect WhatsApp invite link (chat.whatsapp.com)
+    if (text.includes('chat.whatsapp.com/')) {
+        // Do not add border or fancy, just return plain text
+        return text;
+    }
     const topBorder = '╭─── • 🥀 • ───╮\n';
     return topBorder + fancy(text);
 }
@@ -169,7 +175,6 @@ async function saveGroupSettings() {
     } catch (e) { console.error('Error saving group settings:', e); }
 }
 
-// ✅ GROUP SETTING HELPERS – DEFINED BEFORE EXPORTS
 function getGroupSetting(groupJid, key) {
     if (!groupJid || groupJid === 'global') return globalSettings[key];
     const gs = groupSettings.get(groupJid) || {};
@@ -501,7 +506,6 @@ async function handleAntiDelete(conn, msg) {
                     (groupJid ? `Group: ${groupName}\n` : '') +
                     `Message: ${content}${mediaInfo}\nTime: ${time}`;
     
-    // Tuma kwa owner wa bot hii (currentBotNumber)
     if (currentBotNumber) {
         const ownerJid = currentBotNumber + '@s.whatsapp.net';
         await conn.sendMessage(ownerJid, {
@@ -576,7 +580,7 @@ async function handleAutoStatus(conn, statusMsg) {
     }
 }
 
-// ==================== DEEP AI RESPONSE – ULTIMATE PROMPT (STANYTZ BIO) ====================
+// ==================== DEEP AI RESPONSE – ULTIMATE PROMPT ====================
 async function getDeepAIResponse(text, isStatus = false) {
     const systemPrompt = `You are INSIDIOUS AI, an advanced WhatsApp bot with a rich personality and deep intelligence.
 You were created by STANYTZ, whose full name is Stanley Assanaly, a 23-year-old developer from Tanzania.
@@ -698,7 +702,8 @@ async function handleWelcome(conn, participant, groupJid, action = 'add') {
         ? `👤 Name: ${name}\n📞 Phone: ${getUsername(participant)}\n🕐 Joined: ${new Date().toLocaleString()}\n📝 Description: ${desc}\n👥 Total Members: ${total}\n✨ Active Members: ${activeCount}\n🔗 Group Link: ${inviteLink}\n💬 Quote: "${quote}"`
         : `👤 Name: ${name}\n📞 Phone: ${getUsername(participant)}\n🕐 Left: ${new Date().toLocaleString()}\n👥 Members Left: ${total}`;
 
-    const messageText = fancy(
+    // Ensure invite link is plain (not fancy) – formatMessage will skip adding border if it's a link
+    const messageText = formatMessage(
         `╭─── • 🥀 • ───╮\n` +
         `   ${header}\n` +
         `╰─── • 🥀 • ───╯\n\n` +
@@ -789,19 +794,23 @@ function startAlwaysOnline(conn) {
     }, 60000);
 }
 
-// ==================== COMMAND HANDLER ====================
+// ==================== COMMAND HANDLER (WITHOUT PREFIX SUPPORT) ====================
 async function handleCommand(conn, msg, body, from, sender, isOwner, isDeployerUser, isCoOwnerUser, pushname) {
     let prefix = globalSettings.prefix;
     let commandName = '';
     let args = [];
 
+    // Check if command starts with prefix
     if (body.startsWith(prefix)) {
         const parts = body.slice(prefix.length).trim().split(/ +/);
         commandName = parts.shift().toLowerCase();
         args = parts;
-    } else if (globalSettings.commandWithoutPrefix) {
+    } 
+    // If without prefix is enabled, try to match command name without prefix
+    else if (globalSettings.commandWithoutPrefix) {
         const parts = body.trim().split(/ +/);
         const firstWord = parts[0].toLowerCase();
+        // Check if first word exists in command cache
         if (global.cmdNameCache && global.cmdNameCache.has(firstWord)) {
             commandName = firstWord;
             args = parts.slice(1);
@@ -879,7 +888,7 @@ async function handleCommand(conn, msg, body, from, sender, isOwner, isDeployerU
                 break;
             }
         }
-        if (!found) {}
+        if (!found) {} // Silently ignore unknown commands
     } else {
         await msg.reply(fancy('❌ Commands folder not found.'));
     }
