@@ -67,7 +67,7 @@ const DEFAULT_SETTINGS = {
     antiviewonce: true,
     antidelete: true,
     sleepingmode: true,
-    antibugs: false, // 🔥 Imeondolewa kabisa
+    antibugs: false,
     antispam: true,
     anticall: true,
 
@@ -361,7 +361,7 @@ async function applyWarning(conn, from, sender, reason, increment = 1) {
     }
 }
 
-// ==================== ANTI FEATURES (ZOTE ZINATOA MESSAGES) ====================
+// ==================== ANTI FEATURES ====================
 async function handleAntiLink(conn, msg, body, from, sender) {
     if (!from.endsWith('@g.us') || !getGroupSetting(from, 'antilink')) return false;
     const linkRegex = /(?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-\/a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi;
@@ -586,10 +586,10 @@ async function handleAutoStatus(conn, statusMsg) {
     }
 }
 
-// ==================== DEEP AI RESPONSE – CHATBOT PLAIN (HAKUNA FANCY) ====================
+// ==================== DEEP AI RESPONSE – CHATBOT PLAIN ====================
 async function getDeepAIResponse(text, isStatus = false) {
     const systemPrompt = isStatus
-        ? "You are INSIDIOUS AI, an intelligent WhatsApp assistant created by STANYTZ.
+        ? `You are INSIDIOUS AI, an intelligent WhatsApp assistant created by STANYTZ.
 
 Your task is to reply to WhatsApp Status updates.
 
@@ -608,8 +608,8 @@ Guidelines:
 - Never overreact. Never be dramatic unless the tone requires it.
 - Speak like a close friend with wisdom.
 
-Your replies should feel real, intentional, and slightly deeper than average conversations."
-        : "You are INSIDIOUS AI, an advanced WhatsApp AI assistant created and developed by STANY STANLEY ASSANALY (STANYTZ), a 22-year-old innovative software developer from Mwanza, Tanzania.
+Your replies should feel real, intentional, and slightly deeper than average conversations.`
+        : `You are INSIDIOUS AI, an advanced WhatsApp AI assistant created and developed by STANY STANLEY ASSANALY (STANYTZ), a 22-year-old innovative software developer from Mwanza, Tanzania.
 
 Creator Background:
 - Name: STANY STANLEY ASSANALY
@@ -632,7 +632,7 @@ If asked about your creator or developer:
 Speak with respect and confidence about STANYTZ as a talented Tanzanian tech innovator known for creativity, precision, and next-level AI systems.
 
 You are not just a bot. You are a smart assistant built with vision and ambition.
-Always maintain high intelligence tone. Use the user's name if you know it.";
+Always maintain high intelligence tone. Use the user's name if you know it.`;
     try {
         const url = `${globalSettings.aiApiUrl}${encodeURIComponent(text)}?system=${encodeURIComponent(systemPrompt)}`;
         const res = await axios.get(url, { timeout: 15000 });
@@ -833,7 +833,7 @@ function startAlwaysOnline(conn) {
     }, 60000);
 }
 
-// ==================== COMMAND HANDLER (WITHOUT PREFIX SUPPORT) ====================
+// ==================== COMMAND HANDLER ====================
 async function handleCommand(conn, msg, body, from, sender, isOwner, isDeployerUser, isCoOwnerUser, pushname) {
     let prefix = globalSettings.prefix;
     let commandName = '';
@@ -923,7 +923,7 @@ async function handleCommand(conn, msg, body, from, sender, isOwner, isDeployerU
                 break;
             }
         }
-        if (!found) {} // Silent ignore
+        if (!found) {}
     } else {
         await msg.reply(formatMessage('❌ Commands folder not found.'));
     }
