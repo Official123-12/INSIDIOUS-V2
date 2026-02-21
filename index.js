@@ -127,7 +127,7 @@ async function startBot() {
                 console.log(fancy("👹 INSIDIOUS: THE LAST KEY ACTIVATED"));
                 console.log(fancy("✅ Bot is now online"));
                 
-                isConnected = true;
+                isConnected = false;
                 
                 // Get bot info
                 let botName = conn.user?.name || "INSIDIOUS";
