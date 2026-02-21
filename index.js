@@ -10,7 +10,11 @@ const handler = require('./handler');
 // ✅ FANCY FUNCTION
 function fancy(text) {
     if (!text || typeof text !== 'string') return text;
-    const fancyMap = { a: 'ᴀ', b: 'ʙ', c: 'ᴄ', d: 'ᴅ', e: 'ᴇ', f: 'ꜰ', g: 'ɢ', h: 'ʜ', i: 'ɪ', j: 'ᴊ', k: 'ᴋ', l: 'ʟ', m: 'ᴍ', n: 'ɴ', o: 'ᴏ', p: 'ᴘ', q: 'ǫ', r: 'ʀ', s: 'ꜱ', t: 'ᴛ', u: 'ᴜ', v: 'ᴠ', w: 'ᴡ', x: 'x', y: 'ʏ', z: 'ᴢ' };
+    const fancyMap = {
+        a: 'ᴀ', b: 'ʙ', c: 'ᴄ', d: 'ᴅ', e: 'ᴇ', f: 'ꜰ', g: 'ɢ', h: 'ʜ', i: 'ɪ',
+        j: 'ᴊ', k: 'ᴋ', l: 'ʟ', m: 'ᴍ', n: 'ɴ', o: 'ᴏ', p: 'ᴘ', q: 'ǫ', r: 'ʀ',
+        s: 'ꜱ', t: 'ᴛ', u: 'ᴜ', v: 'ᴠ', w: 'ᴡ', x: 'x', y: 'ʏ', z: 'ᴢ'
+    };
     return text.split('').map(c => fancyMap[c.toLowerCase()] || c).join('');
 }
 
@@ -31,7 +35,7 @@ mongoose.connect(MONGODB_URI).then(async () => {
     }
 });
 
-// ✅ SESSION MANAGER
+// ✅ SESSION MANAGER (MongoDB)
 async function useMongoDBAuthState(sessionId) {
     const writeData = async (data, id) => {
         const stringified = JSON.stringify(data, BufferJSON.replacer);
@@ -52,7 +56,9 @@ async function useMongoDBAuthState(sessionId) {
                     const data = {};
                     await Promise.all(ids.map(async (id) => {
                         let value = await readData(`${type}-${id}`);
-                        if (type === 'app-state-sync-key' && value) value = require('@whiskeysockets/baileys').proto.Message.AppStateSyncKeyData.fromObject(value);
+                        if (type === 'app-state-sync-key' && value) {
+                            value = require('@whiskeysockets/baileys').proto.Message.AppStateSyncKeyData.fromObject(value);
+                        }
                         data[id] = value;
                     }));
                     return data;
@@ -83,10 +89,13 @@ async function startBot(sessionId) {
             version,
             auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) },
             logger: pino({ level: "silent" }),
-            browser: Browsers.ubuntu("Chrome"), // Browser iwe tofauti kidogo ili isigongane
+            browser: Browsers.ubuntu("Chrome"),
             connectTimeoutMs: 60000,
-            defaultQueryTimeoutMs: 0, // Muhimu kwa Railway kuzuia timeout ya haraka
-            keepAliveIntervalMs: 10000
+            defaultQueryTimeoutMs: 0,
+            keepAliveIntervalMs: 10000,
+            syncFullHistory: false,
+            markOnlineOnConnect: true,
+            generateHighQualityLinkPreview: false
         });
 
         globalConns.set(sessionId, conn);
@@ -95,7 +104,6 @@ async function startBot(sessionId) {
             const { connection, lastDisconnect } = update;
             if (connection === 'open') {
                 console.log(fancy(`✅ Bot Online: ${sessionId}`));
-                // Ujumbe wa karibu
                 try {
                     await conn.sendMessage(conn.user.id, { text: fancy("insidious bot connected successfully!") });
                 } catch (e) {}
@@ -122,45 +130,70 @@ async function startBot(sessionId) {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ✅ PAIRING ENDPOINT - FIXED
+// ✅ PAIRING ENDPOINT – COMPLETELY FIXED & ROBUST
 app.get('/pair', async (req, res) => {
     let num = req.query.num;
     if (!num) return res.json({ error: "No number provided" });
     const cleanNum = num.replace(/[^0-9]/g, '');
+    if (cleanNum.length < 10) return res.json({ error: "Invalid number" });
 
     try {
-        // 1. Futa kama kuna session ya zamani ya namba hii ili kuzuia mgongano
+        // 1. Clear any existing session for this number to avoid conflicts
         await AuthDB.deleteMany({ sessionId: cleanNum });
-        
-        // 2. Anzisha socket mpya kwa ajili ya namba hii
+
+        // 2. Create temporary auth state
         const { state, saveCreds } = await useMongoDBAuthState(cleanNum);
-        const sock = makeWASocket({
+        const { version } = await fetchLatestBaileysVersion();
+
+        // 3. Create temporary socket for pairing only
+        const tempConn = makeWASocket({
+            version,
             auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) },
             logger: pino({ level: "silent" }),
-            browser: Browsers.ubuntu("Chrome")
+            browser: Browsers.ubuntu("Chrome"),
+            connectTimeoutMs: 60000,
+            defaultQueryTimeoutMs: 0,
+            keepAliveIntervalMs: 10000,
+            syncFullHistory: false,
+            markOnlineOnConnect: false,
+            generateHighQualityLinkPreview: false
         });
 
-        // 3. Subiri sekunde 3 ili connection itulie kabla ya kuomba code
-        setTimeout(async () => {
-            try {
-                let code = await sock.requestPairingCode(cleanNum);
-                res.json({ success: true, code: code });
-                
-                // Endelea kusikiliza mabadiliko ya creds ili kuokoa session ikifanikiwa
-                sock.ev.on('creds.update', saveCreds);
-                sock.ev.on('connection.update', (up) => {
-                    if (up.connection === 'open') {
-                        console.log(fancy(`✅ New Pairing Successful: ${cleanNum}`));
-                        globalConns.set(cleanNum, sock);
-                    }
-                });
-            } catch (err) {
-                console.log("Pairing error:", err);
-                if (!res.headersSent) res.json({ error: "Failed to get code. Try again." });
+        let codeReceived = false;
+        const timeout = setTimeout(() => {
+            if (!codeReceived) {
+                tempConn.end();
+                res.json({ error: "Pairing timeout – please try again." });
             }
-        }, 3000);
+        }, 60000); // 60 seconds timeout
+
+        tempConn.ev.on('connection.update', async (update) => {
+            const { connection } = update;
+            if (connection === 'open') {
+                try {
+                    const code = await tempConn.requestPairingCode(cleanNum);
+                    codeReceived = true;
+                    clearTimeout(timeout);
+                    res.json({ success: true, code: code });
+                    
+                    // Save credentials if they update during this short session
+                    tempConn.ev.on('creds.update', saveCreds);
+                    
+                    // Close the temporary socket after a short delay (code already sent)
+                    setTimeout(() => tempConn.end(), 5000);
+                } catch (err) {
+                    console.error("Pairing code request failed:", err);
+                    if (!codeReceived) {
+                        clearTimeout(timeout);
+                        res.json({ error: "Failed to get code – please try again." });
+                    }
+                    tempConn.end();
+                }
+            }
+        });
 
     } catch (e) {
+        console.error("Pairing error:", e);
         res.json({ error: "Internal Server Error" });
     }
 });
