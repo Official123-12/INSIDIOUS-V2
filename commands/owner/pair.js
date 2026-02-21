@@ -1,120 +1,63 @@
-const { makeWASocket, useMultiFileAuthState, Browsers, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
-const pino = require('pino');
-const path = require('path');
-const fs = require('fs-extra');
+const axios = require('axios');
 
 module.exports = {
     name: "pair",
     aliases: ["getcode", "pairbot"],
-    ownerOnly: true,
-    description: "Generate WhatsApp pairing code directly (no web)",
+    description: "Get a pairing code from the official website",
     usage: ".pair <phone_number_with_country_code>",
     
-    execute: async (conn, msg, args, { from, fancy, isOwner, reply }) => {
-        if (!isOwner) return;
-
-        const phoneNumber = args[0]?.replace(/[^0-9]/g, '');
-        if (!phoneNumber || phoneNumber.length < 10) {
-            return reply("❌ Please provide a valid phone number with country code.\nExample: .pair 255712345678");
-        }
-
-        // Notify user that we're starting
-        await reply("⏳ Generating pairing code... (please wait a few seconds)");
-
+    execute: async (conn, msg, args, { from, sender, reply }) => {
         try {
-            // Use a temporary folder for this session (so it doesn't interfere with main bot)
-            const tempAuthDir = path.join(__dirname, '../../temp_pair_session');
-            await fs.ensureDir(tempAuthDir);
+            if (!args.length) {
+                await conn.sendMessage(from, { 
+                    text: "❌ Please provide your phone number with country code.\nExample: .pair 255712345678" 
+                }, { quoted: msg });
+                return;
+            }
 
-            const { state, saveCreds } = await useMultiFileAuthState(tempAuthDir);
-            const { version } = await fetchLatestBaileysVersion();
+            const phoneNumber = args[0].replace(/[^0-9]/g, '');
+            if (phoneNumber.length < 10) {
+                await conn.sendMessage(from, { 
+                    text: "❌ Invalid number. Must be at least 10 digits." 
+                }, { quoted: msg });
+                return;
+            }
 
-            // Create a new socket just for pairing
-            const pairingConn = makeWASocket({
-                version,
-                auth: state,
-                logger: pino({ level: 'silent' }),
-                browser: Browsers.macOS('Safari'),
-                syncFullHistory: false,
-                connectTimeoutMs: 60000,
-                generateHighQualityLink: true,
-                getMessage: async () => null
-            });
-
-            // Wait for the pairing code
-            let pairingCode = null;
-            let error = null;
-
-            // Use a promise to wait for the code
-            const codePromise = new Promise((resolve, reject) => {
-                // Listen for connection updates
-                pairingConn.ev.on('connection.update', async (update) => {
-                    const { connection, lastDisconnect, qr } = update;
-                    if (qr) {
-                        reject(new Error('QR code received, but we need pairing code'));
-                    }
-                    if (connection === 'close') {
-                        reject(new Error('Connection closed before receiving code'));
-                    }
-                });
-
-                // Request the pairing code after a short delay
-                setTimeout(async () => {
-                    try {
-                        const code = await pairingConn.requestPairingCode(phoneNumber);
-                        resolve(code);
-                    } catch (err) {
-                        reject(err);
-                    }
-                }, 2000); // Wait 2 seconds for the socket to initialize
-            });
-
-            // Set a timeout of 30 seconds
-            pairingCode = await Promise.race([
-                codePromise,
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 30000))
-            ]);
-
-            // Close the temporary socket and clean up the folder
-            pairingConn.ws.close();
-            await fs.remove(tempAuthDir);
-
-            // Send the code to the user
-            const message = `
-╭─── • 🥀 • ───╮
-   *PAIRING CODE*
-╰─── • 🥀 • ───╯
-
-📱 *Number:* ${phoneNumber}
-🔑 *Code:* \`${pairingCode}\`
-⏱️ *Expires in:* 60 seconds
-
-📋 *HOW TO PAIR:*
-1. Open WhatsApp on your phone
-2. Go to Settings → Linked Devices
-3. Tap "Link a Device"
-4. Select "Link with Phone Number"
-5. Enter this 8-digit code
-6. Wait for connection
-
-_Code expires after 60 seconds._
-`;
-
-            await conn.sendMessage(from, {
-                text: fancy(message),
-                contextInfo: {
-                    isForwarded: true,
-                    forwardingScore: 999,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: "120363404317544295@newsletter",
-                        newsletterName: "INSIDIOUS BOT"
-                    }
-                }
+            await conn.sendMessage(from, { 
+                text: "⏳ Requesting pairing code..." 
             }, { quoted: msg });
 
-        } catch (err) {
-            console.error("Pairing error:", err);
-            reply(`❌ Failed to get code: ${err.message}`);
+            // Endpoint yako ya pairing – inafanana na ile kwenye index.js
+            const apiUrl = `https://insidiousstanytz.up.railway.app/pair?num=${phoneNumber}`;
+            const response = await axios.get(apiUrl, { timeout: 30000 });
+
+            if (response.data && response.data.success && response.data.code) {
+                const code = response.data.code;
+                
+                // Tuma code kwa mtumiaji (plain text, hakuna fancy fonts)
+                await conn.sendMessage(from, { 
+                    text: `🔑 Your 8-digit pairing code: ${code}` 
+                }, { quoted: msg });
+                
+                await conn.sendMessage(from, { 
+                    text: "📱 Open WhatsApp → Settings → Linked Devices → Link a Device → Link with Phone Number, then enter this code.\n\n_Code expires in 60 seconds._" 
+                }, { quoted: msg });
+
+                // 🔥 Optional: Hifadhi kwenye MongoDB (kama unataka)
+                // try {
+                //     const { PairRequest } = require('../../database/models');
+                //     await PairRequest.create({ number: phoneNumber, code, timestamp: new Date() });
+                // } catch (dbErr) {
+                //     console.error('Failed to save pairing request:', dbErr);
+                // }
+            } else {
+                throw new Error('Invalid response from pairing service');
+            }
+        } catch (error) {
+            console.error('[PAIR] Error:', error);
+            await conn.sendMessage(from, { 
+                text: "❌ Failed to get pairing code. The service might be down. Please try again later or visit the website directly: https://insidiousstanytz.up.railway.app" 
+            }, { quoted: msg });
         }
     }
 };
