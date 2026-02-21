@@ -11,6 +11,27 @@ module.exports = {
 
         const settings = await handler.loadGlobalSettings();
         const prefix = settings.prefix || '.';
+        const newsletterJid = settings.newsletterJid || '120363404317544295@newsletter';
+        const newsletterName = settings.botName || 'INSIDIOUS';
+
+        // Helper to send a message with newsletter forward context
+        const sendWithForward = async (content, quoted = msg) => {
+            const options = {
+                contextInfo: {
+                    isForwarded: true,
+                    forwardingScore: 999,
+                    forwardedNewsletterMessageInfo: {
+                        newsletterJid: newsletterJid,
+                        newsletterName: newsletterName
+                    }
+                }
+            };
+            if (typeof content === 'string') {
+                return await conn.sendMessage(from, { text: fancy(content), ...options }, { quoted });
+            } else {
+                return await conn.sendMessage(from, { ...content, ...options }, { quoted });
+            }
+        };
 
         // ========== USER MANUAL (when no args) ==========
         if (args.length === 0) {
@@ -86,7 +107,14 @@ module.exports = {
             await conn.sendMessage(from, {
                 image: { url: settings.botImage || 'https://files.catbox.moe/f3c07u.jpg' },
                 caption: fancy(manual),
-                contextInfo: { isForwarded: true }
+                contextInfo: {
+                    isForwarded: true,
+                    forwardingScore: 999,
+                    forwardedNewsletterMessageInfo: {
+                        newsletterJid: newsletterJid,
+                        newsletterName: newsletterName
+                    }
+                }
             }, { quoted: msg });
             return;
         }
@@ -168,7 +196,14 @@ module.exports = {
             await conn.sendMessage(from, {
                 image: { url: settings.botImage || 'https://files.catbox.moe/f3c07u.jpg' },
                 caption: fancy(text),
-                contextInfo: { isForwarded: true }
+                contextInfo: {
+                    isForwarded: true,
+                    forwardingScore: 999,
+                    forwardedNewsletterMessageInfo: {
+                        newsletterJid: newsletterJid,
+                        newsletterName: newsletterName
+                    }
+                }
             }, { quoted: msg });
             return;
         }
@@ -184,7 +219,7 @@ module.exports = {
             settings.autoDeleteMessages = action === 'on';
             await handler.saveGlobalSettings(settings);
             await handler.refreshConfig();
-            return reply(`✅ Auto-delete messages is now ${action.toUpperCase()}`);
+            return await sendWithForward(`✅ Auto-delete messages is now ${action.toUpperCase()}`);
         }
 
         // ----- SPECIAL: statusactions -----
@@ -196,7 +231,7 @@ module.exports = {
             settings.autoStatusActions = actions;
             await handler.saveGlobalSettings(settings);
             await handler.refreshConfig();
-            return reply(`✅ Auto status actions set to: ${actions.join(', ')}`);
+            return await sendWithForward(`✅ Auto status actions set to: ${actions.join(', ')}`);
         }
 
         // ----- SPECIAL: mode -----
@@ -206,7 +241,7 @@ module.exports = {
             settings.mode = mode;
             await handler.saveGlobalSettings(settings);
             await handler.refreshConfig();
-            return reply(`✅ Mode set to ${mode}`);
+            return await sendWithForward(`✅ Mode set to ${mode}`);
         }
 
         // ----- SPECIAL: prefix -----
@@ -214,7 +249,7 @@ module.exports = {
             settings.prefix = args[1];
             await handler.saveGlobalSettings(settings);
             await handler.refreshConfig();
-            return reply(`✅ Prefix set to ${args[1]}`);
+            return await sendWithForward(`✅ Prefix set to ${args[1]}`);
         }
 
         // ----- SPECIAL: withoutprefix -----
@@ -224,7 +259,7 @@ module.exports = {
             settings.commandWithoutPrefix = val === 'on';
             await handler.saveGlobalSettings(settings);
             await handler.refreshConfig();
-            return reply(`✅ Command without prefix is now ${val.toUpperCase()}`);
+            return await sendWithForward(`✅ Command without prefix is now ${val.toUpperCase()}`);
         }
 
         // ----- ARRAY MANAGEMENT (list, add, remove) -----
@@ -247,7 +282,7 @@ module.exports = {
             if (sub === 'list') {
                 let text = `*${key.toUpperCase()}*\n\nTotal: ${list.length}\n\n`;
                 list.forEach((item, i) => text += `${i+1}. ${item}\n`);
-                return reply(text);
+                return await sendWithForward(text);
             }
             const item = args.slice(2).join(' ').trim();
             if (!item) return reply("❌ Provide item.");
@@ -257,7 +292,7 @@ module.exports = {
                 settings[key] = list;
                 await handler.saveGlobalSettings(settings);
                 await handler.refreshConfig();
-                return reply(`✅ Added to ${key}: ${item}`);
+                return await sendWithForward(`✅ Added to ${key}: ${item}`);
             } else if (sub === 'remove') {
                 const index = list.indexOf(item);
                 if (index === -1) return reply("❌ Not found.");
@@ -265,7 +300,7 @@ module.exports = {
                 settings[key] = list;
                 await handler.saveGlobalSettings(settings);
                 await handler.refreshConfig();
-                return reply(`✅ Removed from ${key}: ${item}`);
+                return await sendWithForward(`✅ Removed from ${key}: ${item}`);
             }
         }
 
@@ -290,7 +325,7 @@ module.exports = {
             settings[scopeKey] = where;
             await handler.saveGlobalSettings(settings);
             await handler.refreshConfig();
-            return reply(`✅ ${feature} will now work in: ${where.toUpperCase()}`);
+            return await sendWithForward(`✅ ${feature} will now work in: ${where.toUpperCase()}`);
         }
 
         // ----- SET NUMERIC/STRING -----
@@ -307,7 +342,7 @@ module.exports = {
             } else return reply("❌ Cannot set this feature.");
             await handler.saveGlobalSettings(settings);
             await handler.refreshConfig();
-            return reply(`✅ ${feature} set to ${settings[feature]}`);
+            return await sendWithForward(`✅ ${feature} set to ${settings[feature]}`);
         }
 
         // ----- TOGGLE BOOLEAN (with optional scope) -----
@@ -371,7 +406,7 @@ module.exports = {
                 settings[feature] = action === 'on';
                 await handler.saveGlobalSettings(settings);
                 await handler.refreshConfig();
-                return reply(`✅ ${feature} is now ${action.toUpperCase()} (where: ${settings[scopeKey] || 'all'})`);
+                return await sendWithForward(`✅ ${feature} is now ${action.toUpperCase()} (where: ${settings[scopeKey] || 'all'})`);
             } else {
                 if (!possibleScopes.includes(scope)) {
                     return reply("❌ Scope must be 'all', 'group', or 'private'.");
@@ -380,7 +415,7 @@ module.exports = {
                 settings[scopeKey] = scope;
                 await handler.saveGlobalSettings(settings);
                 await handler.refreshConfig();
-                return reply(`✅ ${feature} is now ${action.toUpperCase()} (where: ${scope})`);
+                return await sendWithForward(`✅ ${feature} is now ${action.toUpperCase()} (where: ${scope})`);
             }
         } else {
             if (scope) {
@@ -392,7 +427,7 @@ module.exports = {
             settings[feature] = action === 'on';
             await handler.saveGlobalSettings(settings);
             await handler.refreshConfig();
-            return reply(`✅ ${feature} is now ${action.toUpperCase()}`);
+            return await sendWithForward(`✅ ${feature} is now ${action.toUpperCase()}`);
         }
     }
 };
