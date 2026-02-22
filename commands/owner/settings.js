@@ -14,7 +14,7 @@ module.exports = {
         const newsletterJid = settings.newsletterJid || '120363404317544295@newsletter';
         const newsletterName = settings.botName || 'INSIDIOUS';
 
-        // Helper to send a message with newsletter forward context
+        // Helper to send messages with newsletter forward
         const sendWithForward = async (content, quoted = msg) => {
             const options = {
                 contextInfo: {
