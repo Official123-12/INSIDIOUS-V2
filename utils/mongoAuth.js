@@ -1,75 +1,109 @@
-const Session = require('../models/Session');
-const { initAuthCreds } = require('@whiskeysockets/baileys');
+const mongoose = require('mongoose');
+
+// Session Schema
+const sessionSchema = new mongoose.Schema({
+    _id: { type: String, required: true }, // sessionId as ID
+    creds: { type: Object, default: {} },
+    keys: { type: Object, default: {} },
+    metadata: {
+        phoneNumber: String,
+        device: String,
+        createdAt: { type: Date, default: Date.now },
+        lastActive: Date,
+        status: { type: String, default: 'pending' } // pending, active, disconnected
+    }
+}, { collection: 'sessions' });
+
+// Prevent multiple model registration
+const Session = mongoose.models.Session || mongoose.model('Session', sessionSchema);
 
 /**
- * Creates an in‑memory key store that implements the SignalKeyStore interface.
- * The internal data can be extracted for persistence.
+ * Create MongoDB-backed auth state for Baileys
+ * @param {string} sessionId 
+ * @returns {Promise<{state, saveCreds}>}
  */
-function createKeyStore(initialKeys = {}) {
-    const data = initialKeys; // this will be modified in place
-    return {
-        data, // expose for saving
-        store: {
-            get: async (type, ids) => {
-                const typeData = data[type];
-                if (!typeData) return null;
-                if (Array.isArray(ids)) {
-                    return ids.map(id => typeData[id] || null);
-                }
-                return typeData[ids] || null;
-            },
-            set: async (entries) => {
-                for (const { type, id, value } of entries) {
-                    if (!data[type]) data[type] = {};
-                    data[type][id] = value;
-                }
-            }
-        }
-    };
-}
-
-async function useMongoAuthState(phoneNumber) {
-    let session = await Session.findOne({ phoneNumber });
-
-    if (!session) {
-        // No existing session – create fresh credentials
-        const newCreds = initAuthCreds();
-        const { store, data } = createKeyStore({}); // empty keys initially
-
-        return {
-            state: {
-                creds: newCreds,
-                keys: store
-            },
-            saveCreds: async (credsUpdate) => {
-                // This will be called when creds change; we store both creds and current keys
-                await Session.findOneAndUpdate(
-                    { phoneNumber },
-                    { $set: { creds: credsUpdate, keys: data } },
-                    { upsert: true, new: true }
-                );
-            },
-            // Expose the key data for later saving (used in creds.update event)
-            keyData: data
-        };
+async function useMongoAuthState(sessionId) {
+    let sessionDoc = await Session.findById(sessionId);
+    
+    if (!sessionDoc) {
+        sessionDoc = new Session({ _id: sessionId });
+        await sessionDoc.save();
     }
 
-    // Existing session – restore keys into a proper store
-    const { store, data } = createKeyStore(session.keys);
+    const saveCreds = async (creds) => {
+        await Session.findByIdAndUpdate(sessionId, {
+            creds: creds,
+            'metadata.lastActive': new Date()
+        }, { upsert: true });
+    };
+
+    const saveKey = async (key) => {
+        await Session.findByIdAndUpdate(sessionId, {
+            $set: { [`keys.${key.id}`]: key.key },
+            'metadata.lastActive': new Date()
+        });
+    };
+
+    const getKey = async (type, id) => {
+        const session = await Session.findById(sessionId);
+        return session?.keys?.[id] || null;
+    };
+
+    const deleteKey = async (type, id) => {
+        await Session.findByIdAndUpdate(sessionId, {
+            $unset: { [`keys.${id}`]: '' },
+            'metadata.lastActive': new Date()
+        });
+    };
+
+    const listKeys = async () => {
+        const session = await Session.findById(sessionId);
+        return session?.keys || {};
+    };
+
     return {
         state: {
-            creds: session.creds,
-            keys: store
+            creds: sessionDoc.creds,
+            keys: { get: getKey, set: saveKey, delete: deleteKey, list: listKeys }
         },
-        saveCreds: async (credsUpdate) => {
-            await Session.findOneAndUpdate(
-                { phoneNumber },
-                { $set: { creds: credsUpdate, keys: data } },
-                { new: true }
-            );
-        },
-        keyData: data
+        saveCreds
     };
 }
 
-module.exports = useMongoAuthState;
+/**
+ * Delete session from MongoDB
+ * @param {string} sessionId 
+ */
+async function deleteMongoSession(sessionId) {
+    await Session.findByIdAndDelete(sessionId);
+}
+
+/**
+ * Update session metadata
+ * @param {string} sessionId 
+ * @param {object} meta 
+ */
+async function updateSessionMeta(sessionId, meta) {
+    await Session.findByIdAndUpdate(sessionId, {
+        $set: { 
+            'metadata': { ...meta, lastActive: new Date() }
+        }
+    });
+}
+
+/**
+ * List all sessions from MongoDB
+ * @returns {Promise<Array>}
+ */
+async function listMongoSessions() {
+    return await Session.find({}, '_id metadata').lean();
+}
+
+module.exports = {
+    useMongoAuthState,
+    deleteMongoSession,
+    updateSessionMeta,
+    listMongoSessions,
+    Session
+};
+
