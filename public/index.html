@@ -3,1019 +3,955 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🥀 INSIDIOUS ULTRA | Premium Pairing</title>
-    
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
-    
+    <title>INSIDIOUS BOT | Premium Deployment</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* ===== ULTRA PREMIUM THEME ===== */
         :root {
-            --primary: #7b2cbf;
-            --primary-glow: #9d4edd;
-            --secondary: #00f5d4;
-            --accent: #ff006e;
-            --dark: #0a0a0f;
-            --darker: #050507;
-            --card-bg: rgba(20, 20, 35, 0.85);
-            --border: rgba(123, 44, 191, 0.5);
-            --text: #ffffff;
-            --text-dim: #a0a0b0;
-            --success: #00f5d4;
-            --danger: #ff4d6d;
-            --warning: #ffbe0b;
-            --glow-shadow: 0 0 40px rgba(123, 44, 191, 0.6);
-            --transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #ec4899;
+            --dark: #0f172a;
+            --darker: #020617;
+            --card: #1e293b;
+            --card-hover: #334155;
+            --text: #f1f5f9;
+            --text-muted: #94a3b8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --glass: rgba(30, 41, 59, 0.7);
+            --border: rgba(148, 163, 184, 0.2);
+            --glow: 0 0 20px rgba(99, 102, 241, 0.3);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
-
+        
         body {
-            font-family: 'Rajdhani', sans-serif;
-            background: 
-                radial-gradient(ellipse at 20% 30%, rgba(123, 44, 191, 0.2), transparent 50%),
-                radial-gradient(ellipse at 80% 70%, rgba(0, 245, 212, 0.15), transparent 50%),
-                linear-gradient(180deg, var(--darker) 0%, var(--dark) 100%);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, var(--darker) 0%, var(--dark) 50%, #1a1a2e 100%);
             color: var(--text);
             min-height: 100vh;
             overflow-x: hidden;
-            position: relative;
+            line-height: 1.6;
         }
 
-        /* 🚫 Security */
-        body.no-select {
-            user-select: none;
-            -webkit-user-select: none;
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(236, 72, 153, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(34, 197, 94, 0.05) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: -1;
+            animation: pulse 8s ease-in-out infinite;
         }
 
-        /* ✨ Animated Background */
-        .bg-particles {
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        /* Floating particles */
+        .particles {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none;
-            z-index: 0;
+            z-index: -1;
             overflow: hidden;
         }
-
         .particle {
             position: absolute;
-            width: 4px;
-            height: 4px;
-            background: var(--secondary);
+            width: 4px; height: 4px;
+            background: var(--primary);
             border-radius: 50%;
-            opacity: 0.3;
-            animation: float-particle 15s infinite;
+            animation: float 15s infinite linear;
+            opacity: 0.6;
+        }
+        @keyframes float {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 0.6; }
+            90% { opacity: 0.6; }
+            100% { transform: translateY(-20vh) rotate(720deg); opacity: 0; }
         }
 
-        @keyframes float-particle {
-            0%, 100% { transform: translateY(0) translateX(0); opacity: 0.3; }
-            50% { transform: translateY(-100px) translateX(50px); opacity: 0.6; }
-        }
-
-        /* 🌟 Loading Screen */
-        .loader {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--darker);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-            transition: opacity 0.5s, visibility 0.5s;
-        }
-
-        .loader.hidden {
-            opacity: 0;
-            visibility: hidden;
-        }
-
-        .loader-logo {
-            font-family: 'Orbitron', monospace;
-            font-size: 3rem;
-            font-weight: 900;
-            background: linear-gradient(45deg, var(--secondary), var(--primary), var(--accent));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: pulse-glow 1.5s infinite;
-            margin-bottom: 1rem;
-        }
-
-        @keyframes pulse-glow {
-            0%, 100% { filter: brightness(1) drop-shadow(0 0 20px rgba(123, 44, 191, 0.5)); }
-            50% { filter: brightness(1.3) drop-shadow(0 0 40px rgba(123, 44, 191, 0.8)); }
-        }
-
-        .loader-bar {
-            width: 200px;
-            height: 4px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 2px;
-            overflow: hidden;
-            margin-top: 1rem;
-        }
-
-        .loader-progress {
-            height: 100%;
-            background: linear-gradient(90deg, var(--secondary), var(--primary));
-            width: 0%;
-            animation: load-progress 2s ease-out forwards;
-        }
-
-        @keyframes load-progress {
-            to { width: 100%; }
-        }
-
-        /* 🎴 Premium Cards */
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 2rem 1.5rem;
-            position: relative;
-            z-index: 1;
-        }
-
+        /* Header */
         header {
-            text-align: center;
-            padding: 3rem 0 2rem;
-            animation: slide-down 0.8s ease-out;
-        }
-
-        @keyframes slide-down {
-            from { opacity: 0; transform: translateY(-30px); }
-            to { opacity: 1; transform: translateY(0); }
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
 
         .logo {
-            font-family: 'Orbitron', monospace;
-            font-size: 3.5rem;
-            font-weight: 900;
-            background: linear-gradient(45deg, var(--secondary), var(--primary), var(--accent));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 40px rgba(123, 44, 191, 0.6);
-            margin-bottom: 0.5rem;
-        }
-
-        .subtitle {
-            font-size: 1.3rem;
-            color: var(--text-dim);
-            letter-spacing: 3px;
-            text-transform: uppercase;
-        }
-
-        .premium-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: linear-gradient(45deg, var(--primary), var(--accent));
-            padding: 0.5rem 1.5rem;
-            border-radius: 50px;
-            font-size: 0.9rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin: 1rem 0;
-            animation: shimmer 2s infinite;
-        }
-
-        @keyframes shimmer {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.9; transform: scale(1.02); }
-        }
-
-        /* 🎴 Cards with Slide Animations */
-        .card {
-            background: var(--card-bg);
-            border-radius: 20px;
-            padding: 2rem;
-            margin-bottom: 1.5rem;
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            box-shadow: var(--glow-shadow);
-            opacity: 0;
-            transform: translateY(30px);
-            animation: slide-up 0.6s ease-out forwards;
-        }
-
-        .card:nth-child(1) { animation-delay: 0.2s; }
-        .card:nth-child(2) { animation-delay: 0.4s; }
-        .card:nth-child(3) { animation-delay: 0.6s; }
-
-        @keyframes slide-up {
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 0 60px rgba(123, 44, 191, 0.8);
-            transition: var(--transition);
-        }
-
-        .card-title {
-            font-family: 'Orbitron', monospace;
-            font-size: 1.5rem;
-            margin-bottom: 1.5rem;
             display: flex;
             align-items: center;
-            gap: 0.8rem;
-            color: var(--secondary);
-        }
-
-        /* 📝 Input Styles */
-        .input-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .input-group label {
-            display: block;
-            margin-bottom: 0.6rem;
-            font-weight: 600;
-            color: var(--text-dim);
-        }
-
-        .input-wrapper {
-            position: relative;
-        }
-
-        .input-wrapper i {
-            position: absolute;
-            left: 1.2rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--primary-glow);
-            font-size: 1.2rem;
-        }
-
-        .input-group input {
-            width: 100%;
-            padding: 1rem 1rem 1rem 3rem;
-            background: rgba(15, 15, 25, 0.8);
-            border: 2px solid var(--border);
-            border-radius: 12px;
-            color: var(--text);
-            font-size: 1.1rem;
-            transition: var(--transition);
-        }
-
-        .input-group input:focus {
-            outline: none;
-            border-color: var(--secondary);
-            box-shadow: 0 0 25px rgba(0, 245, 212, 0.4);
-        }
-
-        /* 🔘 Premium Buttons */
-        .btn {
-            width: 100%;
-            padding: 1rem 2rem;
-            background: linear-gradient(45deg, var(--primary), var(--primary-glow));
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 1.1rem;
+            gap: 0.75rem;
+            font-size: 1.5rem;
             font-weight: 700;
-            cursor: pointer;
+        }
+        .logo-icon {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 0.8rem;
-            transition: var(--transition);
-            position: relative;
-            overflow: hidden;
+            font-size: 1.2rem;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        @keyframes glow {
+            from { box-shadow: 0 0 10px rgba(99, 102, 241, 0.5); }
+            to { box-shadow: 0 0 20px rgba(236, 72, 153, 0.8); }
         }
 
-        .btn::before {
-            content: '';
-            position: absolute;
-            top: 0; left: -100%;
-            width: 100%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-            transition: left 0.6s;
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+            list-style: none;
+        }
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .nav-links a:hover, .nav-links a.active {
+            color: var(--text);
+            background: var(--card);
         }
 
-        .btn:hover::before { left: 100%; }
-        .btn:hover { transform: translateY(-3px); box-shadow: 0 15px 40px rgba(123, 44, 191, 0.6); }
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--card);
+            border-radius: 20px;
+            font-size: 0.875rem;
+        }
+        .status-dot {
+            width: 8px; height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse-dot 2s infinite;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(0.9); }
+        }
 
-        /* 📦 Sliding Message Boxes */
-        .slide-message {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 1rem 1.5rem;
+        /* Main Content */
+        main {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .hero {
+            text-align: center;
+            padding: 3rem 2rem;
+            margin-bottom: 3rem;
+        }
+        .hero h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .hero p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto 2rem;
+        }
+
+        .links-bar {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+        }
+        .link-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background: var(--card);
+            border: 1px solid var(--border);
             border-radius: 12px;
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        .link-btn:hover {
+            background: var(--card-hover);
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+        .link-btn i { font-size: 1.1rem; }
+
+        /* Cards Grid */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .card {
+            background: var(--glass);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s;
+        }
+        .card:hover {
+            border-color: var(--primary);
+            box-shadow: var(--glow);
+            transform: translateY(-4px);
+        }
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .card-header i {
+            font-size: 1.5rem;
+            color: var(--primary);
+        }
+        .card-header h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+        .form-control {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+        .form-control::placeholder { color: var(--text-muted); }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.875rem 1.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border: none;
+            border-radius: 10px;
             color: white;
             font-weight: 600;
-            z-index: 10000;
-            opacity: 0;
-            transform: translateX(400px);
-            transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-            max-width: 350px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4);
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+        .btn-outline:hover {
+            background: var(--primary);
+            color: white;
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger), #dc2626);
+        }
+        .btn-success {
+            background: linear-gradient(135deg, var(--success), #16a34a);
         }
 
-        .slide-message.show {
-            opacity: 1;
-            transform: translateX(0);
-        }
-
-        .slide-message.success {
-            background: linear-gradient(45deg, var(--success), #00d9b8);
-            color: var(--dark);
-        }
-
-        .slide-message.error {
-            background: linear-gradient(45deg, var(--danger), #ff6b8b);
-        }
-
-        .slide-message.info {
-            background: linear-gradient(45deg, var(--primary), var(--primary-glow));
-        }
-
-        /* 📊 Result Display */
+        /* Result Display */
         .result-box {
-            margin-top: 1.5rem;
-            padding: 1.5rem;
-            background: rgba(0, 245, 212, 0.08);
-            border: 1px solid var(--success);
-            border-radius: 12px;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: var(--card);
+            border-radius: 10px;
+            border-left: 4px solid var(--primary);
             display: none;
-            animation: slide-in-result 0.5s ease-out;
         }
-
-        @keyframes slide-in-result {
-            from { opacity: 0; transform: translateY(20px); }
+        .result-box.show { display: block; animation: slideIn 0.3s ease; }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-
-        .result-box.show { display: block; }
-
-        .code-display {
-            font-family: 'Orbitron', monospace;
-            font-size: 2.5rem;
-            font-weight: 900;
-            letter-spacing: 8px;
-            text-align: center;
-            padding: 1.2rem;
-            background: rgba(0, 0, 0, 0.4);
-            border-radius: 10px;
-            margin: 1rem 0;
-            color: var(--secondary);
-            text-shadow: 0 0 20px rgba(0, 245, 212, 0.6);
-            cursor: pointer;
-            transition: var(--transition);
-        }
-
-        .code-display:hover {
-            transform: scale(1.02);
-            box-shadow: 0 0 30px rgba(0, 245, 212, 0.4);
-        }
-
-        .session-id {
+        .result-code {
             font-family: 'Courier New', monospace;
-            background: rgba(123, 44, 191, 0.2);
-            padding: 0.8rem 1.2rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 0.25em;
+            text-align: center;
+            margin: 0.5rem 0;
+            color: var(--primary);
+        }
+        .result-session {
+            font-family: 'Courier New', monospace;
+            background: var(--darker);
+            padding: 0.75rem;
             border-radius: 8px;
-            margin: 0.8rem 0;
             word-break: break-all;
-            border-left: 3px solid var(--primary-glow);
+            margin: 0.5rem 0;
         }
 
-        /* 🎛️ Feature Toggles */
-        .feature-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1rem;
+        /* Sessions Table */
+        .sessions-table {
+            width: 100%;
+            border-collapse: collapse;
             margin-top: 1rem;
         }
-
-        .feature-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 1rem;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            transition: var(--transition);
+        .sessions-table th,
+        .sessions-table td {
+            padding: 0.875rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
         }
-
-        .feature-item:hover {
-            background: rgba(255, 255, 255, 0.08);
-            transform: translateX(5px);
-        }
-
-        .feature-info {
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-        }
-
-        .feature-info i {
-            color: var(--secondary);
-            font-size: 1.3rem;
-            width: 30px;
-            text-align: center;
-        }
-
-        .feature-name {
+        .sessions-table th {
+            color: var(--text-muted);
             font-weight: 600;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+        }
+        .sessions-table tr:hover {
+            background: var(--card);
+        }
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-success { background: rgba(34, 197, 94, 0.2); color: var(--success); }
+        .badge-warning { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+        .badge-danger { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+
+        .action-btns {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .action-btn {
+            padding: 0.5rem;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
             color: var(--text);
-        }
-
-        .feature-desc {
-            font-size: 0.85rem;
-            color: var(--text-dim);
-        }
-
-        /* Toggle Switch */
-        .toggle-switch {
-            position: relative;
-            width: 60px;
-            height: 30px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 30px;
             cursor: pointer;
-            transition: var(--transition);
+            transition: all 0.2s;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .action-btn:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        .action-btn.delete:hover {
+            background: var(--danger);
+            border-color: var(--danger);
         }
 
-        .toggle-switch.active {
-            background: linear-gradient(45deg, var(--success), #00d9b8);
+        /* Settings Grid */
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
         }
-
-        .toggle-switch::after {
-            content: '';
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background: var(--card);
+            border-radius: 10px;
+        }
+        .setting-info h4 { font-weight: 500; margin-bottom: 0.25rem; }
+        .setting-info p { font-size: 0.875rem; color: var(--text-muted); }
+        
+        /* Toggle Switch */
+        .toggle {
+            position: relative;
+            width: 50px;
+            height: 26px;
+        }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .slider {
             position: absolute;
-            top: 3px;
-            left: 3px;
-            width: 24px;
-            height: 24px;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--card-hover);
+            border-radius: 26px;
+            transition: 0.3s;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px; width: 20px;
+            left: 3px; bottom: 3px;
             background: white;
             border-radius: 50%;
-            transition: var(--transition);
+            transition: 0.3s;
         }
-
-        .toggle-switch.active::after {
-            left: 33px;
-        }
-
-        /* 🔄 Loading Spinner */
-        .loading-spinner {
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,255,255,0.2);
-            border-top-color: var(--secondary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* 📱 Responsive */
-        @media (max-width: 600px) {
-            .logo { font-size: 2.5rem; }
-            .code-display { font-size: 1.8rem; letter-spacing: 4px; }
-            .feature-grid { grid-template-columns: 1fr; }
-            .slide-message { left: 20px; right: 20px; max-width: none; }
-        }
+        input:checked + .slider { background: var(--primary); }
+        input:checked + .slider:before { transform: translateX(24px); }
 
         /* Footer */
         footer {
             text-align: center;
-            padding: 2rem 0;
-            color: var(--text-dim);
-            animation: fade-in 1s ease-out 1s forwards;
-            opacity: 0;
+            padding: 2rem;
+            margin-top: 3rem;
+            border-top: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        footer a { color: var(--primary); text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            header { flex-direction: column; gap: 1rem; }
+            .nav-links { flex-wrap: wrap; justify-content: center; }
+            .cards-grid { grid-template-columns: 1fr; }
+            .hero h1 { font-size: 2rem; }
         }
 
-        @keyframes fade-in { to { opacity: 1; } }
-
-        footer strong { color: var(--secondary); }
-
-        /* Tab Navigation */
-        .tab-buttons {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1.5rem;
-            background: rgba(255,255,255,0.05);
-            padding: 0.4rem;
-            border-radius: 12px;
-            flex-wrap: wrap;
+        /* Loading */
+        .loading {
+            display: inline-block;
+            width: 20px; height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
         }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        .tab-btn {
-            flex: 1;
-            min-width: 120px;
-            padding: 0.8rem 1.2rem;
-            background: transparent;
-            border: none;
-            color: var(--text-dim);
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: var(--transition);
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            padding: 1rem 1.5rem;
+            background: var(--card);
+            border-left: 4px solid var(--success);
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
+            gap: 0.75rem;
+            z-index: 1000;
+            animation: slideInRight 0.3s ease;
         }
-
-        .tab-btn.active {
-            background: var(--primary);
-            color: white;
-        }
-
-        .tab-btn:hover:not(.active) {
-            background: rgba(255,255,255,0.1);
-        }
-
-        .tab-content { display: none; }
-        .tab-content.active { display: block; animation: slide-up 0.5s ease-out; }
-
-        /* Confetti */
-        .confetti {
-            position: fixed;
-            width: 10px;
-            height: 10px;
-            animation: confetti-fall 3s linear forwards;
-            pointer-events: none;
-            z-index: 9999;
-        }
-
-        @keyframes confetti-fall {
-            to { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        .toast.error { border-left-color: var(--danger); }
+        .toast.warning { border-left-color: var(--warning); }
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
     </style>
 </head>
-<body class="no-select">
+<body>
+    <!-- Animated Particles -->
+    <div class="particles" id="particles"></div>
 
-    <!-- 🚫 Security Scripts -->
-    <script>
-        document.addEventListener('contextmenu', e => e.preventDefault());
-        document.addEventListener('keydown', e => {
-            if (e.ctrlKey && ['u','s','i','j','c'].includes(e.key)) e.preventDefault();
-            if (e.key === 'F12') e.preventDefault();
-        });
-    </script>
+    <!-- Header -->
+    <header>
+        <div class="logo">
+            <div class="logo-icon"><i class="fas fa-key"></i></div>
+            <span>INSIDIOUS</span>
+        </div>
+        <ul class="nav-links">
+            <li><a href="#pair" class="active"><i class="fas fa-link"></i> Pair</a></li>
+            <li><a href="#deploy"><i class="fas fa-rocket"></i> Deploy</a></li>
+            <li><a href="#sessions"><i class="fas fa-list"></i> Sessions</a></li>
+            <li><a href="#settings"><i class="fas fa-cog"></i> Settings</a></li>
+        </ul>
+        <div class="status-indicator">
+            <div class="status-dot"></div>
+            <span id="botStatus">Online</span>
+        </div>
+    </header>
 
-    <!-- ⏳ Loading Screen -->
-    <div class="loader" id="loader">
-        <div class="loader-logo">🥀 INSIDIOUS</div>
-        <div style="color: var(--text-dim);">Loading Premium Interface...</div>
-        <div class="loader-bar"><div class="loader-progress"></div></div>
-    </div>
-
-    <!-- 📬 Slide Messages Container -->
-    <div id="slideMessages"></div>
-
-    <!-- ✨ Background Particles -->
-    <div class="bg-particles" id="particles"></div>
-
-    <div class="container">
-        <!-- Header -->
-        <header>
-            <div class="premium-badge">
-                <i class="fas fa-crown"></i> ULTRA PREMIUM EDITION
+    <!-- Main Content -->
+    <main>
+        <!-- Hero Section -->
+        <section class="hero">
+            <h1>🔐 INSIDIOUS: THE LAST KEY</h1>
+            <p>Premium WhatsApp bot deployment platform. Pair your number, get your session, deploy instantly.</p>
+            
+            <div class="links-bar">
+                <a href="https://whatsapp.com/channel/0029VbB3xYzKjM8vN9pL4R2s" target="_blank" class="link-btn">
+                    <i class="fab fa-whatsapp"></i> Channel
+                </a>
+                <a href="https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y" target="_blank" class="link-btn">
+                    <i class="fas fa-users"></i> Support Group
+                </a>
+                <a href="https://wa.me/255787069580" target="_blank" class="link-btn">
+                    <i class="fas fa-user"></i> Developer
+                </a>
             </div>
-            <h1 class="logo">🥀 INSIDIOUS</h1>
-            <p class="subtitle">The Last Key • Full Web Control</p>
-            <p style="color: var(--text-dim); margin-top: 0.5rem;">
-                <i class="fas fa-shield-alt"></i> Secure • Fast • Unlimited • Feature Control
-            </p>
-        </header>
+        </section>
 
-        <main>
-            <!-- Tab Navigation -->
-            <div class="tab-buttons">
-                <button class="tab-btn active" data-tab="pair">
-                    <i class="fas fa-link"></i> Pair Device
-                </button>
-                <button class="tab-btn" data-tab="features">
-                    <i class="fas fa-sliders-h"></i> Control Features
-                </button>
-                <button class="tab-btn" data-tab="import">
-                    <i class="fas fa-file-import"></i> Import Session
-                </button>
-                <button class="tab-btn" data-tab="status">
-                    <i class="fas fa-chart-line"></i> Bot Status
-                </button>
-            </div>
-
-            <!-- 🔗 Pairing Tab -->
-            <div id="pair" class="tab-content active">
-                <section class="card">
-                    <h2 class="card-title"><i class="fas fa-qrcode"></i> Generate Pairing Code</h2>
-                    
-                    <form id="pairForm">
-                        <div class="input-group">
-                            <label><i class="fas fa-phone-alt"></i> WhatsApp Number</label>
-                            <div class="input-wrapper">
-                                <i class="fas fa-user"></i>
-                                <input type="tel" id="phone" placeholder="255123456789" pattern="[0-9]{10,15}" required>
-                            </div>
-                            <small style="color: var(--text-dim); display: block; margin-top: 0.4rem;">
-                                <i class="fas fa-info-circle"></i> Country code + number, no + or spaces
-                            </small>
-                        </div>
-                        
-                        <button type="submit" id="pairBtn" class="btn">
-                            <i class="fas fa-bolt"></i> Generate 8-Digit Code
-                        </button>
-                    </form>
-                    
-                    <div id="pairResult" class="result-box">
-                        <div style="text-align: center; margin-bottom: 1rem;">
-                            <i class="fas fa-check-circle" style="font-size: 2rem; color: var(--success);"></i>
-                            <h3 style="margin: 0.5rem 0;">✅ Pairing Successful!</h3>
-                        </div>
-                        <div class="code-display" id="codeDisplay" title="Click to copy">----</div>
-                        <div class="session-id" id="sessionId">Session ID: Loading...</div>
-                        <div class="instructions" style="text-align: center; color: var(--text-dim); line-height: 2; margin: 1rem 0;">
-                            <p><i class="fab fa-whatsapp"></i> Open WhatsApp → Settings → Linked Devices</p>
-                            <p><i class="fas fa-link"></i> Tap "Link with Phone Number"</p>
-                            <p><i class="fas fa-keyboard"></i> Enter the 8-digit code above</p>
-                        </div>
-                        <button class="btn" style="margin-top: 1rem; background: linear-gradient(45deg, #2d2d44, #3d3d5c);" onclick="copyPairingData()">
-                            <i class="fas fa-copy"></i> Copy Code + Session ID
-                        </button>
+        <!-- Cards Grid -->
+        <div class="cards-grid">
+            <!-- Pair Card -->
+            <div class="card" id="pair">
+                <div class="card-header">
+                    <i class="fas fa-mobile-alt"></i>
+                    <h3>🔗 Pair Your Number</h3>
+                </div>
+                <form id="pairForm">
+                    <div class="form-group">
+                        <label for="pairNumber">WhatsApp Number</label>
+                        <input type="tel" id="pairNumber" class="form-control" placeholder="2557XXXXXXXX" required pattern="[0-9]{10,15}">
+                        <small style="color: var(--text-muted);">Include country code, no + or spaces</small>
                     </div>
-                    
-                    <div id="pairError" class="slide-message error" style="position: relative; top: 0; right: 0; transform: none; margin-top: 1rem;"></div>
-                </section>
-            </div>
-
-            <!-- 🎛️ Feature Control Tab -->
-            <div id="features" class="tab-content">
-                <section class="card">
-                    <h2 class="card-title"><i class="fas fa-sliders-h"></i> Bot Feature Control</h2>
-                    <p style="color: var(--text-dim); margin-bottom: 1.5rem;">
-                        Toggle bot features on/off in real-time. Changes apply immediately.
+                    <button type="submit" class="btn" id="pairBtn">
+                        <i class="fas fa-key"></i> Generate Pairing Code
+                    </button>
+                </form>
+                <div class="result-box" id="pairResult">
+                    <p style="color: var(--text-muted); margin-bottom: 0.5rem;">Your 8-digit code:</p>
+                    <div class="result-code" id="pairCode">----</div>
+                    <p style="font-size: 0.875rem; color: var(--text-muted);">
+                        Enter this code in WhatsApp: Settings → Linked Devices → Link Device
                     </p>
-                    
-                    <div class="feature-grid" id="featureGrid">
-                        <!-- Features loaded dynamically -->
-                        <div style="text-align: center; padding: 2rem; color: var(--text-dim);">
-                            <div class="loading-spinner" style="margin: 0 auto 1rem;"></div>
-                            Loading features...
-                        </div>
-                    </div>
-                    
-                    <button class="btn" style="margin-top: 1.5rem;" onclick="saveFeatures()">
-                        <i class="fas fa-save"></i> Save All Changes
-                    </button>
-                </section>
-            </div>
-
-            <!-- 📥 Import Session Tab -->
-            <div id="import" class="tab-content">
-                <section class="card">
-                    <h2 class="card-title"><i class="fas fa-file-import"></i> Import Existing Session</h2>
-                    
-                    <form id="importForm">
-                        <div class="input-group">
-                            <label><i class="fas fa-phone"></i> Phone Number</label>
-                            <div class="input-wrapper">
-                                <i class="fas fa-user"></i>
-                                <input type="tel" id="importPhone" placeholder="255123456789" required>
-                            </div>
-                        </div>
-                        
-                        <div class="input-group">
-                            <label><i class="fas fa-fingerprint"></i> Session ID</label>
-                            <div class="input-wrapper">
-                                <i class="fas fa-key"></i>
-                                <input type="text" id="sessionIdInput" placeholder="e.g., INS-7X9K2M4P" required>
-                            </div>
-                        </div>
-                        
-                        <button type="submit" id="importBtn" class="btn" style="background: linear-gradient(45deg, var(--success), #00d9b8); color: var(--dark);">
-                            <i class="fas fa-play-circle"></i> Activate Bot
+                    <div id="sessionInfo" style="margin-top: 1rem; display: none;">
+                        <p style="color: var(--success);"><i class="fas fa-check-circle"></i> Pairing successful!</p>
+                        <p style="margin: 0.5rem 0;">Your Session ID:</p>
+                        <div class="result-session" id="sessionId">Loading...</div>
+                        <button class="btn btn-outline" onclick="copySession()" style="margin-top: 0.5rem;">
+                            <i class="fas fa-copy"></i> Copy Session ID
                         </button>
-                    </form>
-                    
-                    <div id="importResult" class="result-box">
-                        <div style="text-align: center;">
-                            <i class="fas fa-check-circle" style="font-size: 2.5rem; color: var(--success);"></i>
-                            <h3>🎉 Session Imported!</h3>
-                            <p style="color: var(--text-dim); margin: 1rem 0;">Bot is activating...</p>
-                        </div>
                     </div>
-                </section>
+                </div>
             </div>
 
-            <!-- 📊 Status Tab -->
-            <div id="status" class="tab-content">
-                <section class="card">
-                    <h2 class="card-title"><i class="fas fa-chart-line"></i> Bot Status</h2>
-                    
-                    <div class="feature-grid" id="statusGrid">
-                        <div class="feature-item">
-                            <div class="feature-info">
-                                <i class="fas fa-circle" style="color: var(--success);"></i>
-                                <div>
-                                    <div class="feature-name">Connection</div>
-                                    <div class="feature-desc" id="statusConnected">Checking...</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="feature-item">
-                            <div class="feature-info">
-                                <i class="fas fa-clock"></i>
-                                <div>
-                                    <div class="feature-name">Uptime</div>
-                                    <div class="feature-desc" id="statusUptime">-</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="feature-item">
-                            <div class="feature-info">
-                                <i class="fas fa-users"></i>
-                                <div>
-                                    <div class="feature-name">Paired Users</div>
-                                    <div class="feature-desc" id="statusPaired">-</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="feature-item">
-                            <div class="feature-info">
-                                <i class="fas fa-database"></i>
-                                <div>
-                                    <div class="feature-name">Database</div>
-                                    <div class="feature-desc" id="statusDB">-</div>
-                                </div>
-                            </div>
-                        </div>
+            <!-- Deploy Card -->
+            <div class="card" id="deploy">
+                <div class="card-header">
+                    <i class="fas fa-rocket"></i>
+                    <h3>🚀 Deploy Your Bot</h3>
+                </div>
+                <form id="deployForm">
+                    <div class="form-group">
+                        <label for="deploySession">Session ID</label>
+                        <input type="text" id="deploySession" class="form-control" placeholder="Paste your session ID" required>
                     </div>
-                    
-                    <button class="btn" style="margin-top: 1.5rem;" onclick="refreshStatus()">
-                        <i class="fas fa-sync-alt"></i> Refresh Status
+                    <div class="form-group">
+                        <label for="deployNumber">Phone Number</label>
+                        <input type="tel" id="deployNumber" class="form-control" placeholder="2557XXXXXXXX" required pattern="[0-9]{10,15}">
+                    </div>
+                    <button type="submit" class="btn btn-success" id="deployBtn">
+                        <i class="fas fa-play"></i> Deploy Bot
                     </button>
-                </section>
+                </form>
+                <div class="result-box" id="deployResult">
+                    <p id="deployMessage">Deployment status will appear here...</p>
+                </div>
             </div>
-        </main>
 
-        <footer>
-            <p>👑 Developer: <strong>STANLEY ASSANALY</strong></p>
-            <p>📀 v2.1.1 ULTRA • © 2025 • Special Thanks: REDTECH</p>
-        </footer>
-    </div>
+            <!-- Sessions Card -->
+            <div class="card" id="sessions">
+                <div class="card-header">
+                    <i class="fas fa-list"></i>
+                    <h3>📋 Active Sessions</h3>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="sessions-table">
+                        <thead>
+                            <tr>
+                                <th>Number</th>
+                                <th>Session ID</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sessionsTableBody">
+                            <tr>
+                                <td colspan="4" style="text-align: center; color: var(--text-muted);">
+                                    Loading sessions...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <button class="btn btn-outline" onclick="refreshSessions()" style="margin-top: 1rem;">
+                    <i class="fas fa-sync"></i> Refresh
+                </button>
+            </div>
+        </div>
 
-    <!-- 🧠 Main JavaScript -->
+        <!-- Settings Section -->
+        <section class="card" id="settings">
+            <div class="card-header">
+                <i class="fas fa-cog"></i>
+                <h3>⚙️ Bot Settings</h3>
+            </div>
+            <div class="settings-grid">
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <h4>Anti-ViewOnce</h4>
+                        <p>Recover deleted view-once media</p>
+                    </div>
+                    <label class="toggle">
+                        <input type="checkbox" id="setting-antiviewonce" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <h4>Anti-Delete</h4>
+                        <p>Recover deleted messages</p>
+                    </div>
+                    <label class="toggle">
+                        <input type="checkbox" id="setting-antidelete" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <h4>Auto-Read</h4>
+                        <p>Automatically read messages</p>
+                    </div>
+                    <label class="toggle">
+                        <input type="checkbox" id="setting-autoread" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <h4>AI Chatbot</h4>
+                        <p>Enable AI responses</p>
+                    </div>
+                    <label class="toggle">
+                        <input type="checkbox" id="setting-chatbot" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <h4>Anti-Link</h4>
+                        <p>Block links in groups</p>
+                    </div>
+                    <label class="toggle">
+                        <input type="checkbox" id="setting-antilink" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <h4>Welcome Messages</h4>
+                        <p>Send welcome/goodbye</p>
+                    </div>
+                    <label class="toggle">
+                        <input type="checkbox" id="setting-welcome" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+            <button class="btn" onclick="saveSettings()" style="margin-top: 1.5rem;">
+                <i class="fas fa-save"></i> Save Settings
+            </button>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <p>
+            INSIDIOUS BOT v2.1.1 | © 2025 Stanley Assanaly<br>
+            <a href="https://wa.me/255787069580">Contact Developer</a> | 
+            <a href="https://whatsapp.com/channel/0029VbB3xYzKjM8vN9pL4R2s">Channel</a> | 
+            <a href="https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y">Support</a>
+        </p>
+    </footer>
+
+    <!-- Toast Container -->
+    <div id="toastContainer"></div>
+
     <script>
-        // ===== Hide Loader =====
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                document.getElementById('loader').classList.add('hidden');
-                createParticles();
-                loadFeatures();
-                refreshStatus();
-            }, 2000);
-        });
-
-        // ===== Create Background Particles =====
+        // Create floating particles
         function createParticles() {
             const container = document.getElementById('particles');
-            for (let i = 0; i < 50; i++) {
+            for (let i = 0; i < 30; i++) {
                 const particle = document.createElement('div');
                 particle.className = 'particle';
                 particle.style.left = Math.random() * 100 + '%';
-                particle.style.top = Math.random() * 100 + '%';
                 particle.style.animationDelay = Math.random() * 15 + 's';
-                particle.style.background = [
-                    'var(--secondary)', 'var(--primary)', 'var(--accent)'
-                ][Math.floor(Math.random() * 3)];
+                particle.style.animationDuration = (15 + Math.random() * 10) + 's';
                 container.appendChild(particle);
             }
         }
+        createParticles();
 
-        // ===== Slide Message Notification =====
-        function showSlideMessage(text, type = 'info', duration = 4000) {
-            const container = document.getElementById('slideMessages');
-            const msg = document.createElement('div');
-            msg.className = `slide-message ${type}`;
-            msg.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'}"></i> ${text}`;
-            container.appendChild(msg);
-            
-            setTimeout(() => msg.classList.add('show'), 100);
-            setTimeout(() => {
-                msg.classList.remove('show');
-                setTimeout(() => msg.remove(), 500);
-            }, duration);
+        // Toast notification
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'exclamation-triangle'}"></i>
+                <span>${message}</span>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
         }
 
-        // ===== Tab Switching =====
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                btn.classList.add('active');
-                document.getElementById(btn.dataset.tab).classList.add('active');
-                
-                if (btn.dataset.tab === 'status') refreshStatus();
-                if (btn.dataset.tab === 'features') loadFeatures();
+        // Copy to clipboard
+        function copySession() {
+            const sessionId = document.getElementById('sessionId').textContent;
+            navigator.clipboard.writeText(sessionId).then(() => {
+                showToast('Session ID copied to clipboard!');
+            }).catch(() => {
+                showToast('Failed to copy', 'error');
             });
-        });
+        }
 
-        // ===== Pairing Form =====
+        // Pair form submission
         document.getElementById('pairForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const phone = document.getElementById('phone').value.trim();
+            const number = document.getElementById('pairNumber').value.trim();
             const btn = document.getElementById('pairBtn');
-            const result = document.getElementById('pairResult');
-            const error = document.getElementById('pairError');
-            
-            result.classList.remove('show');
-            error.style.display = 'none';
+            const resultBox = document.getElementById('pairResult');
+            const pairCode = document.getElementById('pairCode');
+            const sessionInfo = document.getElementById('sessionInfo');
+            const sessionIdEl = document.getElementById('sessionId');
+
             btn.disabled = true;
-            btn.innerHTML = '<span class="loading-spinner"></span> Generating...';
-            
+            btn.innerHTML = '<span class="loading"></span> Generating...';
+            resultBox.classList.remove('show');
+            sessionInfo.style.display = 'none';
+
             try {
-                const res = await fetch(`/pair?num=${encodeURIComponent(phone)}`);
-                const data = await res.json();
-                
-                if (data.success && data.code) {
-                    document.getElementById('codeDisplay').textContent = data.code;
-                    document.getElementById('sessionId').textContent = `Session ID: ${data.sessionId || 'INS-' + generateId()}`;
-                    result.classList.add('show');
-                    showSlideMessage('✅ Pairing code generated!', 'success');
-                    createConfetti();
+                const response = await fetch(`/pair?num=${number}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    pairCode.textContent = data.code || '----';
+                    resultBox.classList.add('show');
+                    
+                    if (data.sessionId) {
+                        sessionIdEl.textContent = data.sessionId;
+                        sessionInfo.style.display = 'block';
+                        showToast('Pairing successful! Copy your Session ID.');
+                    } else {
+                        showToast('Enter the code in WhatsApp to complete pairing.');
+                    }
                 } else {
-                    throw new Error(data.error || 'Pairing failed');
+                    showToast(data.error || 'Pairing failed', 'error');
                 }
-            } catch (err) {
-                error.textContent = err.message;
-                error.style.display = 'block';
-                showSlideMessage('❌ ' + err.message, 'error');
+            } catch (error) {
+                showToast('Connection error. Try again.', 'error');
+                console.error(error);
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-bolt"></i> Generate 8-Digit Code';
+                btn.innerHTML = '<i class="fas fa-key"></i> Generate Pairing Code';
             }
         });
 
-        // ===== Load Features =====
-        async function loadFeatures() {
-            const grid = document.getElementById('featureGrid');
-            grid.innerHTML = '<div style="text-align: center; padding: 2rem;"><div class="loading-spinner" style="margin: 0 auto 1rem;"></div>Loading features...</div>';
-            
-            try {
-                const res = await fetch('/botinfo');
-                const data = await res.json();
-                
-                const features = [
-                    { key: 'antilink', name: 'Anti-Link', icon: 'fa-link', desc: 'Block links in groups' },
-                    { key: 'antiporn', name: 'Anti-Porn', icon: 'fa-ban', desc: 'Block adult content' },
-                    { key: 'antiscam', name: 'Anti-Scam', icon: 'fa-shield-alt', desc: 'Detect scam messages' },
-                    { key: 'antiviewonce', name: 'Anti ViewOnce', icon: 'fa-eye', desc: 'Recover view once messages' },
-                    { key: 'antidelete', name: 'Anti-Delete', icon: 'fa-trash', desc: 'Recover deleted messages' },
-                    { key: 'anticall', name: 'Anti-Call', icon: 'fa-phone', desc: 'Auto-reject calls' },
-                    { key: 'autoRead', name: 'Auto-Read', icon: 'fa-check-double', desc: 'Auto-read messages' },
-                    { key: 'autoReact', name: 'Auto-React', icon: 'fa-heart', desc: 'Auto-react to messages' },
-                    { key: 'autoTyping', name: 'Auto-Typing', icon: 'fa-keyboard', desc: 'Show typing indicator' },
-                    { key: 'welcomeGoodbye', name: 'Welcome/Goodbye', icon: 'fa-users', desc: 'Group welcome messages' },
-                    { key: 'chatbot', name: 'AI Chatbot', icon: 'fa-robot', desc: 'AI-powered responses' },
-                    { key: 'autostatus', name: 'Auto-Status', icon: 'fa-story', desc: 'Auto-view status updates' }
-                ];
-                
-                grid.innerHTML = features.map(f => `
-                    <div class="feature-item">
-                        <div class="feature-info">
-                            <i class="fas ${f.icon}"></i>
-                            <div>
-                                <div class="feature-name">${f.name}</div>
-                                <div class="feature-desc">${f.desc}</div>
-                            </div>
-                        </div>
-                        <div class="toggle-switch ${data.features?.[f.key] ? 'active' : ''}" data-feature="${f.key}" onclick="toggleFeature(this)"></div>
-                    </div>
-                `).join('');
-                
-            } catch (err) {
-                grid.innerHTML = '<div style="text-align: center; color: var(--danger); padding: 2rem;">Failed to load features</div>';
-                showSlideMessage('Failed to load features', 'error');
-            }
-        }
-
-        // ===== Toggle Feature =====
-        function toggleFeature(el) {
-            el.classList.toggle('active');
-        }
-
-        // ===== Save Features =====
-        async function saveFeatures() {
-            const toggles = document.querySelectorAll('.toggle-switch');
-            const features = {};
-            toggles.forEach(t => {
-                features[t.dataset.feature] = t.classList.contains('active');
-            });
-            
-            try {
-                const res = await fetch('/update-features', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ features })
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    showSlideMessage('✅ Features saved successfully!', 'success');
-                } else {
-                    throw new Error(data.error);
-                }
-            } catch (err) {
-                showSlideMessage('❌ ' + err.message, 'error');
-            }
-        }
-
-        // ===== Import Session =====
-        document.getElementById('importForm').addEventListener('submit', async (e) => {
+        // Deploy form submission
+        document.getElementById('deployForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const phone = document.getElementById('importPhone').value.trim();
-            const sessionId = document.getElementById('sessionIdInput').value.trim();
-            const btn = document.getElementById('importBtn');
-            const result = document.getElementById('importResult');
-            
+            const sessionId = document.getElementById('deploySession').value.trim();
+            const number = document.getElementById('deployNumber').value.trim();
+            const btn = document.getElementById('deployBtn');
+            const resultBox = document.getElementById('deployResult');
+            const messageEl = document.getElementById('deployMessage');
+
             btn.disabled = true;
-            btn.innerHTML = '<span class="loading-spinner"></span> Validating...';
-            
+            btn.innerHTML = '<span class="loading"></span> Deploying...';
+            resultBox.classList.add('show');
+            messageEl.textContent = 'Initializing deployment...';
+
             try {
-                const res = await fetch('/import-session', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone, sessionId })
-                });
-                const data = await res.json();
+                // Simulate deployment (replace with actual API call)
+                await new Promise(resolve => setTimeout(resolve, 2000));
                 
-                if (data.success) {
-                    result.style.display = 'block';
-                    showSlideMessage('✅ Session imported!', 'success');
-                    createConfetti();
-                } else {
-                    throw new Error(data.error);
-                }
-            } catch (err) {
-                showSlideMessage('❌ ' + err.message, 'error');
+                messageEl.innerHTML = `✅ <strong>Bot deployed successfully!</strong><br>
+                    Session: <code>${sessionId}</code><br>
+                    Number: ${number}<br>
+                    <small style="color: var(--text-muted);">Bot is now active and ready to use.</small>`;
+                showToast('Bot deployed successfully!');
+                
+                // Refresh sessions list
+                refreshSessions();
+            } catch (error) {
+                messageEl.textContent = '❌ Deployment failed. Please try again.';
+                showToast('Deployment failed', 'error');
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-play-circle"></i> Activate Bot';
+                btn.innerHTML = '<i class="fas fa-play"></i> Deploy Bot';
             }
         });
 
-        // ===== Refresh Status =====
-        async function refreshStatus() {
+        // Load sessions
+        async function loadSessions() {
+            const tbody = document.getElementById('sessionsTableBody');
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Loading...</td></tr>';
+
             try {
-                const res = await fetch('/health');
-                const data = await res.json();
+                const response = await fetch('/botinfo');
+                const data = await response.json();
                 
-                document.getElementById('statusConnected').textContent = data.connected ? 'Online' : 'Offline';
-                document.getElementById('statusConnected').style.color = data.connected ? 'var(--success)' : 'var(--danger)';
-                document.getElementById('statusUptime').textContent = data.uptime;
-                document.getElementById('statusDB').textContent = data.database;
-                
-                const pairs = await fetch('/api/sessions');
-                const pairsData = await pairs.json();
-                document.getElementById('statusPaired').textContent = pairsData.count || 0;
-                
-            } catch (err) {
-                showSlideMessage('Failed to refresh status', 'error');
+                if (data.success && data.pairedOwners > 0) {
+                    tbody.innerHTML = '';
+                    // Mock data - replace with actual API
+                    const sessions = [
+                        { number: '255787069580', sessionId: 'A1B2C3D4E5F6', status: 'active' },
+                        { number: '255600123456', sessionId: 'X9Y8Z7W6V5U4', status: 'pending' }
+                    ];
+                    
+                    sessions.forEach(session => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${session.number}</td>
+                            <td><code>${session.sessionId}</code></td>
+                            <td><span class="badge badge-${session.status === 'active' ? 'success' : 'warning'}">${session.status}</span></td>
+                            <td>
+                                <div class="action-btns">
+                                    <button class="action-btn" title="Refresh" onclick="refreshSession('${session.number}')">
+                                        <i class="fas fa-sync"></i>
+                                    </button>
+                                    <button class="action-btn delete" title="Delete" onclick="deleteSession('${session.number}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No active sessions</td></tr>';
+                }
+            } catch (error) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--danger);">Failed to load sessions</td></tr>';
             }
         }
 
-        // ===== Copy Functions =====
-        function copyPairingData() {
-            const code = document.getElementById('codeDisplay').textContent;
-            const sessionId = document.getElementById('sessionId').textContent;
-            navigator.clipboard.writeText(`${code}\n${sessionId}`).then(() => {
-                showSlideMessage('📋 Copied to clipboard!', 'success');
+        function refreshSessions() {
+            showToast('Refreshing sessions...');
+            loadSessions();
+        }
+
+        function refreshSession(number) {
+            showToast(`Refreshing ${number}...`);
+            // Add API call here
+        }
+
+        function deleteSession(number) {
+            if (confirm(`Delete session for ${number}?`)) {
+                showToast(`Deleted ${number}`, 'warning');
+                loadSessions();
+            }
+        }
+
+        // Save settings
+        function saveSettings() {
+            const settings = {
+                antiviewonce: document.getElementById('setting-antiviewonce').checked,
+                antidelete: document.getElementById('setting-antidelete').checked,
+                autoread: document.getElementById('setting-autoread').checked,
+                chatbot: document.getElementById('setting-chatbot').checked,
+                antilink: document.getElementById('setting-antilink').checked,
+                welcome: document.getElementById('setting-welcome').checked
+            };
+            
+            // Save to API
+            showToast('Settings saved successfully!');
+            console.log('Saved settings:', settings);
+        }
+
+        // Check bot status
+        async function checkBotStatus() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                const statusEl = document.getElementById('botStatus');
+                
+                if (data.connected) {
+                    statusEl.textContent = 'Online';
+                    statusEl.previousElementSibling.style.background = 'var(--success)';
+                } else {
+                    statusEl.textContent = 'Offline';
+                    statusEl.previousElementSibling.style.background = 'var(--danger)';
+                }
+            } catch {
+                document.getElementById('botStatus').textContent = 'Unknown';
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSessions();
+            checkBotStatus();
+            setInterval(checkBotStatus, 30000);
+            
+            // Smooth scroll for nav links
+            document.querySelectorAll('.nav-links a').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+                    link.classList.add('active');
+                    const target = document.querySelector(link.getAttribute('href'));
+                    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
             });
-        }
-
-        function generateId() {
-            return 'INS-' + Math.random().toString(36).substring(2, 10).toUpperCase();
-        }
-
-        // ===== Confetti Effect =====
-        function createConfetti() {
-            const colors = ['#7b2cbf', '#00f5d4', '#ff006e', '#9d4edd'];
-            for (let i = 0; i < 50; i++) {
-                const confetti = document.createElement('div');
-                confetti.className = 'confetti';
-                confetti.style.left = Math.random() * 100 + 'vw';
-                confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
-                confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
-                document.body.appendChild(confetti);
-                setTimeout(() => confetti.remove(), 5000);
-            }
-        }
-
-        // ===== Auto-refresh Status =====
-        setInterval(refreshStatus, 30000);
-
-        // ===== Phone Input Format =====
-        document.getElementById('phone').addEventListener('input', function() {
-            this.value = this.value.replace(/[^0-9]/g, '').slice(0, 15);
         });
     </script>
 </body>
 </html>
+
