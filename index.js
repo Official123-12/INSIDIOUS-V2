@@ -1,29 +1,40 @@
 const express = require('express');
-const { default: makeWASocket, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys");
+const { default: makeWASocket, useMultiFileAuthState, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
-const fs = require('fs-extra');
+const fs = require('fs');
 
 // ==================== HANDLER ====================
 const handler = require('./handler');
 
-// ==================== MODELS & HELPERS ====================
+// ==================== MODELS & UTILS ====================
 const Session = require('./models/Session');
-const useMongoAuthState = require('./lib/mongoAuth');
+const useMongoAuthState = require('./utils/mongoAuth');
 
 // ✅ **FANCY FUNCTION**
 function fancy(text) {
     if (!text || typeof text !== 'string') return text;
-    const map = {
-        a: 'ᴀ', b: 'ʙ', c: 'ᴄ', d: 'ᴅ', e: 'ᴇ', f: 'ꜰ', g: 'ɢ', h: 'ʜ', i: 'ɪ',
-        j: 'ᴊ', k: 'ᴋ', l: 'ʟ', m: 'ᴍ', n: 'ɴ', o: 'ᴏ', p: 'ᴘ', q: 'ǫ', r: 'ʀ',
-        s: 'ꜱ', t: 'ᴛ', u: 'ᴜ', v: 'ᴠ', w: 'ᴡ', x: 'x', y: 'ʏ', z: 'ᴢ',
-        A: 'ᴀ', B: 'ʙ', C: 'ᴄ', D: 'ᴅ', E: 'ᴇ', F: 'ꜰ', G: 'ɢ', H: 'ʜ', I: 'ɪ',
-        J: 'ᴊ', K: 'ᴋ', L: 'ʟ', M: 'ᴍ', N: 'ɴ', O: 'ᴏ', P: 'ᴘ', Q: 'ǫ', R: 'ʀ',
-        S: 'ꜱ', T: 'ᴛ', U: 'ᴜ', V: 'ᴠ', W: 'ᴡ', X: 'x', Y: 'ʏ', Z: 'ᴢ'
-    };
-    return text.split('').map(c => map[c] || c).join('');
+    
+    try {
+        const fancyMap = {
+            a: 'ᴀ', b: 'ʙ', c: 'ᴄ', d: 'ᴅ', e: 'ᴇ', f: 'ꜰ', g: 'ɢ', h: 'ʜ', i: 'ɪ',
+            j: 'ᴊ', k: 'ᴋ', l: 'ʟ', m: 'ᴍ', n: 'ɴ', o: 'ᴏ', p: 'ᴘ', q: 'ǫ', r: 'ʀ',
+            s: 'ꜱ', t: 'ᴛ', u: 'ᴜ', v: 'ᴠ', w: 'ᴡ', x: 'x', y: 'ʏ', z: 'ᴢ',
+            A: 'ᴀ', B: 'ʙ', C: 'ᴄ', D: 'ᴅ', E: 'ᴇ', F: 'ꜰ', G: 'ɢ', H: 'ʜ', I: 'ɪ',
+            J: 'ᴊ', K: 'ᴋ', L: 'ʟ', M: 'ᴍ', N: 'ɴ', O: 'ᴏ', P: 'ᴘ', Q: 'ǫ', R: 'ʀ',
+            S: 'ꜱ', T: 'ᴛ', U: 'ᴜ', V: 'ᴠ', W: 'ᴡ', X: 'x', Y: 'ʏ', Z: 'ᴢ'
+        };
+        
+        let result = '';
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            result += fancyMap[char] || char;
+        }
+        return result;
+    } catch (e) {
+        return text;
+    }
 }
 
 const app = express();
@@ -38,8 +49,16 @@ mongoose.connect(MONGODB_URI, {
     socketTimeoutMS: 45000,
     maxPoolSize: 10
 })
-.then(() => console.log(fancy("✅ MongoDB Connected")))
-.catch(err => console.log(fancy("❌ MongoDB Connection FAILED: " + err.message)));
+.then(() => {
+    console.log(fancy("✅ MongoDB Connected"));
+    // Load all saved sessions after DB connects
+    loadAllSessions();
+})
+.catch((err) => {
+    console.log(fancy("❌ MongoDB Connection FAILED"));
+    console.log(fancy("💡 Error: " + err.message));
+    process.exit(1);
+});
 
 // ✅ **MIDDLEWARE**
 app.use(express.json());
@@ -51,8 +70,17 @@ if (!fs.existsSync(path.join(__dirname, 'public'))) {
 }
 
 // ✅ **SIMPLE ROUTES**
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/dashboard', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+// ✅ **GLOBAL VARIABLES FOR MULTI‑SESSION**
+const activeConnections = new Map(); // key: phoneNumber, value: { sock, saveCreds }
+let botStartTime = Date.now();
 
 // ✅ **LOAD CONFIG**
 let config = {};
@@ -71,66 +99,128 @@ try {
 }
 
 // ==================== MULTI‑SESSION MANAGEMENT ====================
-/** @type {Map<string, { socket: any, saveCreds: function, startTime: number }>} */
-const activeSessions = new Map();
 
-/**
- * Start a WhatsApp client for a specific phone number.
- * @param {string} phoneNumber - e.g. "255712345678"
- * @returns {Promise<any>} the socket
- */
-async function startSocket(phoneNumber) {
-    console.log(fancy(`🚀 Starting session for ${phoneNumber}`));
+async function startUserBot(phoneNumber) {
+    if (activeConnections.has(phoneNumber)) {
+        return activeConnections.get(phoneNumber).sock;
+    }
+
+    console.log(fancy(`🚀 Starting bot for ${phoneNumber}...`));
 
     const { state, saveCreds } = await useMongoAuthState(phoneNumber);
     const { version } = await fetchLatestBaileysVersion();
 
-    const socket = makeWASocket({
+    const sock = makeWASocket({
         version,
         auth: {
             creds: state.creds,
-            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }))
+            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'fatal' }))
         },
-        logger: pino({ level: "silent" }),
-        browser: Browsers.macOS("Safari"),
+        logger: pino({ level: 'silent' }),
+        browser: Browsers.macOS('Safari'),
         syncFullHistory: false,
         connectTimeoutMs: 60000,
         keepAliveIntervalMs: 10000,
         markOnlineOnConnect: true
     });
 
-    activeSessions.set(phoneNumber, {
-        socket,
-        saveCreds,
-        startTime: Date.now()
+    activeConnections.set(phoneNumber, { sock, saveCreds });
+
+    // ---------- CREDENTIALS UPDATE ----------
+    sock.ev.on('creds.update', async () => {
+        const fullCreds = sock.authState.creds;
+        const fullKeys = sock.authState.keys;
+        await Session.findOneAndUpdate(
+            { phoneNumber },
+            { $set: { creds: fullCreds, keys: fullKeys } },
+            { upsert: true, new: true }
+        );
+        console.log(fancy(`💾 Saved session for ${phoneNumber}`));
     });
 
-    // ---- Connection Events ----
-    socket.ev.on('connection.update', async (update) => {
+    // ---------- CONNECTION UPDATE ----------
+    sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect } = update;
 
         if (connection === 'open') {
             console.log(fancy(`✅ ${phoneNumber} is now online`));
+            // Send welcome message if this is the owner
+            if (config.ownerNumber && config.ownerNumber.includes(phoneNumber)) {
+                sendWelcomeMessage(sock, phoneNumber);
+            }
+        }
 
-            // Optionally send welcome message to owner numbers
-            if (config.ownerNumber.includes(phoneNumber)) {
-                setTimeout(async () => {
-                    try {
-                        const botName = socket.user?.name || "INSIDIOUS";
-                        const botNumber = socket.user?.id?.split(':')[0] || phoneNumber;
-                        const botId = socket.user?.id || "Unknown";
-                        
-                        const pairedCount = handler.getPairedNumbers ? handler.getPairedNumbers().length : 0;
-                        
-                        const welcomeMsg = `
+        if (connection === 'close') {
+            console.log(fancy(`🔌 Connection closed for ${phoneNumber}`));
+            activeConnections.delete(phoneNumber);
+
+            const statusCode = lastDisconnect?.error?.output?.statusCode;
+            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+
+            if (shouldReconnect) {
+                console.log(fancy(`🔄 Reconnecting ${phoneNumber} in 5 seconds...`));
+                setTimeout(() => startUserBot(phoneNumber), 5000);
+            } else {
+                console.log(fancy(`🚫 ${phoneNumber} logged out.`));
+                // Optionally delete session from DB
+                // await Session.deleteOne({ phoneNumber });
+            }
+        }
+    });
+
+    // ---------- MESSAGES ----------
+    sock.ev.on('messages.upsert', async (m) => {
+        try {
+            if (handler && typeof handler === 'function') {
+                await handler(sock, m);
+            }
+        } catch (error) {
+            console.error(`Message handler error for ${phoneNumber}:`, error.message);
+        }
+    });
+
+    // ---------- GROUP PARTICIPANTS ----------
+    sock.ev.on('group-participants.update', async (update) => {
+        try {
+            if (handler && handler.handleGroupUpdate) {
+                await handler.handleGroupUpdate(sock, update);
+            }
+        } catch (error) {
+            console.error(`Group update error for ${phoneNumber}:`, error.message);
+        }
+    });
+
+    // ---------- CALLS ----------
+    sock.ev.on('call', async (call) => {
+        try {
+            if (handler && handler.handleCall) {
+                await handler.handleCall(sock, call);
+            }
+        } catch (error) {
+            console.error(`Call handler error for ${phoneNumber}:`, error.message);
+        }
+    });
+
+    return sock;
+}
+
+// Helper to send welcome message to owner
+async function sendWelcomeMessage(sock, phoneNumber) {
+    setTimeout(async () => {
+        try {
+            const ownerJid = phoneNumber + '@s.whatsapp.net';
+            const botSecret = handler.getBotId ? handler.getBotId() : 'Unknown';
+            const pairedCount = activeConnections.size;
+
+            const welcomeMsg = `
 ╭─── • 🥀 • ───╮
    INSIDIOUS: THE LAST KEY
 ╰─── • 🥀 • ───╯
 
 ✅ *Bot Connected Successfully!*
-🤖 *Name:* ${botName}
-📞 *Number:* ${botNumber}
-🆔 *Bot ID:* ${botId}
+🤖 *Name:* ${sock.user?.name || 'INSIDIOUS'}
+📞 *Number:* ${phoneNumber}
+🆔 *Bot ID:* ${botSecret}
 👥 *Paired Owners:* ${pairedCount}
 
 ⚡ *Status:* ONLINE & ACTIVE
@@ -152,104 +242,43 @@ async function startSocket(phoneNumber) {
 👑 *Developer:* STANYTZ
 💾 *Version:* 2.1.1 | Year: 2025`;
 
-                        await socket.sendMessage(phoneNumber + '@s.whatsapp.net', { 
-                            image: { url: config.botImage || "https://files.catbox.moe/f3c07u.jpg" },
-                            caption: welcomeMsg,
-                            contextInfo: { 
-                                isForwarded: true,
-                                forwardingScore: 999,
-                                forwardedNewsletterMessageInfo: { 
-                                    newsletterJid: config.newsletterJid || "120363404317544295@newsletter",
-                                    newsletterName: config.botName || "INSIDIOUS BOT"
-                                }
-                            }
-                        });
-                        console.log(fancy(`✅ Welcome message sent to owner ${phoneNumber}`));
-                    } catch (e) {
-                        console.log(fancy(`⚠️ Could not send welcome message to ${phoneNumber}: ${e.message}`));
+            await sock.sendMessage(ownerJid, {
+                image: { url: config.botImage || "https://files.catbox.moe/f3c07u.jpg" },
+                caption: welcomeMsg,
+                contextInfo: {
+                    isForwarded: true,
+                    forwardingScore: 999,
+                    forwardedNewsletterMessageInfo: {
+                        newsletterJid: config.newsletterJid || "120363404317544295@newsletter",
+                        newsletterName: config.botName || "INSIDIOUS BOT"
                     }
-                }, 3000);
-            }
+                }
+            });
+            console.log(fancy(`✅ Welcome message sent to ${phoneNumber}`));
+        } catch (e) {
+            console.log(fancy(`⚠️ Could not send welcome message to ${phoneNumber}:`), e.message);
         }
-
-        if (connection === 'close') {
-            console.log(fancy(`🔌 Connection closed for ${phoneNumber}`));
-            const statusCode = lastDisconnect?.error?.output?.statusCode;
-            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-
-            if (shouldReconnect) {
-                console.log(fancy(`🔄 Restarting session for ${phoneNumber} in 5 seconds...`));
-                setTimeout(() => {
-                    startSocket(phoneNumber);
-                }, 5000);
-            } else {
-                console.log(fancy(`🚫 Logged out for ${phoneNumber}. Removing session.`));
-                activeSessions.delete(phoneNumber);
-                // Optionally delete from DB to force re-pair next time
-                // await Session.findByIdAndDelete(phoneNumber);
-            }
-        }
-    });
-
-    socket.ev.on('creds.update', saveCreds);
-
-    // ---- Message Handler ----
-    socket.ev.on('messages.upsert', async (m) => {
-        try {
-            if (handler && typeof handler === 'function') {
-                await handler(socket, m);
-            }
-        } catch (error) {
-            console.error(`Message handler error for ${phoneNumber}:`, error.message);
-        }
-    });
-
-    // ---- Group Updates ----
-    socket.ev.on('group-participants.update', async (update) => {
-        try {
-            if (handler && handler.handleGroupUpdate) {
-                await handler.handleGroupUpdate(socket, update);
-            }
-        } catch (error) {
-            console.error(`Group update error for ${phoneNumber}:`, error.message);
-        }
-    });
-
-    // ---- Call Handler ----
-    socket.ev.on('call', async (call) => {
-        try {
-            if (handler && handler.handleCall) {
-                await handler.handleCall(socket, call);
-            }
-        } catch (error) {
-            console.error(`Call handler error for ${phoneNumber}:`, error.message);
-        }
-    });
-
-    return socket;
+    }, 3000);
 }
 
-/**
- * Load all existing sessions from MongoDB and start them.
- */
+// Load all saved sessions from MongoDB
 async function loadAllSessions() {
-    const sessions = await Session.find({});
-    console.log(fancy(`📂 Found ${sessions.length} saved sessions`));
-    for (const sess of sessions) {
-        startSocket(sess._id).catch(err => {
-            console.error(fancy(`❌ Failed to start session for ${sess._id}: ${err.message}`));
-        });
+    try {
+        const sessions = await Session.find({});
+        console.log(fancy(`📂 Found ${sessions.length} saved session(s). Starting bots...`));
+        for (const session of sessions) {
+            startUserBot(session.phoneNumber).catch(err => {
+                console.error(`Failed to start bot for ${session.phoneNumber}:`, err.message);
+            });
+        }
+    } catch (err) {
+        console.error('Error loading sessions:', err.message);
     }
 }
 
-// Start all saved sessions after DB is connected
-mongoose.connection.once('open', () => {
-    loadAllSessions();
-});
-
 // ==================== HTTP ENDPOINTS ====================
 
-// ✅ **PAIRING ENDPOINT (8-DIGIT CODE)**
+// ✅ **PAIRING ENDPOINT**
 app.get('/pair', async (req, res) => {
     try {
         let num = req.query.num;
@@ -262,66 +291,24 @@ app.get('/pair', async (req, res) => {
             return res.json({ success: false, error: "Invalid number. Must be at least 10 digits." });
         }
 
-        // If a session already exists, return error (or you could reuse it)
-        if (activeSessions.has(cleanNum)) {
-            return res.json({ success: false, error: "A session for this number already exists." });
-        }
-
         console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum}`));
 
-        // Create a temporary socket with empty credentials
-        const { state, saveCreds } = await useMongoAuthState(cleanNum); // creates blank session
-        const { version } = await fetchLatestBaileysVersion();
+        const sock = await startUserBot(cleanNum);
 
-        const tempSocket = makeWASocket({
-            version,
-            auth: {
-                creds: state.creds,
-                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }))
-            },
-            logger: pino({ level: "silent" }),
-            browser: Browsers.macOS("Safari"),
-            syncFullHistory: false,
-            connectTimeoutMs: 60000,
-            keepAliveIntervalMs: 10000,
-            markOnlineOnConnect: true
-        });
+        // If already registered, don't request code again
+        if (sock.authState.creds && sock.authState.creds.registered) {
+            return res.json({ success: true, message: "Number already paired and connected." });
+        }
 
-        // Save creds when they update
-        tempSocket.ev.on('creds.update', saveCreds);
-
-        // Request the pairing code
         const code = await Promise.race([
-            tempSocket.requestPairingCode(cleanNum),
+            sock.requestPairingCode(cleanNum),
             new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout - no response from WhatsApp')), 30000))
         ]);
 
-        // Send code to client immediately
         res.json({
             success: true,
             code: code,
             message: `8-digit pairing code: ${code}`
-        });
-
-        // When the socket connects, add it to active sessions and attach all handlers
-        tempSocket.ev.on('connection.update', async (update) => {
-            const { connection } = update;
-            if (connection === 'open') {
-                console.log(fancy(`✅ Successfully paired ${cleanNum}`));
-                
-                // Replace the temporary socket with a fully managed one
-                tempSocket.end(undefined);
-                
-                // Start the permanent session
-                await startSocket(cleanNum);
-            } else if (connection === 'close') {
-                // If pairing fails (e.g., user didn't complete), clean up the blank session
-                const error = update.lastDisconnect?.error;
-                if (error && !error.message?.includes('already paired')) {
-                    console.log(fancy(`❌ Pairing failed for ${cleanNum}`));
-                    await Session.findByIdAndDelete(cleanNum);
-                }
-            }
         });
 
     } catch (err) {
@@ -347,17 +334,20 @@ app.get('/unpair', async (req, res) => {
             return res.json({ success: false, error: "Invalid number" });
         }
 
-        // Close the socket if active
-        const session = activeSessions.get(cleanNum);
-        if (session) {
-            session.socket.end(undefined);
-            activeSessions.delete(cleanNum);
+        // Close the connection if active
+        if (activeConnections.has(cleanNum)) {
+            const { sock } = activeConnections.get(cleanNum);
+            sock.end(new Error('Unpaired by user'));
+            activeConnections.delete(cleanNum);
         }
 
         // Remove from database
-        await Session.findByIdAndDelete(cleanNum);
+        const result = await Session.deleteOne({ phoneNumber: cleanNum });
 
-        res.json({ success: true, message: `Number ${cleanNum} unpaired successfully` });
+        res.json({
+            success: result.deletedCount > 0,
+            message: result.deletedCount > 0 ? `Number ${cleanNum} unpaired successfully` : `No session found for ${cleanNum}`
+        });
 
     } catch (err) {
         console.error("Unpair error:", err.message);
@@ -374,27 +364,23 @@ app.get('/health', (req, res) => {
 
     res.json({
         status: 'healthy',
-        activeSessions: activeSessions.size,
-        database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-        uptime: `${hours}h ${minutes}m ${seconds}s`
+        activeConnections: activeConnections.size,
+        uptime: `${hours}h ${minutes}m ${seconds}s`,
+        database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
     });
 });
 
-// ✅ **BOT INFO ENDPOINT** (list all active sessions)
+// ✅ **BOT INFO ENDPOINT**
 app.get('/botinfo', (req, res) => {
-    const sessionsInfo = [];
-    for (let [phone, data] of activeSessions.entries()) {
-        sessionsInfo.push({
-            phone,
-            connected: !!data.socket.user,
-            uptime: Date.now() - data.startTime
-        });
-    }
+    const botSecret = handler.getBotId ? handler.getBotId() : 'Unknown';
+    const activeNumbers = Array.from(activeConnections.keys());
 
     res.json({
         success: true,
-        activeSessions: sessionsInfo,
-        total: sessionsInfo.length
+        botSecret: botSecret,
+        activeConnections: activeNumbers.length,
+        numbers: activeNumbers,
+        uptime: Date.now() - botStartTime
     });
 });
 
