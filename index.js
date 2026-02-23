@@ -166,7 +166,6 @@ async function startSocket(phoneNumber) {
             } else {
                 console.log(fancy(`🚫 Logged out for ${phoneNumber}. Removing session.`));
                 activeSessions.delete(phoneNumber);
-                // 🔥 Futa session kwenye database
                 await Session.findByIdAndDelete(phoneNumber).catch(() => {});
             }
         }
@@ -217,17 +216,21 @@ async function loadAllSessions() {
     }
 }
 
-// 🔥 Ondoa index ya 'pairingCode_1' ikiwa ipo
+// 🔥 Ondoa index zote zenye matatizo (id_1, pairingCode_1)
 mongoose.connection.once('open', async () => {
     try {
         const collection = mongoose.connection.db.collection('sessions');
         const indexes = await collection.indexes();
-        if (indexes.some(idx => idx.name === 'pairingCode_1')) {
-            await collection.dropIndex('pairingCode_1');
-            console.log(fancy('✅ Dropped duplicate pairingCode index'));
+        const problematicIndexes = ['id_1', 'pairingCode_1'];
+        
+        for (const idx of indexes) {
+            if (problematicIndexes.includes(idx.name)) {
+                await collection.dropIndex(idx.name);
+                console.log(fancy(`✅ Dropped index: ${idx.name}`));
+            }
         }
     } catch (err) {
-        console.log('Index drop error:', err.message);
+        console.log('Index cleanup error:', err.message);
     }
     loadAllSessions();
 });
@@ -246,7 +249,7 @@ app.get('/pair', async (req, res) => {
             return res.json({ success: false, error: "Invalid number. Must be at least 10 digits." });
         }
 
-        // 🔥 Futa session yoyote iliyopo kwenye database (kama ipo)
+        // Futa session yoyote iliyopo kwenye database (kama ipo)
         const existing = await Session.findById(cleanNum);
         if (existing) {
             console.log(fancy(`🗑️ Deleting old session for ${cleanNum}`));
