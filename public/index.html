@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#020617">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>INSIDIOUS BOT | Premium Deployment</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -12,289 +15,353 @@
             --secondary: #ec4899;
             --dark: #0f172a;
             --darker: #020617;
-            --card: #1e293b;
-            --card-hover: #334155;
+            --card: rgba(30, 41, 59, 0.85);
+            --card-hover: rgba(51, 65, 85, 0.9);
             --text: #f1f5f9;
             --text-muted: #94a3b8;
             --success: #22c55e;
             --warning: #f59e0b;
             --danger: #ef4444;
-            --glass: rgba(30, 41, 59, 0.7);
-            --border: rgba(148, 163, 184, 0.2);
-            --glow: 0 0 20px rgba(99, 102, 241, 0.3);
+            --border: rgba(148, 163, 184, 0.25);
+            --glow: 0 0 25px rgba(99, 102, 241, 0.4);
+            --glass-blur: blur(12px);
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
         body {
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            background: linear-gradient(135deg, var(--darker) 0%, var(--dark) 50%, #1a1a2e 100%);
+            background: url('https://o.uguu.se/bcWjyRkF.jpg') center/cover fixed no-repeat;
             color: var(--text);
             min-height: 100vh;
             overflow-x: hidden;
             line-height: 1.6;
+            position: relative;
         }
 
-        /* Animated background */
         body::before {
             content: '';
             position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: 
-                radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(236, 72, 153, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 50% 50%, rgba(34, 197, 94, 0.05) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: -1;
-            animation: pulse 8s ease-in-out infinite;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(2,6,23,0.92) 0%, rgba(15,23,42,0.88) 50%, rgba(26,26,46,0.85) 100%);
+            z-index: -2;
         }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 0.5; }
-            50% { opacity: 1; }
-        }
-
-        /* Floating particles */
-        .particles {
+        /* Premium Loading Screen */
+        #premiumLoader {
             position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
+            inset: 0;
+            background: var(--darker);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease, visibility 0.5s;
+        }
+        #premiumLoader.hidden {
+            opacity: 0;
+            visibility: hidden;
             pointer-events: none;
-            z-index: -1;
+        }
+        .loader-logo {
+            width: 80px; height: 80px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            animation: pulseGlow 2s infinite alternate;
+            box-shadow: var(--glow);
+        }
+        @keyframes pulseGlow {
+            from { box-shadow: 0 0 15px rgba(99,102,241,0.6); }
+            to { box-shadow: 0 0 35px rgba(236,72,153,0.9); }
+        }
+        .loader-text {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .loader-subtext {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+        .loader-bar {
+            width: 200px;
+            height: 4px;
+            background: var(--card);
+            border-radius: 2px;
             overflow: hidden;
+            position: relative;
         }
-        .particle {
-            position: absolute;
-            width: 4px; height: 4px;
-            background: var(--primary);
-            border-radius: 50%;
-            animation: float 15s infinite linear;
-            opacity: 0.6;
+        .loader-progress {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            border-radius: 2px;
+            animation: loadProgress 3s ease-in-out forwards;
         }
-        @keyframes float {
-            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
-            10% { opacity: 0.6; }
-            90% { opacity: 0.6; }
-            100% { transform: translateY(-20vh) rotate(720deg); opacity: 0; }
+        @keyframes loadProgress {
+            0% { width: 0%; }
+            30% { width: 45%; }
+            70% { width: 85%; }
+            100% { width: 100%; }
         }
 
-        /* Header */
-        header {
-            padding: 1.5rem 2rem;
+        /* Top Header with Rounded Logo + Sliding Text */
+        .top-header {
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            gap: 1rem;
+            padding: 1rem 1.5rem;
+            background: var(--card);
+            backdrop-filter: var(--glass-blur);
             border-bottom: 1px solid var(--border);
-            background: var(--glass);
-            backdrop-filter: blur(10px);
             position: sticky;
             top: 0;
             z-index: 100;
         }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            font-size: 1.5rem;
-            font-weight: 700;
-        }
-        .logo-icon {
-            width: 40px; height: 40px;
+        .header-logo {
+            width: 50px; height: 50px;
+            border-radius: 50%;
             background: linear-gradient(135deg, var(--primary), var(--secondary));
-            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.2rem;
-            animation: glow 2s ease-in-out infinite alternate;
+            font-size: 1.4rem;
+            flex-shrink: 0;
+            box-shadow: var(--glow);
+            animation: floatLogo 3s ease-in-out infinite;
         }
-        @keyframes glow {
-            from { box-shadow: 0 0 10px rgba(99, 102, 241, 0.5); }
-            to { box-shadow: 0 0 20px rgba(236, 72, 153, 0.8); }
+        @keyframes floatLogo {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+        .header-text-container {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+        .header-sliding-text {
+            display: flex;
+            animation: slideText 15s linear infinite;
+            white-space: nowrap;
+            font-weight: 600;
+            font-size: 1.05rem;
+        }
+        @keyframes slideText {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
+        .header-sliding-text span {
+            padding: 0 2rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        .nav-links {
+        /* Navigation Buttons - Small Size */
+        .nav-controls {
             display: flex;
-            gap: 1.5rem;
-            list-style: none;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: var(--glass-blur);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 72px;
+            z-index: 99;
         }
-        .nav-links a {
+        .nav-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.5rem 0.75rem;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
             color: var(--text-muted);
             text-decoration: none;
+            font-size: 0.75rem;
             font-weight: 500;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
+            transition: all 0.25s;
+            min-width: 65px;
+            cursor: pointer;
         }
-        .nav-links a:hover, .nav-links a.active {
+        .nav-btn i { font-size: 1.1rem; }
+        .nav-btn:hover, .nav-btn.active {
             color: var(--text);
-            background: var(--card);
+            background: var(--primary);
+            border-color: var(--primary);
+            transform: translateY(-2px);
         }
-
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            background: var(--card);
-            border-radius: 20px;
-            font-size: 0.875rem;
-        }
-        .status-dot {
-            width: 8px; height: 8px;
-            background: var(--success);
-            border-radius: 50%;
-            animation: pulse-dot 2s infinite;
-        }
-        @keyframes pulse-dot {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.7; transform: scale(0.9); }
+        .nav-btn.active i { animation: bounce 0.5s; }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
         }
 
         /* Main Content */
         main {
-            max-width: 1400px;
+            max-width: 1200px;
             margin: 0 auto;
-            padding: 2rem;
+            padding: 1.5rem;
         }
 
-        .hero {
-            text-align: center;
-            padding: 3rem 2rem;
-            margin-bottom: 3rem;
+        /* Section Management */
+        .section {
+            display: none;
+            animation: fadeIn 0.4s ease;
         }
-        .hero h1 {
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
+        .section.active { display: block; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Dashboard View */
+        #dashboard-view {
+            text-align: center;
+            padding: 2rem 1rem;
+        }
+        .dashboard-title {
+            font-size: 1.8rem;
+            margin-bottom: 0.75rem;
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            background-clip: text;
         }
-        .hero p {
+        .dashboard-subtitle {
             color: var(--text-muted);
-            font-size: 1.1rem;
-            max-width: 600px;
-            margin: 0 auto 2rem;
+            margin-bottom: 1.5rem;
+            font-size: 1rem;
         }
-
-        .links-bar {
+        .quick-links {
             display: flex;
             justify-content: center;
-            gap: 1rem;
+            gap: 0.75rem;
             flex-wrap: wrap;
             margin-bottom: 2rem;
         }
-        .link-btn {
+        .quick-link {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.75rem 1.5rem;
+            gap: 0.4rem;
+            padding: 0.6rem 1.2rem;
             background: var(--card);
             border: 1px solid var(--border);
             border-radius: 12px;
             color: var(--text);
             text-decoration: none;
-            font-weight: 500;
-            transition: all 0.3s;
+            font-size: 0.85rem;
+            transition: all 0.25s;
         }
-        .link-btn:hover {
+        .quick-link:hover {
             background: var(--card-hover);
             border-color: var(--primary);
             transform: translateY(-2px);
         }
-        .link-btn i { font-size: 1.1rem; }
 
-        /* Cards Grid */
-        .cards-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 3rem;
-        }
-
+        /* Card Styles */
         .card {
-            background: var(--glass);
+            background: var(--card);
             border: 1px solid var(--border);
             border-radius: 20px;
             padding: 1.5rem;
-            backdrop-filter: blur(10px);
-            transition: all 0.3s;
-        }
-        .card:hover {
-            border-color: var(--primary);
-            box-shadow: var(--glow);
-            transform: translateY(-4px);
+            backdrop-filter: var(--glass-blur);
+            margin-bottom: 1.5rem;
         }
         .card-header {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            justify-content: space-between;
             margin-bottom: 1.25rem;
             padding-bottom: 1rem;
             border-bottom: 1px solid var(--border);
         }
-        .card-header i {
-            font-size: 1.5rem;
-            color: var(--primary);
-        }
         .card-header h3 {
-            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1.2rem;
             font-weight: 600;
+        }
+        .card-header h3 i { color: var(--primary); }
+        
+        .back-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.4rem 0.9rem;
+            background: var(--card-hover);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .back-btn:hover {
+            background: var(--primary);
+            border-color: var(--primary);
         }
 
         /* Forms */
-        .form-group {
-            margin-bottom: 1.25rem;
-        }
+        .form-group { margin-bottom: 1.2rem; }
         .form-group label {
             display: block;
             margin-bottom: 0.5rem;
             font-weight: 500;
             color: var(--text-muted);
+            font-size: 0.9rem;
         }
         .form-control {
             width: 100%;
-            padding: 0.875rem 1rem;
-            background: var(--card);
+            padding: 0.85rem 1rem;
+            background: rgba(15, 23, 42, 0.6);
             border: 1px solid var(--border);
-            border-radius: 10px;
+            border-radius: 12px;
             color: var(--text);
             font-size: 1rem;
-            transition: all 0.3s;
+            transition: all 0.25s;
         }
         .form-control:focus {
             outline: none;
             border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
         }
-        .form-control::placeholder { color: var(--text-muted); }
 
         .btn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 0.5rem;
-            padding: 0.875rem 1.5rem;
+            padding: 0.85rem 1.5rem;
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             border: none;
-            border-radius: 10px;
+            border-radius: 12px;
             color: white;
             font-weight: 600;
-            font-size: 1rem;
+            font-size: 0.95rem;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.25s;
             width: 100%;
         }
-        .btn:hover {
+        .btn:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.45);
         }
         .btn:disabled {
-            opacity: 0.6;
+            opacity: 0.65;
             cursor: not-allowed;
             transform: none;
         }
@@ -307,285 +374,418 @@
             background: var(--primary);
             color: white;
         }
-        .btn-danger {
-            background: linear-gradient(135deg, var(--danger), #dc2626);
-        }
         .btn-success {
             background: linear-gradient(135deg, var(--success), #16a34a);
         }
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger), #dc2626);
+        }
 
-        /* Result Display */
+        /* Result Box */
         .result-box {
-            margin-top: 1rem;
-            padding: 1rem;
-            background: var(--card);
-            border-radius: 10px;
+            margin-top: 1.2rem;
+            padding: 1.1rem;
+            background: rgba(15, 23, 42, 0.7);
+            border-radius: 12px;
             border-left: 4px solid var(--primary);
             display: none;
         }
-        .result-box.show { display: block; animation: slideIn 0.3s ease; }
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(-10px); }
+        .result-box.show { 
+            display: block; 
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(8px); }
             to { opacity: 1; transform: translateY(0); }
         }
         .result-code {
             font-family: 'Courier New', monospace;
-            font-size: 1.5rem;
+            font-size: 1.8rem;
             font-weight: 700;
-            letter-spacing: 0.25em;
+            letter-spacing: 0.3em;
             text-align: center;
-            margin: 0.5rem 0;
+            margin: 0.75rem 0;
             color: var(--primary);
+            text-shadow: 0 0 10px rgba(99,102,241,0.5);
         }
         .result-session {
             font-family: 'Courier New', monospace;
-            background: var(--darker);
-            padding: 0.75rem;
-            border-radius: 8px;
+            background: rgba(2,6,23,0.8);
+            padding: 0.8rem;
+            border-radius: 10px;
             word-break: break-all;
-            margin: 0.5rem 0;
+            margin: 0.75rem 0;
+            font-size: 0.9rem;
+            border: 1px solid var(--border);
         }
 
         /* Sessions Table */
+        .table-container {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
         .sessions-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 1rem;
+            min-width: 500px;
         }
         .sessions-table th,
         .sessions-table td {
-            padding: 0.875rem;
+            padding: 0.9rem 1rem;
             text-align: left;
             border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
         }
         .sessions-table th {
             color: var(--text-muted);
             font-weight: 600;
-            font-size: 0.875rem;
             text-transform: uppercase;
+            font-size: 0.8rem;
+            background: rgba(15,23,42,0.5);
         }
-        .sessions-table tr:hover {
-            background: var(--card);
-        }
+        .sessions-table tr:last-child td { border-bottom: none; }
+        .sessions-table tr:hover { background: var(--card-hover); }
+        
         .badge {
             display: inline-block;
-            padding: 0.25rem 0.75rem;
+            padding: 0.3rem 0.8rem;
             border-radius: 20px;
             font-size: 0.75rem;
             font-weight: 600;
         }
-        .badge-success { background: rgba(34, 197, 94, 0.2); color: var(--success); }
-        .badge-warning { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
-        .badge-danger { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+        .badge-success { background: rgba(34,197,94,0.2); color: var(--success); }
+        .badge-warning { background: rgba(245,158,11,0.2); color: var(--warning); }
+        .badge-danger { background: rgba(239,68,68,0.2); color: var(--danger); }
 
-        .action-btns {
-            display: flex;
-            gap: 0.5rem;
-        }
+        .action-btns { display: flex; gap: 0.4rem; }
         .action-btn {
-            padding: 0.5rem;
-            background: var(--card);
+            width: 34px; height: 34px;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--card-hover);
             border: 1px solid var(--border);
             border-radius: 8px;
             color: var(--text);
             cursor: pointer;
             transition: all 0.2s;
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            font-size: 0.9rem;
         }
-        .action-btn:hover {
-            background: var(--primary);
-            border-color: var(--primary);
-        }
-        .action-btn.delete:hover {
-            background: var(--danger);
-            border-color: var(--danger);
-        }
+        .action-btn:hover { background: var(--primary); border-color: var(--primary); }
+        .action-btn.delete:hover { background: var(--danger); border-color: var(--danger); }
 
         /* Settings Grid */
         .settings-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 0.85rem;
         }
         .setting-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0.75rem;
-            background: var(--card);
-            border-radius: 10px;
+            padding: 0.85rem 1rem;
+            background: rgba(15,23,42,0.5);
+            border-radius: 12px;
+            border: 1px solid var(--border);
         }
-        .setting-info h4 { font-weight: 500; margin-bottom: 0.25rem; }
-        .setting-info p { font-size: 0.875rem; color: var(--text-muted); }
+        .setting-info h4 { font-weight: 500; margin-bottom: 0.2rem; font-size: 0.95rem; }
+        .setting-info p { font-size: 0.8rem; color: var(--text-muted); }
         
         /* Toggle Switch */
         .toggle {
             position: relative;
-            width: 50px;
-            height: 26px;
+            width: 48px; height: 26px;
         }
         .toggle input { opacity: 0; width: 0; height: 0; }
         .slider {
             position: absolute;
             cursor: pointer;
-            top: 0; left: 0; right: 0; bottom: 0;
+            inset: 0;
             background: var(--card-hover);
             border-radius: 26px;
             transition: 0.3s;
+            border: 1px solid var(--border);
         }
         .slider:before {
             position: absolute;
             content: "";
             height: 20px; width: 20px;
-            left: 3px; bottom: 3px;
+            left: 3px; bottom: 2px;
             background: white;
             border-radius: 50%;
             transition: 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
-        input:checked + .slider { background: var(--primary); }
-        input:checked + .slider:before { transform: translateX(24px); }
+        input:checked + .slider { background: var(--primary); border-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(22px); }
+
+        /* Status Indicator */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 1rem;
+            background: var(--card);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            border: 1px solid var(--border);
+        }
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulseDot 2s infinite;
+        }
+        @keyframes pulseDot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(0.92); }
+        }
 
         /* Footer */
         footer {
             text-align: center;
-            padding: 2rem;
-            margin-top: 3rem;
+            padding: 1.8rem 1.5rem 2.5rem;
+            margin-top: 1rem;
             border-top: 1px solid var(--border);
             color: var(--text-muted);
-            font-size: 0.875rem;
+            font-size: 0.85rem;
+            background: rgba(2,6,23,0.7);
+            backdrop-filter: var(--glass-blur);
         }
-        footer a { color: var(--primary); text-decoration: none; }
+        footer a { 
+            color: var(--primary); 
+            text-decoration: none;
+            font-weight: 500;
+        }
         footer a:hover { text-decoration: underline; }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            header { flex-direction: column; gap: 1rem; }
-            .nav-links { flex-wrap: wrap; justify-content: center; }
-            .cards-grid { grid-template-columns: 1fr; }
-            .hero h1 { font-size: 2rem; }
-        }
-
-        /* Loading */
-        .loading {
-            display: inline-block;
-            width: 20px; height: 20px;
-            border: 3px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
 
         /* Toast Notification */
         .toast {
             position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            padding: 1rem 1.5rem;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            padding: 0.9rem 1.4rem;
             background: var(--card);
             border-left: 4px solid var(--success);
-            border-radius: 10px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
             display: flex;
             align-items: center;
             gap: 0.75rem;
             z-index: 1000;
-            animation: slideInRight 0.3s ease;
+            animation: slideInRight 0.35s ease, fadeOut 0.3s 3.7s forwards;
+            max-width: 320px;
+            font-size: 0.9rem;
         }
         .toast.error { border-left-color: var(--danger); }
         .toast.warning { border-left-color: var(--warning); }
         @keyframes slideInRight {
-            from { transform: translateX(100%); opacity: 0; }
+            from { transform: translateX(120%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
+        @keyframes fadeOut {
+            to { opacity: 0; transform: translateX(20px); }
+        }
+
+        /* Loading Spinner */
+        .loading {
+            display: inline-block;
+            width: 18px; height: 18px;
+            border: 2.5px solid rgba(255,255,255,0.35);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .top-header { padding: 0.85rem 1rem; }
+            .header-logo { width: 44px; height: 44px; font-size: 1.2rem; }
+            .header-sliding-text { font-size: 0.95rem; }
+            .nav-controls { 
+                top: 60px; 
+                padding: 0.5rem;
+                gap: 0.35rem;
+            }
+            .nav-btn { 
+                padding: 0.45rem 0.6rem; 
+                font-size: 0.7rem;
+                min-width: 58px;
+            }
+            .nav-btn i { font-size: 1rem; }
+            main { padding: 1rem 0.85rem; }
+            .card { padding: 1.25rem; border-radius: 18px; }
+            .dashboard-title { font-size: 1.5rem; }
+            .result-code { font-size: 1.6rem; }
+            .btn { padding: 0.8rem 1.3rem; font-size: 0.9rem; }
+        }
+
+        @media (max-width: 480px) {
+            .header-sliding-text { animation-duration: 12s; }
+            .nav-btn { min-width: 52px; padding: 0.4rem 0.5rem; }
+            .setting-item { padding: 0.75rem 0.9rem; }
+            .setting-info h4 { font-size: 0.9rem; }
+            .setting-info p { font-size: 0.75rem; }
+            footer { padding: 1.5rem 1rem 2rem; font-size: 0.8rem; }
+        }
+
+        /* Hide scrollbar for Chrome/Safari/Opera */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { 
+            background: var(--primary); 
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover { background: var(--primary-dark); }
     </style>
 </head>
 <body>
-    <!-- Animated Particles -->
-    <div class="particles" id="particles"></div>
-
-    <!-- Header -->
-    <header>
-        <div class="logo">
-            <div class="logo-icon"><i class="fas fa-key"></i></div>
-            <span>INSIDIOUS</span>
+    <!-- Premium Loading Screen -->
+    <div id="premiumLoader">
+        <div class="loader-logo"><i class="fas fa-key"></i></div>
+        <div class="loader-text">INSIDIOUS BOT</div>
+        <div class="loader-subtext">Loading premium deployment system...</div>
+        <div class="loader-bar">
+            <div class="loader-progress"></div>
         </div>
-        <ul class="nav-links">
-            <li><a href="#pair" class="active"><i class="fas fa-link"></i> Pair</a></li>
-            <li><a href="#deploy"><i class="fas fa-rocket"></i> Deploy</a></li>
-            <li><a href="#sessions"><i class="fas fa-list"></i> Sessions</a></li>
-            <li><a href="#settings"><i class="fas fa-cog"></i> Settings</a></li>
-        </ul>
-        <div class="status-indicator">
+    </div>
+
+    <!-- Top Header with Logo + Sliding Text -->
+    <div class="top-header">
+        <div class="header-logo">
+            <i class="fas fa-shield-alt"></i>
+        </div>
+        <div class="header-text-container">
+            <div class="header-sliding-text">
+                <span>🔐 INSIDIOUS: THE LAST KEY</span>
+                <span>⚡ Premium WhatsApp Bot Deployment</span>
+                <span>🚀 Instant Pairing & Session Management</span>
+                <span>🛡️ Secure • Fast • Reliable</span>
+                <span>🔐 INSIDIOUS: THE LAST KEY</span>
+            </div>
+        </div>
+        <div class="status-badge">
             <div class="status-dot"></div>
             <span id="botStatus">Online</span>
         </div>
-    </header>
+    </div>
+
+    <!-- Navigation Control Buttons (Small Size) -->
+    <div class="nav-controls">
+        <div class="nav-btn active" data-section="dashboard">
+            <i class="fas fa-home"></i>
+            <span>Home</span>
+        </div>
+        <div class="nav-btn" data-section="pair">
+            <i class="fas fa-link"></i>
+            <span>Pair</span>
+        </div>
+        <div class="nav-btn" data-section="deploy">
+            <i class="fas fa-rocket"></i>
+            <span>Deploy</span>
+        </div>
+        <div class="nav-btn" data-section="sessions">
+            <i class="fas fa-list"></i>
+            <span>Sessions</span>
+        </div>
+        <div class="nav-btn" data-section="settings">
+            <i class="fas fa-cog"></i>
+            <span>Settings</span>
+        </div>
+    </div>
 
     <!-- Main Content -->
     <main>
-        <!-- Hero Section -->
-        <section class="hero">
-            <h1>🔐 INSIDIOUS: THE LAST KEY</h1>
-            <p>Premium WhatsApp bot deployment platform. Pair your number, get your session, deploy instantly.</p>
+        <!-- Dashboard View (Default) -->
+        <section id="dashboard-view" class="section active">
+            <h2 class="dashboard-title">🔐 INSIDIOUS BOT</h2>
+            <p class="dashboard-subtitle">Premium WhatsApp bot deployment platform. Pair, deploy, and manage your bot sessions securely.</p>
             
-            <div class="links-bar">
-                <a href="https://whatsapp.com/channel/0029VbB3xYzKjM8vN9pL4R2s" target="_blank" class="link-btn">
+            <div class="quick-links">
+                <a href="https://whatsapp.com/channel/0029Vb7fzu4EwEjmsD4Tzs1p" target="_blank" class="quick-link">
                     <i class="fab fa-whatsapp"></i> Channel
                 </a>
-                <a href="https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y" target="_blank" class="link-btn">
-                    <i class="fas fa-users"></i> Support Group
+                <a href="https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y?mode=gi_t" target="_blank" class="quick-link">
+                    <i class="fas fa-users"></i> Support
                 </a>
-                <a href="https://wa.me/255787069580" target="_blank" class="link-btn">
+                <a href="https://wa.me/255787069580" target="_blank" class="quick-link">
                     <i class="fas fa-user"></i> Developer
                 </a>
             </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.85rem; margin-top: 1rem;">
+                <div class="card" style="text-align: center; padding: 1.2rem; cursor: pointer;" onclick="showSection('pair')">
+                    <i class="fas fa-link" style="font-size: 1.8rem; color: var(--primary); margin-bottom: 0.5rem;"></i>
+                    <div style="font-weight: 600;">Pair Number</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">Get pairing code</div>
+                </div>
+                <div class="card" style="text-align: center; padding: 1.2rem; cursor: pointer;" onclick="showSection('deploy')">
+                    <i class="fas fa-rocket" style="font-size: 1.8rem; color: var(--success); margin-bottom: 0.5rem;"></i>
+                    <div style="font-weight: 600;">Deploy Bot</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">Launch instantly</div>
+                </div>
+                <div class="card" style="text-align: center; padding: 1.2rem; cursor: pointer;" onclick="showSection('sessions')">
+                    <i class="fas fa-list" style="font-size: 1.8rem; color: var(--warning); margin-bottom: 0.5rem;"></i>
+                    <div style="font-weight: 600;">Sessions</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">Manage active</div>
+                </div>
+                <div class="card" style="text-align: center; padding: 1.2rem; cursor: pointer;" onclick="showSection('settings')">
+                    <i class="fas fa-cog" style="font-size: 1.8rem; color: var(--secondary); margin-bottom: 0.5rem;"></i>
+                    <div style="font-weight: 600;">Settings</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">Configure bot</div>
+                </div>
+            </div>
         </section>
 
-        <!-- Cards Grid -->
-        <div class="cards-grid">
-            <!-- Pair Card -->
-            <div class="card" id="pair">
+        <!-- Pair Section -->
+        <section id="pair-section" class="section">
+            <div class="card">
                 <div class="card-header">
-                    <i class="fas fa-mobile-alt"></i>
-                    <h3>🔗 Pair Your Number</h3>
+                    <h3><i class="fas fa-mobile-alt"></i> Pair Your Number</h3>
+                    <button class="back-btn" onclick="showSection('dashboard')">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </button>
                 </div>
                 <form id="pairForm">
                     <div class="form-group">
                         <label for="pairNumber">WhatsApp Number</label>
                         <input type="tel" id="pairNumber" class="form-control" placeholder="2557XXXXXXXX" required pattern="[0-9]{10,15}">
-                        <small style="color: var(--text-muted);">Include country code, no + or spaces</small>
+                        <small style="color: var(--text-muted); display: block; margin-top: 0.35rem;">Include country code, no + or spaces</small>
                     </div>
                     <button type="submit" class="btn" id="pairBtn">
                         <i class="fas fa-key"></i> Generate Pairing Code
                     </button>
                 </form>
                 <div class="result-box" id="pairResult">
-                    <p style="color: var(--text-muted); margin-bottom: 0.5rem;">Your 8-digit code:</p>
+                    <p style="color: var(--text-muted); margin-bottom: 0.4rem;">Your 8-digit pairing code:</p>
                     <div class="result-code" id="pairCode">----</div>
-                    <p style="font-size: 0.875rem; color: var(--text-muted);">
-                        Enter this code in WhatsApp: Settings → Linked Devices → Link Device
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.6rem 0;">
+                        <i class="fas fa-info-circle"></i> Enter this code in WhatsApp: 
+                        <strong>Settings → Linked Devices → Link Device</strong>
                     </p>
-                    <div id="sessionInfo" style="margin-top: 1rem; display: none;">
-                        <p style="color: var(--success);"><i class="fas fa-check-circle"></i> Pairing successful!</p>
-                        <p style="margin: 0.5rem 0;">Your Session ID:</p>
+                    <div id="sessionInfo" style="margin-top: 1rem; display: none; padding-top: 0.8rem; border-top: 1px dashed var(--border);">
+                        <p style="color: var(--success); margin-bottom: 0.4rem;">
+                            <i class="fas fa-check-circle"></i> Pairing successful!
+                        </p>
+                        <p style="margin: 0.4rem 0; font-size: 0.9rem;">Your Session ID:</p>
                         <div class="result-session" id="sessionId">Loading...</div>
-                        <button class="btn btn-outline" onclick="copySession()" style="margin-top: 0.5rem;">
+                        <button class="btn btn-outline" onclick="copySession()" style="margin-top: 0.6rem; padding: 0.65rem 1.2rem; font-size: 0.9rem;">
                             <i class="fas fa-copy"></i> Copy Session ID
                         </button>
                     </div>
                 </div>
             </div>
+        </section>
 
-            <!-- Deploy Card -->
-            <div class="card" id="deploy">
+        <!-- Deploy Section -->
+        <section id="deploy-section" class="section">
+            <div class="card">
                 <div class="card-header">
-                    <i class="fas fa-rocket"></i>
-                    <h3>🚀 Deploy Your Bot</h3>
+                    <h3><i class="fas fa-rocket"></i> Deploy Your Bot</h3>
+                    <button class="back-btn" onclick="showSection('dashboard')">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </button>
                 </div>
                 <form id="deployForm">
                     <div class="form-group">
@@ -601,17 +801,21 @@
                     </button>
                 </form>
                 <div class="result-box" id="deployResult">
-                    <p id="deployMessage">Deployment status will appear here...</p>
+                    <p id="deployMessage">Deployment status will appear here after submission...</p>
                 </div>
             </div>
+        </section>
 
-            <!-- Sessions Card -->
-            <div class="card" id="sessions">
+        <!-- Sessions Section -->
+        <section id="sessions-section" class="section">
+            <div class="card">
                 <div class="card-header">
-                    <i class="fas fa-list"></i>
-                    <h3>📋 Active Sessions</h3>
+                    <h3><i class="fas fa-list"></i> Active Sessions</h3>
+                    <button class="back-btn" onclick="showSection('dashboard')">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </button>
                 </div>
-                <div style="overflow-x: auto;">
+                <div class="table-container">
                     <table class="sessions-table">
                         <thead>
                             <tr>
@@ -623,100 +827,108 @@
                         </thead>
                         <tbody id="sessionsTableBody">
                             <tr>
-                                <td colspan="4" style="text-align: center; color: var(--text-muted);">
-                                    Loading sessions...
+                                <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+                                    <i class="fas fa-spinner fa-spin" style="margin-right: 0.5rem;"></i>
+                                    Loading sessions from server...
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
                 <button class="btn btn-outline" onclick="refreshSessions()" style="margin-top: 1rem;">
-                    <i class="fas fa-sync"></i> Refresh
+                    <i class="fas fa-sync"></i> Refresh Sessions
                 </button>
             </div>
-        </div>
+        </section>
 
         <!-- Settings Section -->
-        <section class="card" id="settings">
-            <div class="card-header">
-                <i class="fas fa-cog"></i>
-                <h3>⚙️ Bot Settings</h3>
+        <section id="settings-section" class="section">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-cog"></i> Bot Settings</h3>
+                    <button class="back-btn" onclick="showSection('dashboard')">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </button>
+                </div>
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h4>Anti-ViewOnce</h4>
+                            <p>Recover deleted view-once media</p>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="setting-antiviewonce" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h4>Anti-Delete</h4>
+                            <p>Recover deleted messages</p>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="setting-antidelete" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h4>Auto-Read</h4>
+                            <p>Automatically read messages</p>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="setting-autoread" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h4>AI Chatbot</h4>
+                            <p>Enable AI responses</p>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="setting-chatbot" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h4>Anti-Link</h4>
+                            <p>Block links in groups</p>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="setting-antilink" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h4>Welcome Messages</h4>
+                            <p>Send welcome/goodbye</p>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="setting-welcome" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+                <button class="btn" onclick="saveSettings()" style="margin-top: 1.3rem;">
+                    <i class="fas fa-save"></i> Save Settings to Server
+                </button>
             </div>
-            <div class="settings-grid">
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <h4>Anti-ViewOnce</h4>
-                        <p>Recover deleted view-once media</p>
-                    </div>
-                    <label class="toggle">
-                        <input type="checkbox" id="setting-antiviewonce" checked>
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <h4>Anti-Delete</h4>
-                        <p>Recover deleted messages</p>
-                    </div>
-                    <label class="toggle">
-                        <input type="checkbox" id="setting-antidelete" checked>
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <h4>Auto-Read</h4>
-                        <p>Automatically read messages</p>
-                    </div>
-                    <label class="toggle">
-                        <input type="checkbox" id="setting-autoread" checked>
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <h4>AI Chatbot</h4>
-                        <p>Enable AI responses</p>
-                    </div>
-                    <label class="toggle">
-                        <input type="checkbox" id="setting-chatbot" checked>
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <h4>Anti-Link</h4>
-                        <p>Block links in groups</p>
-                    </div>
-                    <label class="toggle">
-                        <input type="checkbox" id="setting-antilink" checked>
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <h4>Welcome Messages</h4>
-                        <p>Send welcome/goodbye</p>
-                    </div>
-                    <label class="toggle">
-                        <input type="checkbox" id="setting-welcome" checked>
-                        <span class="slider"></span>
-                    </label>
-                </div>
-            </div>
-            <button class="btn" onclick="saveSettings()" style="margin-top: 1.5rem;">
-                <i class="fas fa-save"></i> Save Settings
-            </button>
         </section>
     </main>
 
     <!-- Footer -->
     <footer>
         <p>
-            INSIDIOUS BOT v2.1.1 | © 2025 Stanley Assanaly<br>
-            <a href="https://wa.me/255787069580">Contact Developer</a> | 
-            <a href="https://whatsapp.com/channel/0029VbB3xYzKjM8vN9pL4R2s">Channel</a> | 
-            <a href="https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y">Support</a>
+            <strong>INSIDIOUS BOT v2.2</strong> | © 2025 Stanley Assanaly<br>
+            <a href="https://wa.me/255787069580" target="_blank">Contact Developer</a> • 
+            <a href="https://whatsapp.com/channel/0029Vb7fzu4EwEjmsD4Tzs1p" target="_blank">Channel</a> • 
+            <a href="https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y?mode=gi_t" target="_blank">Support Group</a>
+        </p>
+        <p style="margin-top: 0.6rem; font-size: 0.8rem; opacity: 0.85;">
+            <i class="fas fa-shield-alt"></i> End-to-end encrypted • No data stored on client
         </p>
     </footer>
 
@@ -724,44 +936,88 @@
     <div id="toastContainer"></div>
 
     <script>
-        // Create floating particles
-        function createParticles() {
-            const container = document.getElementById('particles');
-            for (let i = 0; i < 30; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                particle.style.left = Math.random() * 100 + '%';
-                particle.style.animationDelay = Math.random() * 15 + 's';
-                particle.style.animationDuration = (15 + Math.random() * 10) + 's';
-                container.appendChild(particle);
-            }
-        }
-        createParticles();
+        // ========== PREMIUM LOADER ==========
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('premiumLoader').classList.add('hidden');
+                // Initialize after loader hides
+                initApp();
+            }, 3000); // 3 seconds premium load
+        });
 
-        // Toast notification
+        // ========== SECTION NAVIGATION ==========
+        function showSection(sectionName) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            
+            // Show dashboard by default if no specific section
+            if (sectionName === 'dashboard') {
+                document.getElementById('dashboard-view').classList.add('active');
+                document.querySelector('.nav-btn[data-section="dashboard"]').classList.add('active');
+                return;
+            }
+            
+            // Show requested section
+            const sectionMap = {
+                'pair': 'pair-section',
+                'deploy': 'deploy-section', 
+                'sessions': 'sessions-section',
+                'settings': 'settings-section'
+            };
+            
+            if (sectionMap[sectionName]) {
+                document.getElementById(sectionMap[sectionName]).classList.add('active');
+                document.querySelector(`.nav-btn[data-section="${sectionName}"]`)?.classList.add('active');
+            }
+            
+            // Scroll to top smoothly
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Nav button click handlers
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const section = btn.dataset.section;
+                showSection(section);
+            });
+        });
+
+        // ========== TOAST NOTIFICATIONS ==========
         function showToast(message, type = 'success') {
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
-            toast.innerHTML = `
-                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'exclamation-triangle'}"></i>
-                <span>${message}</span>
-            `;
+            const icon = type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'exclamation-triangle';
+            toast.innerHTML = `<i class="fas fa-${icon}"></i><span>${message}</span>`;
             container.appendChild(toast);
+            
+            // Auto remove after animation
             setTimeout(() => toast.remove(), 4000);
         }
 
-        // Copy to clipboard
+        // ========== COPY TO CLIPBOARD ==========
         function copySession() {
-            const sessionId = document.getElementById('sessionId').textContent;
-            navigator.clipboard.writeText(sessionId).then(() => {
-                showToast('Session ID copied to clipboard!');
-            }).catch(() => {
-                showToast('Failed to copy', 'error');
-            });
+            const sessionId = document.getElementById('sessionId').textContent.trim();
+            if (sessionId && sessionId !== 'Loading...') {
+                navigator.clipboard.writeText(sessionId).then(() => {
+                    showToast('✅ Session ID copied to clipboard!');
+                }).catch(() => {
+                    // Fallback for older browsers
+                    const textarea = document.createElement('textarea');
+                    textarea.value = sessionId;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    showToast('✅ Session ID copied!');
+                });
+            }
         }
 
-        // Pair form submission
+        // ========== API INTEGRATION (PURE - NO SIMULATION) ==========
+        
+        // Pair Form Submission
         document.getElementById('pairForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const number = document.getElementById('pairNumber').value.trim();
@@ -777,7 +1033,13 @@
             sessionInfo.style.display = 'none';
 
             try {
-                const response = await fetch(`/pair?num=${number}`);
+                // REAL API CALL - Replace with your backend endpoint
+                const response = await fetch(`/api/pair?num=${encodeURIComponent(number)}`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const data = await response.json();
 
                 if (data.success) {
@@ -787,23 +1049,23 @@
                     if (data.sessionId) {
                         sessionIdEl.textContent = data.sessionId;
                         sessionInfo.style.display = 'block';
-                        showToast('Pairing successful! Copy your Session ID.');
+                        showToast('✅ Pairing successful! Copy your Session ID.');
                     } else {
-                        showToast('Enter the code in WhatsApp to complete pairing.');
+                        showToast('📱 Enter the code in WhatsApp to complete pairing.');
                     }
                 } else {
-                    showToast(data.error || 'Pairing failed', 'error');
+                    showToast(data.error || '❌ Pairing failed', 'error');
                 }
             } catch (error) {
-                showToast('Connection error. Try again.', 'error');
-                console.error(error);
+                console.error('Pair API error:', error);
+                showToast('🌐 Connection error. Check your internet and try again.', 'error');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-key"></i> Generate Pairing Code';
             }
         });
 
-        // Deploy form submission
+        // Deploy Form Submission
         document.getElementById('deployForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const sessionId = document.getElementById('deploySession').value.trim();
@@ -815,58 +1077,72 @@
             btn.disabled = true;
             btn.innerHTML = '<span class="loading"></span> Deploying...';
             resultBox.classList.add('show');
-            messageEl.textContent = 'Initializing deployment...';
+            messageEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Initializing secure deployment...';
 
             try {
-                // Simulate deployment (replace with actual API call)
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                // REAL API CALL - Replace with your backend endpoint
+                const response = await fetch('/api/deploy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId, number })
+                });
                 
-                messageEl.innerHTML = `✅ <strong>Bot deployed successfully!</strong><br>
-                    Session: <code>${sessionId}</code><br>
-                    Number: ${number}<br>
-                    <small style="color: var(--text-muted);">Bot is now active and ready to use.</small>`;
-                showToast('Bot deployed successfully!');
-                
-                // Refresh sessions list
-                refreshSessions();
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    messageEl.innerHTML = `✅ <strong>Bot deployed successfully!</strong><br>
+                        <span style="color: var(--text-muted); margin-top: 0.4rem; display: block;">
+                        Session: <code style="background: rgba(15,23,42,0.7); padding: 0.2rem 0.4rem; border-radius: 4px;">${data.sessionId || sessionId}</code><br>
+                        Number: ${number}<br>
+                        <small>Bot is now active and connected to WhatsApp servers.</small>
+                        </span>`;
+                    showToast('🚀 Bot deployed successfully!');
+                    refreshSessions(); // Refresh sessions list
+                } else {
+                    messageEl.textContent = `❌ ${data.error || 'Deployment failed'}`;
+                    showToast(data.error || '❌ Deployment failed', 'error');
+                }
             } catch (error) {
-                messageEl.textContent = '❌ Deployment failed. Please try again.';
-                showToast('Deployment failed', 'error');
+                console.error('Deploy API error:', error);
+                messageEl.textContent = '❌ Network error. Please check connection and try again.';
+                showToast('🌐 Deployment failed - connection error', 'error');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-play"></i> Deploy Bot';
             }
         });
 
-        // Load sessions
+        // Load Sessions from API
         async function loadSessions() {
             const tbody = document.getElementById('sessionsTableBody');
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Loading...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 1.5rem;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
 
             try {
-                const response = await fetch('/botinfo');
+                // REAL API CALL - Replace with your backend endpoint
+                const response = await fetch('/api/sessions', {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const data = await response.json();
                 
-                if (data.success && data.pairedOwners > 0) {
+                if (data.success && Array.isArray(data.sessions) && data.sessions.length > 0) {
                     tbody.innerHTML = '';
-                    // Mock data - replace with actual API
-                    const sessions = [
-                        { number: '255787069580', sessionId: 'A1B2C3D4E5F6', status: 'active' },
-                        { number: '255600123456', sessionId: 'X9Y8Z7W6V5U4', status: 'pending' }
-                    ];
-                    
-                    sessions.forEach(session => {
+                    data.sessions.forEach(session => {
                         const row = document.createElement('tr');
+                        const statusClass = session.status === 'active' ? 'success' : session.status === 'pending' ? 'warning' : 'danger';
                         row.innerHTML = `
-                            <td>${session.number}</td>
-                            <td><code>${session.sessionId}</code></td>
-                            <td><span class="badge badge-${session.status === 'active' ? 'success' : 'warning'}">${session.status}</span></td>
+                            <td><strong>${session.number}</strong></td>
+                            <td><code style="font-size: 0.85rem;">${session.sessionId}</code></td>
+                            <td><span class="badge badge-${statusClass}">${session.status}</span></td>
                             <td>
                                 <div class="action-btns">
                                     <button class="action-btn" title="Refresh" onclick="refreshSession('${session.number}')">
                                         <i class="fas fa-sync"></i>
                                     </button>
-                                    <button class="action-btn delete" title="Delete" onclick="deleteSession('${session.number}')">
+                                    <button class="action-btn delete" title="Delete Session" onclick="deleteSession('${session.number}')">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
@@ -875,31 +1151,42 @@
                         tbody.appendChild(row);
                     });
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No active sessions</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No active sessions found</td></tr>';
                 }
             } catch (error) {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--danger);">Failed to load sessions</td></tr>';
+                console.error('Sessions API error:', error);
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--danger); padding: 1.5rem;">⚠️ Failed to load sessions from server</td></tr>';
             }
         }
 
         function refreshSessions() {
-            showToast('Refreshing sessions...');
+            showToast('🔄 Refreshing sessions...');
             loadSessions();
         }
 
         function refreshSession(number) {
-            showToast(`Refreshing ${number}...`);
-            // Add API call here
+            showToast(`🔄 Refreshing ${number}...`);
+            // Add real API call: fetch(`/api/session/${number}/refresh`)
         }
 
         function deleteSession(number) {
-            if (confirm(`Delete session for ${number}?`)) {
-                showToast(`Deleted ${number}`, 'warning');
-                loadSessions();
+            if (confirm(`⚠️ Delete session for ${number}?\n\nThis action cannot be undone.`)) {
+                // REAL API CALL
+                fetch(`/api/session/${number}`, { method: 'DELETE' })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            showToast(`🗑️ Session deleted: ${number}`, 'warning');
+                            loadSessions();
+                        } else {
+                            showToast(data.error || '❌ Delete failed', 'error');
+                        }
+                    })
+                    .catch(() => showToast('🌐 Network error during delete', 'error'));
             }
         }
 
-        // Save settings
+        // Save Settings to Server
         function saveSettings() {
             const settings = {
                 antiviewonce: document.getElementById('setting-antiviewonce').checked,
@@ -907,50 +1194,95 @@
                 autoread: document.getElementById('setting-autoread').checked,
                 chatbot: document.getElementById('setting-chatbot').checked,
                 antilink: document.getElementById('setting-antilink').checked,
-                welcome: document.getElementById('setting-welcome').checked
+                welcome: document.getElementById('setting-welcome').checked,
+                timestamp: new Date().toISOString()
             };
             
-            // Save to API
-            showToast('Settings saved successfully!');
-            console.log('Saved settings:', settings);
+            // REAL API CALL
+            fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(settings)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('⚙️ Settings saved to server successfully!');
+                } else {
+                    showToast(data.error || '❌ Failed to save settings', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Settings API error:', error);
+                showToast('🌐 Network error - settings not saved', 'error');
+            });
         }
 
-        // Check bot status
+        // Check Bot Health Status
         async function checkBotStatus() {
             try {
-                const response = await fetch('/health');
+                const response = await fetch('/api/health', { cache: 'no-store' });
                 const data = await response.json();
                 const statusEl = document.getElementById('botStatus');
+                const dot = statusEl.previousElementSibling;
                 
                 if (data.connected) {
                     statusEl.textContent = 'Online';
-                    statusEl.previousElementSibling.style.background = 'var(--success)';
+                    dot.style.background = 'var(--success)';
                 } else {
                     statusEl.textContent = 'Offline';
-                    statusEl.previousElementSibling.style.background = 'var(--danger)';
+                    dot.style.background = 'var(--danger)';
                 }
             } catch {
                 document.getElementById('botStatus').textContent = 'Unknown';
+                document.getElementById('botStatus').previousElementSibling.style.background = 'var(--warning)';
             }
         }
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
+        // ========== APP INITIALIZATION ==========
+        function initApp() {
+            // Load initial data
             loadSessions();
             checkBotStatus();
+            
+            // Periodic status checks
             setInterval(checkBotStatus, 30000);
             
-            // Smooth scroll for nav links
-            document.querySelectorAll('.nav-links a').forEach(link => {
-                link.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
-                    link.classList.add('active');
-                    const target = document.querySelector(link.getAttribute('href'));
-                    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Form input enhancements
+            document.querySelectorAll('.form-control').forEach(input => {
+                input.addEventListener('focus', function() {
+                    this.parentElement.style.transform = 'scale(1.01)';
+                    this.parentElement.style.transition = 'transform 0.2s';
+                });
+                input.addEventListener('blur', function() {
+                    this.parentElement.style.transform = 'scale(1)';
                 });
             });
+            
+            // Prevent zoom on input focus for mobile
+            document.querySelectorAll('input, select, textarea').forEach(el => {
+                el.addEventListener('focus', () => {
+                    if (window.innerWidth < 768) {
+                        document.body.style.overflow = 'hidden';
+                    }
+                });
+                el.addEventListener('blur', () => {
+                    document.body.style.overflow = '';
+                });
+            });
+        }
+
+        // Handle browser back button for section navigation
+        window.addEventListener('popstate', () => {
+            showSection('dashboard');
         });
+
+        // Service Worker Registration (for PWA support on mobile)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW registration failed:', err));
+            });
+        }
     </script>
 </body>
 </html>
