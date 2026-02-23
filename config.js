@@ -151,7 +151,7 @@ module.exports = {
     // Rate limiting (prevent API abuse)
     rateLimit: {
         enabled: parseBool(getConfig('RATE_LIMIT_ENABLED', "true")),
-        windowMs: parseIntSafe(getConfig('RATE_LIMIT_WINDOW_MS', "60000"), 60000), // 1 minute
+        windowMs: parseIntSafe(getConfig('RATE_LIMIT_WINDOW_MS', "45000"), 45000), // 45 seconds (updated)
         maxRequests: parseIntSafe(getConfig('RATE_LIMIT_MAX', "30"), 30),
         skipOwner: parseBool(getConfig('RATE_LIMIT_SKIP_OWNER', "true"))
     },
@@ -370,4 +370,3 @@ module.exports = {
         return require(__filename);
     }
 };
-
