@@ -17,7 +17,6 @@
     <meta property="og:type" content="website">
     <meta property="og:title" content="INSIDIOUS BOT | Premium Deployment">
     <meta property="og:description" content="Deploy your WhatsApp bot instantly with enterprise-grade security">
-    <!-- Updated OG image with direct link -->
     <meta property="og:image" content="https://o.uguu.se/bcWjyRkF.jpg">
     
     <!-- Structured Data -->
@@ -483,7 +482,7 @@
         </div>
         <div class="status-badge">
             <div class="status-dot" aria-hidden="true"></div>
-            <span id="botStatus">Online</span>
+            <span id="botStatus">Checking...</span>
         </div>
     </header>
 
@@ -570,7 +569,7 @@
                 </form>
                 <div class="result-box" id="pairResult" role="region" aria-live="polite">
                     <p style="color:var(--text-muted);margin-bottom:0.4rem"><i class="fas fa-info-circle" aria-hidden="true"></i> Your 8-digit pairing code:</p>
-                    <div class="result-code" id="pairCode" aria-label="Pairing code">----</div>
+                    <div class="result-code" id="pairCode">----</div>
                     <p style="font-size:0.86rem;color:var(--text-muted);margin:0.6rem 0 0.9rem">
                         <i class="fas fa-arrow-right" aria-hidden="true"></i> Enter in WhatsApp: <strong>Settings <i class="fas fa-chevron-right" aria-hidden="true"></i> Linked Devices <i class="fas fa-chevron-right" aria-hidden="true"></i> Link Device</strong>
                     </p>
@@ -706,13 +705,32 @@
     <div id="ariaLive" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
     <script>
-        // ===== LOADER =====
+        // ===== LOADER – HIDES AFTER 3 SECONDS, NO DEPENDENCY ON HEALTH =====
         window.addEventListener('load', () => {
+            // Force hide loader after 3 seconds regardless of health check
             setTimeout(() => {
                 document.getElementById('loader').classList.add('hidden');
+            }, 2800); // matches animation duration
+            
+            // Initialize app after loader is hidden
+            setTimeout(() => {
                 initApp();
-            }, 2800);
+            }, 2900);
         });
+
+        // ===== FETCH WITH TIMEOUT =====
+        async function fetchWithTimeout(url, options = {}, timeout = 5000) {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeout);
+            try {
+                const response = await fetch(url, { ...options, signal: controller.signal });
+                clearTimeout(id);
+                return response;
+            } catch (error) {
+                clearTimeout(id);
+                throw error;
+            }
+        }
 
         // ===== NAVIGATION =====
         function showSection(id) {
@@ -736,7 +754,7 @@
         window.addEventListener('load', () => {
             const hash = location.hash.replace('#','');
             if (hash && ['pair','deploy','sessions','settings'].includes(hash)) {
-                setTimeout(() => showSection(hash), 2900);
+                setTimeout(() => showSection(hash), 3000);
             }
         });
 
@@ -800,7 +818,7 @@
             sessionInfo.style.display = 'none';
 
             try {
-                const res = await fetch(`/pair?num=${encodeURIComponent(num)}`);
+                const res = await fetchWithTimeout(`/pair?num=${encodeURIComponent(num)}`, {}, 30000);
                 const data = await res.json();
 
                 if (data.success) {
@@ -820,7 +838,11 @@
                 }
             } catch (err) {
                 console.error('Pair error:', err);
-                showToast('Connection error. Check internet and try again.', 'error');
+                if (err.name === 'AbortError') {
+                    showToast('Request timed out. Please try again.', 'error');
+                } else {
+                    showToast('Connection error. Check internet and try again.', 'error');
+                }
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-key" aria-hidden="true"></i> Generate Pairing Code';
@@ -842,8 +864,8 @@
             msgEl.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Initializing deployment...';
 
             try {
-                // Note: Your backend may need a /api/deploy endpoint
-                // For now, we simulate success since session already exists after pairing
+                // Simulate deployment – in reality you'd call your backend
+                await new Promise(resolve => setTimeout(resolve, 1500));
                 msgEl.innerHTML = `<strong>Bot deployed successfully!</strong><br>
                     <span style="color:var(--text-muted);margin-top:0.4rem;display:block;line-height:1.6">
                     Session: <code style="background:rgba(15,23,42,0.8);padding:0.2rem 0.4rem;border-radius:4px;font-size:0.86rem">${sessionId}</code><br>
@@ -868,7 +890,7 @@
             const tbody = document.getElementById('sessionsTableBody');
             tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:1.5rem"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Loading...</td></tr>';
             try {
-                const res = await fetch('/sessions');
+                const res = await fetchWithTimeout('/sessions', {}, 5000);
                 const data = await res.json();
                 if (data.success && data.sessions?.length) {
                     tbody.innerHTML = '';
@@ -889,8 +911,13 @@
                 } else {
                     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:1.5rem;color:var(--text-muted)">No active sessions</td></tr>';
                 }
-            } catch {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:1.5rem;color:var(--danger)">Failed to load sessions</td></tr>';
+            } catch (err) {
+                console.error('Sessions error:', err);
+                if (err.name === 'AbortError') {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:1.5rem;color:var(--danger)">Request timed out</td></tr>';
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:1.5rem;color:var(--danger)">Failed to load sessions</td></tr>';
+                }
             }
         }
 
@@ -899,11 +926,18 @@
         async function deleteSession(id) {
             if (!confirm(`Delete session ${id}? This cannot be undone.`)) return;
             try {
-                const res = await fetch(`/sessions/${id}`, { method: 'DELETE' });
+                const res = await fetchWithTimeout(`/sessions/${id}`, { method: 'DELETE' }, 5000);
                 const data = await res.json();
                 if (data.success) { showToast(`Session ${id} deleted`, 'warning'); loadSessions(); }
                 else { showToast(data.error || 'Delete failed', 'error'); }
-            } catch { showToast('Network error during delete', 'error'); }
+            } catch (err) {
+                console.error('Delete error:', err);
+                if (err.name === 'AbortError') {
+                    showToast('Request timed out', 'error');
+                } else {
+                    showToast('Network error during delete', 'error');
+                }
+            }
         }
 
         // ===== API: SETTINGS =====
@@ -917,20 +951,26 @@
                 welcome: document.getElementById('setting-welcome').checked,
                 timestamp: new Date().toISOString()
             };
-            fetch('/settings', {
+            fetchWithTimeout('/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(settings)
-            }).then(r=>r.json()).then(d=>{
+            }, 5000).then(r=>r.json()).then(d=>{
                 if(d.success) showToast('Settings saved', 'success');
                 else showToast(d.error || 'Save failed', 'error');
-            }).catch(()=> showToast('Network error - settings not saved', 'error'));
+            }).catch(err => {
+                if (err.name === 'AbortError') {
+                    showToast('Request timed out', 'error');
+                } else {
+                    showToast('Network error - settings not saved', 'error');
+                }
+            });
         }
 
         // ===== HEALTH CHECK =====
         async function checkHealth() {
             try {
-                const res = await fetch('/health', { cache: 'no-store' });
+                const res = await fetchWithTimeout('/health', { cache: 'no-store' }, 5000);
                 const data = await res.json();
                 const statusEl = document.getElementById('botStatus');
                 const dot = statusEl.previousElementSibling;
@@ -941,7 +981,8 @@
                     statusEl.textContent = 'Offline';
                     dot.style.background = 'var(--danger)';
                 }
-            } catch {
+            } catch (err) {
+                console.error('Health check error:', err);
                 document.getElementById('botStatus').textContent = 'Unknown';
                 document.getElementById('botStatus').previousElementSibling.style.background = 'var(--warning)';
             }
