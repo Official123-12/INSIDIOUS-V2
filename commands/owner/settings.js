@@ -65,7 +65,8 @@ module.exports = {
             manual += `│ ${prefix}settings set <feature> <value>\n`;
             manual += `│ Features: warnLimit, maxTags, inactiveDays, antiSpamLimit,\n`;
             manual += `│           antiSpamInterval, sleepingStart, sleepingEnd,\n`;
-            manual += `│           maxCoOwners, statusReplyLimit, autoExpireMinutes\n`;
+            manual += `│           maxCoOwners, statusReplyLimit, autoExpireMinutes,\n`;
+            manual += `│           antiStatusMentionAction (warn/block/report)\n`;
             manual += `│ Example: ${prefix}settings set warnLimit 5\n`;
             manual += `│ Example: ${prefix}settings set sleepingStart 22:00\n`;
             manual += `└───────────────\n\n`;
@@ -90,10 +91,14 @@ module.exports = {
             manual += `│ autoDeleteMessages: ${settings.autoDeleteMessages ? '✅' : '❌'}\n`;
             manual += `│ autoExpireMinutes : ${settings.autoExpireMinutes} minutes\n`;
             manual += `│ autoStatusActions : ${settings.autoStatusActions?.join(', ') || 'view,react,reply'}\n`;
+            manual += `│ antiStatusMention : ${settings.antistatusmention ? '✅' : '❌'}\n`;
+            manual += `│ antiStatusMentionAction : ${settings.antiStatusMentionAction || 'warn'}\n`;
             manual += `│\n`;
             manual += `│ ${prefix}settings autodelete on/off\n`;
             manual += `│ ${prefix}settings set autoExpireMinutes <minutes>\n`;
             manual += `│ ${prefix}settings statusactions <view/react/reply> ...\n`;
+            manual += `│ ${prefix}settings antistatusmention on/off\n`;
+            manual += `│ ${prefix}settings set antiStatusMentionAction warn/block/report\n`;
             manual += `│ ${prefix}settings mode public/self\n`;
             manual += `│ ${prefix}settings prefix <new>\n`;
             manual += `│ ${prefix}settings withoutprefix on/off\n`;
@@ -137,6 +142,7 @@ module.exports = {
             text += `│ sleepingmode   : ${settings.sleepingmode ? '✅' : '❌'}\n`;
             text += `│ antispam       : ${settings.antispam ? '✅' : '❌'}\n`;
             text += `│ anticall       : ${settings.anticall ? '✅' : '❌'}\n`;
+            text += `│ antistatusmention: ${settings.antistatusmention ? '✅' : '❌'} (action: ${settings.antiStatusMentionAction || 'warn'})\n`;
             text += `└───────────\n\n`;
 
             text += `⚡ *AUTO FEATURES*\n`;
@@ -148,6 +154,7 @@ module.exports = {
             text += `│ autoBio        : ${settings.autoBio ? '✅' : '❌'}\n`;
             text += `│ autostatus     : ${settings.autostatus ? '✅' : '❌'} (limit: ${settings.statusReplyLimit}/day)\n`;
             text += `│ downloadStatus : ${settings.downloadStatus ? '✅' : '❌'}\n`;
+            text += `│ autoSaveContact: ${settings.autoSaveContact ? '✅' : '❌'}\n`;
             text += `│ autoDeleteMessages: ${settings.autoDeleteMessages ? '✅' : '❌'}\n`;
             text += `└───────────\n\n`;
 
@@ -232,6 +239,16 @@ module.exports = {
             await handler.saveGlobalSettings(settings);
             await handler.refreshConfig();
             return await sendWithForward(`✅ Auto status actions set to: ${actions.join(', ')}`);
+        }
+
+        // ----- SPECIAL: antistatusmention toggle -----
+        if (first === 'antistatusmention' && args.length === 2) {
+            const action = args[1].toLowerCase();
+            if (!['on', 'off'].includes(action)) return reply("❌ Use on or off.");
+            settings.antistatusmention = action === 'on';
+            await handler.saveGlobalSettings(settings);
+            await handler.refreshConfig();
+            return await sendWithForward(`✅ Anti‑status‑mention is now ${action.toUpperCase()}`);
         }
 
         // ----- SPECIAL: mode -----
@@ -333,13 +350,22 @@ module.exports = {
             const feature = args[1];
             const value = args.slice(2).join(' ');
             if (!(feature in settings)) return reply(`❌ Feature '${feature}' not found.`);
-            if (typeof settings[feature] === 'number') {
+
+            // Special handling for antiStatusMentionAction
+            if (feature === 'antiStatusMentionAction') {
+                const valid = ['warn', 'block', 'report'];
+                if (!valid.includes(value.toLowerCase())) 
+                    return reply(`❌ Must be one of: ${valid.join(', ')}`);
+                settings[feature] = value.toLowerCase();
+            }
+            else if (typeof settings[feature] === 'number') {
                 const num = Number(value);
                 if (isNaN(num)) return reply("❌ Must be a number.");
                 settings[feature] = num;
             } else if (typeof settings[feature] === 'string') {
                 settings[feature] = value;
             } else return reply("❌ Cannot set this feature.");
+            
             await handler.saveGlobalSettings(settings);
             await handler.refreshConfig();
             return await sendWithForward(`✅ ${feature} set to ${settings[feature]}`);
@@ -357,6 +383,7 @@ module.exports = {
             'sleepingmode': 'sleepingmode',
             'antispam': 'antispam',
             'anticall': 'anticall',
+            'antistatusmention': 'antistatusmention',
             'autoread': 'autoRead',
             'autoreact': 'autoReact',
             'autotyping': 'autoTyping',
@@ -364,6 +391,7 @@ module.exports = {
             'autobio': 'autoBio',
             'autostatus': 'autostatus',
             'downloadstatus': 'downloadStatus',
+            'autosavecontact': 'autoSaveContact',
             'chatbot': 'chatbot',
             'welcomegoodbye': 'welcomeGoodbye',
             'activemembers': 'activemembers',
