@@ -79,7 +79,7 @@ app.get('/dashboard', (req, res) => {
 });
 
 // ✅ **GLOBAL VARIABLES FOR MULTI‑SESSION**
-const activeConnections = new Map(); // key: phoneNumber, value: { sock, saveCreds }
+const activeConnections = new Map(); // key: phoneNumber, value: { sock, saveCreds, keyData }
 let botStartTime = Date.now();
 
 // ✅ **LOAD CONFIG**
@@ -107,7 +107,7 @@ async function startUserBot(phoneNumber) {
 
     console.log(fancy(`🚀 Starting bot for ${phoneNumber}...`));
 
-    const { state, saveCreds } = await useMongoAuthState(phoneNumber);
+    const { state, saveCreds, keyData } = await useMongoAuthState(phoneNumber);
     const { version } = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
@@ -124,18 +124,20 @@ async function startUserBot(phoneNumber) {
         markOnlineOnConnect: true
     });
 
-    activeConnections.set(phoneNumber, { sock, saveCreds });
+    activeConnections.set(phoneNumber, { sock, saveCreds, keyData });
 
     // ---------- CREDENTIALS UPDATE ----------
     sock.ev.on('creds.update', async () => {
         const fullCreds = sock.authState.creds;
-        const fullKeys = sock.authState.keys;
-        await Session.findOneAndUpdate(
-            { phoneNumber },
-            { $set: { creds: fullCreds, keys: fullKeys } },
-            { upsert: true, new: true }
-        );
-        console.log(fancy(`💾 Saved session for ${phoneNumber}`));
+        const entry = activeConnections.get(phoneNumber);
+        if (entry && entry.keyData) {
+            await Session.findOneAndUpdate(
+                { phoneNumber },
+                { $set: { creds: fullCreds, keys: entry.keyData } },
+                { upsert: true, new: true }
+            );
+            console.log(fancy(`💾 Saved session for ${phoneNumber}`));
+        }
     });
 
     // ---------- CONNECTION UPDATE ----------
