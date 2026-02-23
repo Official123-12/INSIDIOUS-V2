@@ -1,418 +1,297 @@
 const express = require('express');
-const { default: makeWASocket, useMultiFileAuthState, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys");
+const { default: makeWASocket, useMultiFileAuthState, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
-const fs = require('fs');
+const fs = require('fs-extra');
+const crypto = require('crypto');
 
-// ==================== HANDLER ====================
+// ==================== LOAD HANDLER & CONFIG ====================
 const handler = require('./handler');
+let config = {};
+try { config = require('./config'); } catch { config = {}; }
 
-// ✅ **FANCY FUNCTION**
+// ==================== FANCY FUNCTION ====================
 function fancy(text) {
     if (!text || typeof text !== 'string') return text;
-    
-    try {
-        const fancyMap = {
-            a: 'ᴀ', b: 'ʙ', c: 'ᴄ', d: 'ᴅ', e: 'ᴇ', f: 'ꜰ', g: 'ɢ', h: 'ʜ', i: 'ɪ',
-            j: 'ᴊ', k: 'ᴋ', l: 'ʟ', m: 'ᴍ', n: 'ɴ', o: 'ᴏ', p: 'ᴘ', q: 'ǫ', r: 'ʀ',
-            s: 'ꜱ', t: 'ᴛ', u: 'ᴜ', v: 'ᴠ', w: 'ᴡ', x: 'x', y: 'ʏ', z: 'ᴢ',
-            A: 'ᴀ', B: 'ʙ', C: 'ᴄ', D: 'ᴅ', E: 'ᴇ', F: 'ꜰ', G: 'ɢ', H: 'ʜ', I: 'ɪ',
-            J: 'ᴊ', K: 'ᴋ', L: 'ʟ', M: 'ᴍ', N: 'ɴ', O: 'ᴏ', P: 'ᴘ', Q: 'ǫ', R: 'ʀ',
-            S: 'ꜱ', T: 'ᴛ', U: 'ᴜ', V: 'ᴠ', W: 'ᴡ', X: 'x', Y: 'ʏ', Z: 'ᴢ'
-        };
-        
-        let result = '';
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
-            result += fancyMap[char] || char;
-        }
-        return result;
-    } catch (e) {
-        return text;
-    }
+    const map = {
+        a: 'ᴀ', b: 'ʙ', c: 'ᴄ', d: 'ᴅ', e: 'ᴇ', f: 'ꜰ', g: 'ɢ', h: 'ʜ', i: 'ɪ',
+        j: 'ᴊ', k: 'ᴋ', l: 'ʟ', m: 'ᴍ', n: 'ɴ', o: 'ᴏ', p: 'ᴘ', q: 'ǫ', r: 'ʀ',
+        s: 'ꜱ', t: 'ᴛ', u: 'ᴜ', v: 'ᴠ', w: 'ᴡ', x: 'x', y: 'ʏ', z: 'ᴢ',
+        A: 'ᴀ', B: 'ʙ', C: 'ᴄ', D: 'ᴅ', E: 'ᴇ', F: 'ꜰ', G: 'ɢ', H: 'ʜ', I: 'ɪ',
+        J: 'ᴊ', K: 'ᴋ', L: 'ʟ', M: 'ᴍ', N: 'ɴ', O: 'ᴏ', P: 'ᴘ', Q: 'ǫ', R: 'ʀ',
+        S: 'ꜱ', T: 'ᴛ', U: 'ᴜ', V: 'ᴠ', W: 'ᴡ', X: 'x', Y: 'ʏ', Z: 'ᴢ'
+    };
+    return text.split('').map(c => map[c] || c).join('');
 }
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = '0.0.0.0'; // Bind to all interfaces
 
-// ✅ **MONGODB CONNECTION (OPTIONAL)**
+// ==================== MIDDLEWARE ====================
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.static(path.join(__dirname, 'public')));
+
+// ==================== GLOBAL VARS ====================
+let globalConn = null;
+let isConnected = false;
+let botStartTime = Date.now();
+const activeSessions = new Map();
+
+// ==================== UNHANDLED REJECTION GUARD ====================
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+// ==================== MONGODB CONNECTION (NON-BLOCKING) ====================
 console.log(fancy("🔗 Connecting to MongoDB..."));
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
 
+// Connect without awaiting – let it run in background
 mongoose.connect(MONGODB_URI, {
     serverSelectionTimeoutMS: 30000,
     socketTimeoutMS: 45000,
     maxPoolSize: 10
 })
-.then(() => {
-    console.log(fancy("✅ MongoDB Connected"));
-})
-.catch((err) => {
-    console.log(fancy("❌ MongoDB Connection FAILED"));
-    console.log(fancy("💡 Error: " + err.message));
+.then(() => console.log(fancy("✅ MongoDB Connected")))
+.catch(err => {
+    console.log(fancy("❌ MongoDB Connection FAILED: " + err.message));
+    console.log(fancy("⚠️ Continuing without MongoDB – sessions will be file-based"));
 });
 
-// ✅ **MIDDLEWARE**
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-
-// ✅ **CREATE PUBLIC FOLDER IF NOT EXISTS**
-if (!fs.existsSync(path.join(__dirname, 'public'))) {
-    fs.mkdirSync(path.join(__dirname, 'public'), { recursive: true });
-}
-
-// ✅ **SIMPLE ROUTES**
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.get('/dashboard', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
-});
-
-// ✅ **GLOBAL VARIABLES**
-let globalConn = null;
-let isConnected = false;
-let botStartTime = Date.now();
-
-// ✅ **LOAD CONFIG**
-let config = {};
-try {
-    config = require('./config');
-    console.log(fancy("📋 Config loaded"));
-} catch (error) {
-    console.log(fancy("❌ Config file error, using defaults"));
-    config = {
-        prefix: '.',
-        ownerNumber: ['255000000000'],
-        botName: 'INSIDIOUS',
-        workMode: 'public',
-        botImage: 'https://files.catbox.moe/f3c07u.jpg'
-    };
-}
-
-// ✅ **MAIN BOT FUNCTION**
+// ==================== MAIN BOT – STARTS FOR OWNER ====================
 async function startBot() {
     try {
         console.log(fancy("🚀 Starting INSIDIOUS..."));
-        
-        // ✅ **AUTHENTICATION**
         const { state, saveCreds } = await useMultiFileAuthState('insidious_session');
         const { version } = await fetchLatestBaileysVersion();
 
-        // ✅ **CREATE CONNECTION**
         const conn = makeWASocket({
             version,
-            auth: { 
-                creds: state.creds, 
-                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) 
-            },
+            auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) },
             logger: pino({ level: "silent" }),
             browser: Browsers.macOS("Safari"),
             syncFullHistory: false,
             connectTimeoutMs: 60000,
             keepAliveIntervalMs: 10000,
-            markOnlineOnConnect: true
+            markOnlineOnConnect: true,
+            maxRetryCount: 0,  // no auto‑reconnect (manual)
+            retryRequestDelayMs: 500,
+            shouldIgnoreJid: () => true
         });
 
         globalConn = conn;
         botStartTime = Date.now();
 
-        // ✅ **CONNECTION EVENT HANDLER**
         conn.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect } = update;
-            
+            const { connection } = update;
             if (connection === 'open') {
-                console.log(fancy("👹 INSIDIOUS: THE LAST KEY ACTIVATED"));
-                console.log(fancy("✅ Bot is now online"));
-                
+                console.log(fancy("✅ Bot online"));
                 isConnected = true;
-                
-                // Get bot info
-                let botName = conn.user?.name || "INSIDIOUS";
-                let botNumber = "Unknown";
-                let botId = conn.user?.id || "Unknown";
-                
-                if (conn.user?.id) {
-                    botNumber = conn.user.id.split(':')[0] || "Unknown";
-                }
-                
-                // 🔥 GET BOT ID AND PAIRED COUNT FROM HANDLER
-                const botSecret = handler.getBotId ? handler.getBotId() : 'Unknown';
-                const pairedCount = handler.getPairedNumbers ? handler.getPairedNumbers().length : 0;
-                
-                console.log(fancy(`🤖 Name: ${botName}`));
-                console.log(fancy(`📞 Number: ${botNumber}`));
-                console.log(fancy(`🆔 Bot ID: ${botSecret}`));
-                console.log(fancy(`👥 Paired Owners: ${pairedCount}`));
-                
-                // ✅ **INITIALIZE HANDLER**
-                try {
-                    if (handler && typeof handler.init === 'function') {
-                        await handler.init(conn);
-                        console.log(fancy("✅ Handler initialized"));
-                    }
-                } catch (e) {
-                    console.error(fancy("❌ Handler init error:"), e.message);
-                }
-                
-                // ✅ **SEND WELCOME MESSAGE TO OWNER**
-                setTimeout(async () => {
-                    try {
-                        if (config.ownerNumber && config.ownerNumber.length > 0) {
-                            const ownerNum = config.ownerNumber[0].replace(/[^0-9]/g, '');
-                            if (ownerNum.length >= 10) {
-                                const ownerJid = ownerNum + '@s.whatsapp.net';
-                                
-                                const welcomeMsg = `
-╭─── • 🥀 • ───╮
-   INSIDIOUS: THE LAST KEY
-╰─── • 🥀 • ───╯
-
-✅ *Bot Connected Successfully!*
-🤖 *Name:* ${botName}
-📞 *Number:* ${botNumber}
-🆔 *Bot ID:* ${botSecret}
-👥 *Paired Owners:* ${pairedCount}
-
-⚡ *Status:* ONLINE & ACTIVE
-
-📊 *ALL FEATURES ACTIVE:*
-🛡️ Anti View Once: ✅
-🗑️ Anti Delete: ✅
-🤖 AI Chatbot: ✅
-⚡ Auto Typing: ✅
-📼 Auto Recording: ✅
-👀 Auto Read: ✅
-❤️ Auto React: ✅
-🎉 Welcome/Goodbye: ✅
-
-🔧 *Commands:* All working
-📁 *Database:* Connected
-🚀 *Performance:* Optimal
-
-👑 *Developer:* STANYTZ
-💾 *Version:* 2.1.1 | Year: 2025`;
-                                
-                                // Send with image and forwarded style
-                                await conn.sendMessage(ownerJid, { 
-                                    image: { 
-                                        url: config.botImage || "https://files.catbox.moe/f3c07u.jpg"
-                                    },
-                                    caption: welcomeMsg,
-                                    contextInfo: { 
-                                        isForwarded: true,
-                                        forwardingScore: 999,
-                                        forwardedNewsletterMessageInfo: { 
-                                            newsletterJid: config.newsletterJid || "120363404317544295@newsletter",
-                                            newsletterName: config.botName || "INSIDIOUS BOT"
-                                        }
-                                    }
-                                });
-                                console.log(fancy("✅ Welcome message sent to owner"));
-                            }
-                        }
-                    } catch (e) {
-                        console.log(fancy("⚠️ Could not send welcome message:"), e.message);
-                    }
-                }, 3000);
+                if (handler && handler.init) await handler.init(conn).catch(() => {});
             }
-            
-            if (connection === 'close') {
-                console.log(fancy("🔌 Connection closed"));
-                isConnected = false;
-                
-                const statusCode = lastDisconnect?.error?.output?.statusCode;
-                const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-                
-                if (shouldReconnect) {
-                    console.log(fancy("🔄 Restarting bot in 5 seconds..."));
-                    setTimeout(() => {
-                        startBot();
-                    }, 5000);
-                } else {
-                    console.log(fancy("🚫 Logged out. Please scan QR again."));
-                }
-            }
+            // No handling of 'close' – bot stays offline if disconnected
         });
 
-        // ✅ **CREDENTIALS UPDATE**
         conn.ev.on('creds.update', saveCreds);
-
-        // ✅ **MESSAGE HANDLER**
         conn.ev.on('messages.upsert', async (m) => {
-            try {
-                if (handler && typeof handler === 'function') {
-                    await handler(conn, m);
-                }
-            } catch (error) {
-                console.error("Message handler error:", error.message);
-            }
+            try { if (handler) await handler(conn, m); } catch {}
         });
-
-        // ✅ **GROUP UPDATE HANDLER**
-        conn.ev.on('group-participants.update', async (update) => {
-            try {
-                if (handler && handler.handleGroupUpdate) {
-                    await handler.handleGroupUpdate(conn, update);
-                }
-            } catch (error) {
-                console.error("Group update error:", error.message);
-            }
+        conn.ev.on('group-participants.update', async (up) => {
+            try { if (handler?.handleGroupUpdate) await handler.handleGroupUpdate(conn, up); } catch {}
         });
-
-        // ✅ **CALL HANDLER**
         conn.ev.on('call', async (call) => {
-            try {
-                if (handler && handler.handleCall) {
-                    await handler.handleCall(conn, call);
-                }
-            } catch (error) {
-                console.error("Call handler error:", error.message);
-            }
+            try { if (handler?.handleCall) await handler.handleCall(conn, call); } catch {}
         });
 
-        console.log(fancy("🚀 Bot ready for pairing via web interface"));
-        
+        console.log(fancy("🚀 Main bot ready"));
     } catch (error) {
         console.error("Start error:", error.message);
-        // Restart once on error
-        setTimeout(() => {
-            startBot();
-        }, 10000);
+    }
+}
+// Start the main bot in background – errors are caught
+startBot().catch(err => console.error("Main bot start failed:", err));
+
+// ==================== TEMPORARY PAIRING SOCKET ====================
+async function requestPairingCode(number) {
+    const sessionId = crypto.randomBytes(8).toString('hex');
+    const sessionDir = path.join(__dirname, `temp_pair_${sessionId}`);
+
+    try {
+        const { state } = await useMultiFileAuthState(sessionDir);
+        const { version } = await fetchLatestBaileysVersion();
+
+        const conn = makeWASocket({
+            version,
+            auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) },
+            logger: pino({ level: "silent" }),
+            browser: Browsers.macOS("Safari"),
+            syncFullHistory: false,
+            connectTimeoutMs: 60000,
+            keepAliveIntervalMs: 10000,
+            markOnlineOnConnect: false,
+            shouldIgnoreJid: () => true,
+            maxRetryCount: 2,
+            retryRequestDelayMs: 1000
+        });
+
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                conn.end();
+                reject(new Error("⏰ Pairing timeout (60s)"));
+            }, 60000);
+
+            conn.ev.on('connection.update', async (update) => {
+                const { connection, lastDisconnect } = update;
+                if (connection === 'open') {
+                    await new Promise(r => setTimeout(r, 1000)); // ensure socket ready
+                    try {
+                        const code = await conn.requestPairingCode(number);
+                        clearTimeout(timeout);
+                        resolve({ code, conn });
+                    } catch (err) {
+                        reject(err);
+                    } finally {
+                        setTimeout(() => conn.end(), 2000);
+                        setTimeout(async () => {
+                            try { await fs.rm(sessionDir, { recursive: true, force: true }); } catch {}
+                        }, 3000);
+                    }
+                }
+                if (connection === 'close' && !update.isOnline) {
+                    const statusCode = lastDisconnect?.error?.output?.statusCode;
+                    if (statusCode === 429) reject(new Error("🚫 Rate limited. Wait 5 minutes."));
+                    else reject(new Error("❌ Connection closed. Please try again."));
+                }
+            });
+        });
+    } catch (err) {
+        setTimeout(async () => {
+            try { await fs.rm(sessionDir, { recursive: true, force: true }); } catch {}
+        }, 1000);
+        throw err;
     }
 }
 
-// ✅ **START BOT**
-startBot();
+// ==================== EXPRESS ROUTES ====================
 
-// ==================== HTTP ENDPOINTS ====================
-
-// ✅ **PAIRING ENDPOINT (8-DIGIT CODE) – HAKUNA CONNECTION CLOSE**
-app.get('/pair', async (req, res) => {
-    try {
-        let num = req.query.num;
-        if (!num) {
-            return res.json({ success: false, error: "Provide number! Example: /pair?num=255123456789" });
-        }
-        
-        const cleanNum = num.replace(/[^0-9]/g, '');
-        if (cleanNum.length < 10) {
-            return res.json({ success: false, error: "Invalid number. Must be at least 10 digits." });
-        }
-        
-        // Hakikisha globalConn ipo
-        if (!globalConn) {
-            return res.json({ success: false, error: "Bot is initializing. Please try again in a few seconds." });
-        }
-        
-        console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum}`));
-        
-        // Jaribu kupata code kwa timeout ya sekunde 30
-        const code = await Promise.race([
-            globalConn.requestPairingCode(cleanNum),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout - no response from WhatsApp')), 30000))
-        ]);
-        
-        res.json({ 
-            success: true, 
-            code: code,
-            message: `8-digit pairing code: ${code}`
-        });
-        
-    } catch (err) {
-        console.error("Pairing error:", err.message);
-        if (err.message.includes("already paired")) {
-            res.json({ success: true, message: "Number already paired" });
-        } else {
-            res.json({ success: false, error: "Failed: " + err.message });
-        }
-    }
+// Quick root route (optional)
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ✅ **UNPAIR ENDPOINT**
-app.get('/unpair', async (req, res) => {
-    try {
-        let num = req.query.num;
-        if (!num) {
-            return res.json({ success: false, error: "Provide number! Example: /unpair?num=255123456789" });
-        }
-        
-        const cleanNum = num.replace(/[^0-9]/g, '');
-        if (cleanNum.length < 10) {
-            return res.json({ success: false, error: "Invalid number" });
-        }
-        
-        // Call handler to unpair
-        let result = false;
-        if (handler && handler.unpairNumber) {
-            result = await handler.unpairNumber(cleanNum);
-        } else {
-            return res.json({ success: false, error: "Unpair function not available in handler" });
-        }
-        
-        res.json({ 
-            success: result, 
-            message: result ? `Number ${cleanNum} unpaired successfully` : `Failed to unpair ${cleanNum}`
-        });
-        
-    } catch (err) {
-        console.error("Unpair error:", err.message);
-        res.json({ success: false, error: "Failed: " + err.message });
-    }
-});
-
-// ✅ **HEALTH CHECK**
+// FAST Health Check – must respond immediately
 app.get('/health', (req, res) => {
     const uptime = process.uptime();
-    const hours = Math.floor(uptime / 3600);
-    const minutes = Math.floor((uptime % 3600) / 60);
-    const seconds = Math.floor(uptime % 60);
-    
     res.json({
         status: 'healthy',
+        uptime: `${Math.floor(uptime/3600)}h ${Math.floor((uptime%3600)/60)}m ${Math.floor(uptime%60)}s`,
         connected: isConnected,
-        uptime: `${hours}h ${minutes}m ${seconds}s`,
-        database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+        database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+        activeSessions: activeSessions.size
     });
 });
 
-// ✅ **BOT INFO ENDPOINT**
+// Bot Info
 app.get('/botinfo', (req, res) => {
     if (!globalConn || !globalConn.user) {
-        return res.json({ 
-            success: false,
-            error: "Bot not connected",
-            connected: isConnected
-        });
+        return res.json({ success: false, error: "Main bot not connected" });
     }
-    
-    const botSecret = handler.getBotId ? handler.getBotId() : 'Unknown';
-    const pairedCount = handler.getPairedNumbers ? handler.getPairedNumbers().length : 0;
-    
     res.json({
         success: true,
         botName: globalConn.user?.name || "INSIDIOUS",
         botNumber: globalConn.user?.id?.split(':')[0] || "Unknown",
         botJid: globalConn.user?.id || "Unknown",
-        botSecret: botSecret,
-        pairedOwners: pairedCount,
         connected: isConnected,
-        uptime: Date.now() - botStartTime
+        uptime: Date.now() - botStartTime,
+        activeSessions: activeSessions.size
     });
 });
 
-// ✅ **START SERVER**
-app.listen(PORT, () => {
-    console.log(fancy(`🌐 Web Interface: http://localhost:${PORT}`));
-    console.log(fancy(`🔗 8-digit Pairing: http://localhost:${PORT}/pair?num=255XXXXXXXXX`));
-    console.log(fancy(`🗑️  Unpair: http://localhost:${PORT}/unpair?num=255XXXXXXXXX`));
-    console.log(fancy(`🤖 Bot Info: http://localhost:${PORT}/botinfo`));
-    console.log(fancy(`❤️ Health: http://localhost:${PORT}/health`));
-    console.log(fancy("👑 Developer: STANYTZ"));
-    console.log(fancy("📅 Version: 2.1.1 | Year: 2025"));
-    console.log(fancy("🙏 Special Thanks: REDTECH"));
+// List sessions (placeholder)
+app.get('/sessions', (req, res) => {
+    const sessions = [];
+    if (globalConn && globalConn.user) {
+        sessions.push({
+            sessionId: 'main',
+            phoneNumber: globalConn.user?.id?.split(':')[0] || 'Unknown',
+            status: isConnected ? 'active' : 'disconnected',
+            connected: isConnected,
+            createdAt: new Date(botStartTime).toISOString(),
+            lastActive: new Date().toISOString()
+        });
+    }
+    res.json({ success: true, sessions, count: sessions.length });
 });
 
-module.exports = app;
+// Pair endpoint – returns code AND sessionId (phone number)
+app.get('/pair', async (req, res) => {
+    try {
+        let num = req.query.num;
+        if (!num) return res.status(400).json({ success: false, error: "Provide number! Example: /pair?num=255123456789" });
+        const cleanNum = num.replace(/[^0-9]/g, '');
+        if (cleanNum.length < 10) return res.status(400).json({ success: false, error: "Invalid number" });
+
+        console.log(fancy(`🔑 Generating code for: ${cleanNum}`));
+        const { code } = await requestPairingCode(cleanNum);
+
+        // Register as co‑owner in handler
+        if (handler && handler.pairNumber) {
+            await handler.pairNumber(cleanNum).catch(() => {});
+        }
+
+        res.json({
+            success: true,
+            code: code,
+            formattedCode: code.match(/.{1,4}/g)?.join('-') || code,
+            sessionId: cleanNum,
+            message: `✅ 8-digit pairing code: ${code}`
+        });
+    } catch (err) {
+        console.error("Pairing error:", err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Delete session (placeholder)
+app.delete('/sessions/:sessionId', (req, res) => {
+    res.status(200).json({ success: false, error: "Not implemented in this version" });
+});
+
+// Update settings (placeholder)
+app.post('/settings', (req, res) => {
+    res.status(200).json({ success: false, error: "Use WhatsApp command .settings" });
+});
+
+// Catch-all 404
+app.use((req, res) => {
+    res.status(404).json({ success: false, error: 'Endpoint not found' });
+});
+
+// ==================== START SERVER ====================
+const server = app.listen(PORT, HOST, () => {
+    console.log(fancy(`🌐 Web: http://${HOST}:${PORT}`));
+    console.log(fancy(`🔗 Pair (8‑digit): http://${HOST}:${PORT}/pair?num=255XXXXXXXXX`));
+    console.log(fancy(`📋 Sessions: http://${HOST}:${PORT}/sessions`));
+    console.log(fancy(`❤️ Health: http://${HOST}:${PORT}/health`));
+    console.log(fancy(`✅ Multi‑user pairing: ENABLED`));
+    console.log(fancy(`🤖 Main bot: auto‑reconnect DISABLED`));
+});
+
+// ==================== GRACEFUL SHUTDOWN ====================
+process.on('SIGINT', async () => {
+    console.log(fancy("🛑 Shutting down..."));
+    if (globalConn) await globalConn.end();
+    server.close(() => process.exit(0));
+});
+
+process.on('SIGTERM', async () => {
+    console.log(fancy("🛑 Shutting down..."));
+    if (globalConn) await globalConn.end();
+    server.close(() => process.exit(0));
+});
+
+// ==================== EXPORTS ====================
+module.exports = { app, server, connections: activeSessions };
