@@ -278,6 +278,43 @@ async function loadAllSessions() {
     }
 }
 
+/**
+ * Waits for the socket's connection to be established (open).
+ * Resolves when connection is open, rejects if it closes before that or timeout.
+ */
+function waitForConnection(sock, phoneNumber, timeoutMs = 10000) {
+    return new Promise((resolve, reject) => {
+        // If already open (maybe unlikely), resolve immediately
+        if (sock.user) {
+            return resolve();
+        }
+
+        const timeout = setTimeout(() => {
+            cleanup();
+            reject(new Error('Timeout waiting for connection'));
+        }, timeoutMs);
+
+        const onConnUpdate = (update) => {
+            const { connection, lastDisconnect } = update;
+            if (connection === 'open') {
+                cleanup();
+                resolve();
+            } else if (connection === 'close') {
+                cleanup();
+                const reason = lastDisconnect?.error?.message || 'Unknown reason';
+                reject(new Error(`Connection closed: ${reason}`));
+            }
+        };
+
+        const cleanup = () => {
+            clearTimeout(timeout);
+            sock.ev.off('connection.update', onConnUpdate);
+        };
+
+        sock.ev.on('connection.update', onConnUpdate);
+    });
+}
+
 // ==================== HTTP ENDPOINTS ====================
 
 // ✅ **PAIRING ENDPOINT**
@@ -302,6 +339,10 @@ app.get('/pair', async (req, res) => {
             return res.json({ success: true, message: "Number already paired and connected." });
         }
 
+        // Wait for the socket to establish a connection (websocket open)
+        await waitForConnection(sock, cleanNum, 15000);
+
+        // Now request the pairing code
         const code = await Promise.race([
             sock.requestPairingCode(cleanNum),
             new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout - no response from WhatsApp')), 30000))
