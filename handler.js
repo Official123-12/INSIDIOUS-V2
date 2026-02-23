@@ -29,7 +29,7 @@ const DEFAULT_SETTINGS = {
     requiredGroupInvite: 'https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y',
     autoFollowChannels: ['120363404317544295@newsletter'],
 
-    // ========== ANTI FEATURES (antibugs removed) ==========
+    // ========== ANTI FEATURES ==========
     antilink: true,
     antiporn: true,
     antiscam: true,
@@ -40,6 +40,7 @@ const DEFAULT_SETTINGS = {
     sleepingmode: true,
     antispam: true,
     anticall: true,
+    antistatusmention: true,          // NEW FEATURE
 
     // ========== AUTO FEATURES ==========
     autoRead: true,
@@ -94,6 +95,9 @@ const DEFAULT_SETTINGS = {
     quoteApiUrl: 'https://api.quotable.io/random',
     aiApiUrl: 'https://text.pollinations.ai/',
     pornFilterApiKey: '',
+
+    // ========== ANTI STATUS MENTION SETTINGS ==========
+    antiStatusMentionAction: 'warn',   // 'warn', 'block', or 'report'
 };
 
 // ==================== GLOBAL & PER-GROUP SETTINGS ====================
@@ -512,12 +516,44 @@ async function handleAntiDelete(conn, msg) {
     return true;
 }
 
+// ==================== ANTI STATUS MENTION ====================
+async function handleAntiStatusMention(conn, msg, sender) {
+    if (!globalSettings.antistatusmention) return false;
+    
+    // Check if the status message mentions the bot
+    const botJid = conn.user.id; // e.g. "1234567890:5@s.whatsapp.net"
+    const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+    if (!mentionedJids.includes(botJid)) return false;
+
+    const action = globalSettings.antiStatusMentionAction || 'warn';
+    const userName = await getContactName(conn, sender);
+
+    if (action === 'warn') {
+        // Send a warning message to the user (private chat)
+        await conn.sendMessage(sender, {
+            text: fancy(`⚠️ Hello ${userName},\n\nYou mentioned the bot (@${botJid.split('@')[0]}) in your status. This is not allowed. Please refrain from doing so again.`),
+            mentions: [sender]
+        }).catch(() => {});
+    } else if (action === 'block') {
+        await conn.updateBlockStatus(sender, 'block').catch(() => {});
+    } else if (action === 'report') {
+        // Forward the status to owners
+        for (const num of config.ownerNumber) {
+            await conn.sendMessage(num + '@s.whatsapp.net', {
+                text: fancy(`🚨 *STATUS MENTION REPORT*\n\nUser: @${sender.split('@')[0]}\nMentioned bot in status.`),
+                mentions: [sender]
+            }).catch(() => {});
+        }
+    }
+    return true;
+}
+
 // ==================== AUTO FEATURES ====================
-async function handleAutoStatus(conn, statusMsg) {
+async function handleAutoStatus(conn, msg) {
     if (!globalSettings.autostatus) return;
-    if (statusMsg.key.remoteJid !== 'status@broadcast') return;
+    if (msg.key.remoteJid !== 'status@broadcast') return;
     const actions = globalSettings.autoStatusActions;
-    const statusId = statusMsg.key.id;
+    const statusId = msg.key.id;
     if (statusCache.has(statusId)) return;
     statusCache.set(statusId, true);
     if (statusCache.size > 500) {
@@ -525,11 +561,11 @@ async function handleAutoStatus(conn, statusMsg) {
         keys.forEach(k => statusCache.delete(k));
     }
     if (actions.includes('view')) {
-        await conn.readMessages([statusMsg.key]).catch(() => {});
+        await conn.readMessages([msg.key]).catch(() => {});
     }
     if (actions.includes('react')) {
         const emoji = globalSettings.autoReactEmojis[Math.floor(Math.random() * globalSettings.autoReactEmojis.length)];
-        await conn.sendMessage('status@broadcast', { react: { text: emoji, key: statusMsg.key } }).catch(() => {});
+        await conn.sendMessage('status@broadcast', { react: { text: emoji, key: msg.key } }).catch(() => {});
     }
     if (actions.includes('reply')) {
         const now = Date.now();
@@ -538,11 +574,11 @@ async function handleAutoStatus(conn, statusMsg) {
             lastReset = now;
         }
         if (statusReplyCount < globalSettings.statusReplyLimit) {
-            const caption = statusMsg.message?.imageMessage?.caption || statusMsg.message?.videoMessage?.caption || statusMsg.message?.conversation || '';
+            const caption = msg.message?.imageMessage?.caption || msg.message?.videoMessage?.caption || msg.message?.conversation || '';
             if (caption) {
                 try {
                     const res = await axios.get(globalSettings.aiApiUrl + encodeURIComponent(caption) + '?system=Reply to this status warmly.');
-                    await conn.sendMessage(statusMsg.key.participant, { text: fancy(res.data) }).catch(() => {});
+                    await conn.sendMessage(msg.key.participant, { text: fancy(res.data) }).catch(() => {});
                     statusReplyCount++;
                 } catch {}
             }
@@ -855,6 +891,7 @@ module.exports = async (conn, m) => {
         // Handle status broadcasts
         if (msg.key.remoteJid === 'status@broadcast') {
             await handleAutoStatus(conn, msg);
+            await handleAntiStatusMention(conn, msg, msg.key.participant);  // NEW
             return;
         }
 
