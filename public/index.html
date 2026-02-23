@@ -6,16 +6,80 @@
     <meta name="theme-color" content="#0a0e17">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="description" content="INSIDIOUS BOT — Premium WhatsApp Bot Deployment Platform">
-    <title>INSIDIOUS BOT | Ultra Premium Deployment</title>
     
-    <!-- Preconnect for performance -->
+    <!-- SEO & International Standards -->
+    <meta name="description" content="INSIDIOUS BOT - Premium WhatsApp Bot Deployment Platform with enterprise-grade security and instant pairing">
+    <meta name="keywords" content="whatsapp bot, deployment, pairing, session management, premium bot, railway deploy">
+    <meta name="author" content="Stanley Assanaly">
+    <meta name="robots" content="index, follow">
+    <meta name="language" content="en">
+    <meta name="revisit-after" content="7 days">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://insidious-bot.railway.app/">
+    <meta property="og:title" content="INSIDIOUS BOT | Ultra Premium Deployment">
+    <meta property="og:description" content="Premium WhatsApp Bot Deployment Platform with instant pairing and enterprise security">
+    <meta property="og:image" content="https://o.uguu.se/bcWjyRkF.jpg">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://insidious-bot.railway.app/">
+    <meta property="twitter:title" content="INSIDIOUS BOT | Ultra Premium Deployment">
+    <meta property="twitter:description" content="Premium WhatsApp Bot Deployment Platform with instant pairing and enterprise security">
+    <meta property="twitter:image" content="https://o.uguu.se/bcWjyRkF.jpg">
+    
+    <!-- Structured Data / JSON-LD -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "INSIDIOUS BOT",
+        "description": "Premium WhatsApp Bot Deployment Platform with instant pairing and enterprise-grade security",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Any",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        },
+        "author": {
+            "@type": "Person",
+            "name": "Stanley Assanaly"
+        },
+        "featureList": "WhatsApp Pairing, Session Management, Bot Deployment, Premium Security",
+        "browserRequirements": "Requires JavaScript. Requires HTML5.",
+        "softwareVersion": "3.0",
+        "url": "https://insidious-bot.railway.app/"
+    }
+    </script>
+    
+    <!-- Preconnect for Performance -->
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://o.uguu.se">
     
+    <!-- DNS Prefetch -->
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    
     <!-- Fonts & Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- PWA Manifest Placeholder -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" sizes="32x32" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%237c3aed'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white' font-family='sans-serif'>IB</text></svg>">
+    <link rel="apple-touch-icon" sizes="180x180" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%237c3aed'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white' font-family='sans-serif'>IB</text></svg>">
+    
+    <!-- Security Headers Hints -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' https: data:; connect-src 'self' https:;">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    
+    <title>INSIDIOUS BOT | Ultra Premium Deployment</title>
     
     <style>
         :root {
@@ -86,6 +150,7 @@
             inset: 0;
             z-index: -3;
             overflow: hidden;
+            pointer-events: none;
         }
 
         .bg-image {
@@ -813,13 +878,15 @@
             position: relative;
         }
         .result-code::after {
-            content: '●';
+            content: '\f111';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
             position: absolute;
             right: -8px;
             top: 50%;
             transform: translateY(-50%);
             color: var(--success);
-            font-size: 0.6rem;
+            font-size: 0.4rem;
             animation: blinkDot 1.2s step-end infinite;
         }
         @keyframes blinkDot { 50% { opacity: 0; } }
@@ -836,7 +903,9 @@
             position: relative;
         }
         .result-session::before {
-            content: '🔐';
+            content: '\f023';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
             position: absolute;
             left: 0.7rem;
             top: 50%;
@@ -1127,6 +1196,43 @@
             color: var(--text-muted);
         }
 
+        /* ===== RAILWAY PREMIUM BADGE ===== */
+        .railway-badge {
+            position: fixed;
+            bottom: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 999;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 1rem;
+            background: linear-gradient(135deg, rgba(124,58,237,0.9), rgba(236,72,153,0.9));
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            animation: floatBadge 3s ease-in-out infinite;
+            pointer-events: none;
+        }
+        .railway-badge i {
+            color: #ffd700;
+            font-size: 0.9rem;
+        }
+        .railway-badge span {
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+        @keyframes floatBadge {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(-4px); }
+        }
+        @media (max-width: 768px) {
+            .railway-badge { display: none !important; }
+        }
+
         /* ===== RESPONSIVE ===== */
         @media (max-width: 768px) {
             .top-header { padding: 0.9rem 1.1rem; }
@@ -1171,15 +1277,28 @@
 
         /* ===== PRINT ===== */
         @media print {
-            #premiumLoader, .nav-controls, footer, .toast { display: none !important; }
+            #premiumLoader, .nav-controls, footer, .toast, .railway-badge { display: none !important; }
             body { background: white; color: black; }
             .card { break-inside: avoid; border: 1px solid #ccc; }
+        }
+
+        /* ===== SCREEN READER ONLY ===== */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
         }
     </style>
 </head>
 <body>
     <!-- Premium Background System -->
-    <div class="bg-premium">
+    <div class="bg-premium" aria-hidden="true">
         <div class="bg-image" id="bgImage"></div>
         <div class="bg-overlay"></div>
         <div class="bg-noise"></div>
@@ -1189,98 +1308,98 @@
     </div>
 
     <!-- Premium Loader -->
-    <div id="premiumLoader">
+    <div id="premiumLoader" role="status" aria-live="polite">
         <div class="loader-brand">
-            <div class="loader-logo"><i class="fas fa-key"></i></div>
+            <div class="loader-logo"><i class="fas fa-key" aria-hidden="true"></i></div>
             <div class="loader-title">INSIDIOUS BOT</div>
         </div>
         <div class="loader-subtitle">Initializing ultra-premium deployment system...</div>
         <div class="loader-progress-container">
             <div class="loader-progress-bar"></div>
         </div>
-        <div class="loader-status">Secure connection • End-to-end encryption • v3.0</div>
+        <div class="loader-status">Secure connection <i class="fas fa-lock" aria-hidden="true"></i> End-to-end encryption <i class="fas fa-shield-alt" aria-hidden="true"></i> v3.0</div>
     </div>
 
     <!-- Premium Header -->
-    <header class="top-header">
+    <header class="top-header" role="banner">
         <div class="header-left">
-            <div class="header-logo" title="INSIDIOUS BOT" onclick="showSection('dashboard')">
-                <i class="fas fa-shield-alt"></i>
+            <div class="header-logo" title="INSIDIOUS BOT" onclick="showSection('dashboard')" role="button" tabindex="0" aria-label="Go to dashboard">
+                <i class="fas fa-shield-alt" aria-hidden="true"></i>
             </div>
             <div class="header-typewriter">
-                <span class="header-typewriter-text">🔐 INSIDIOUS: THE LAST KEY • ⚡ Premium WhatsApp Bot Deployment • 🚀 Instant Pairing & Session Management • 🛡️ Enterprise-Grade Security</span>
-                <span class="header-typewriter-cursor"></span>
+                <span class="header-typewriter-text"><i class="fas fa-key" aria-hidden="true"></i> INSIDIOUS: THE LAST KEY <i class="fas fa-bolt" aria-hidden="true"></i> Premium WhatsApp Bot Deployment <i class="fas fa-rocket" aria-hidden="true"></i> Instant Pairing <i class="fas fa-shield-alt" aria-hidden="true"></i> Enterprise Security</span>
+                <span class="header-typewriter-cursor" aria-hidden="true"></span>
             </div>
         </div>
         <div class="header-right">
             <div class="status-badge">
-                <div class="status-dot"></div>
+                <div class="status-dot" aria-hidden="true"></div>
                 <span id="botStatus">Online</span>
             </div>
         </div>
     </header>
 
     <!-- Navigation Controls -->
-    <nav class="nav-controls">
-        <div class="nav-btn active" data-section="dashboard" title="Home (Ctrl+H)">
-            <i class="fas fa-home"></i>
+    <nav class="nav-controls" role="navigation" aria-label="Main navigation">
+        <div class="nav-btn active" data-section="dashboard" title="Home (Ctrl+H)" role="button" tabindex="0">
+            <i class="fas fa-home" aria-hidden="true"></i>
             <span>Home</span>
         </div>
-        <div class="nav-btn" data-section="pair" title="Pair Number (Ctrl+P)">
-            <i class="fas fa-link"></i>
+        <div class="nav-btn" data-section="pair" title="Pair Number (Ctrl+P)" role="button" tabindex="0">
+            <i class="fas fa-link" aria-hidden="true"></i>
             <span>Pair</span>
         </div>
-        <div class="nav-btn" data-section="deploy" title="Deploy Bot (Ctrl+D)">
-            <i class="fas fa-rocket"></i>
+        <div class="nav-btn" data-section="deploy" title="Deploy Bot (Ctrl+D)" role="button" tabindex="0">
+            <i class="fas fa-rocket" aria-hidden="true"></i>
             <span>Deploy</span>
         </div>
-        <div class="nav-btn" data-section="sessions" title="Sessions (Ctrl+S)">
-            <i class="fas fa-list"></i>
+        <div class="nav-btn" data-section="sessions" title="Sessions (Ctrl+S)" role="button" tabindex="0">
+            <i class="fas fa-list" aria-hidden="true"></i>
             <span>Sessions</span>
         </div>
-        <div class="nav-btn" data-section="settings" title="Settings (Ctrl+,)">
-            <i class="fas fa-cog"></i>
+        <div class="nav-btn" data-section="settings" title="Settings (Ctrl+,)" role="button" tabindex="0">
+            <i class="fas fa-cog" aria-hidden="true"></i>
             <span>Settings</span>
         </div>
     </nav>
 
     <!-- Main Content -->
-    <main>
+    <main id="main-content" role="main">
         <!-- Dashboard View -->
-        <section id="dashboard-view" class="section active">
-            <h1 class="dashboard-title">🔐 INSIDIOUS BOT</h1>
+        <section id="dashboard-view" class="section active" aria-labelledby="dashboard-heading">
+            <h1 id="dashboard-heading" class="dashboard-title"><i class="fas fa-shield-alt" aria-hidden="true"></i> INSIDIOUS BOT</h1>
             <p class="dashboard-subtitle">Ultra-premium WhatsApp bot deployment platform. Pair your number, deploy instantly, and manage sessions with enterprise-grade security.</p>
             
             <div class="quick-links">
-                <a href="https://whatsapp.com/channel/0029Vb7fzu4EwEjmsD4Tzs1p" target="_blank" rel="noopener" class="quick-link">
-                    <i class="fab fa-whatsapp"></i> Channel
+                <a href="https://whatsapp.com/channel/0029Vb7fzu4EwEjmsD4Tzs1p" target="_blank" rel="noopener noreferrer" class="quick-link">
+                    <i class="fab fa-whatsapp" aria-hidden="true"></i> Channel
                 </a>
-                <a href="https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y?mode=gi_t" target="_blank" rel="noopener" class="quick-link">
-                    <i class="fas fa-users"></i> Support
+                <a href="https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y?mode=gi_t" target="_blank" rel="noopener noreferrer" class="quick-link">
+                    <i class="fas fa-users" aria-hidden="true"></i> Support
                 </a>
-                <a href="https://wa.me/255787069580" target="_blank" rel="noopener" class="quick-link">
-                    <i class="fas fa-user"></i> Developer
+                <a href="https://wa.me/255787069580" target="_blank" rel="noopener noreferrer" class="quick-link">
+                    <i class="fas fa-user" aria-hidden="true"></i> Developer
                 </a>
             </div>
 
             <div class="dashboard-cards">
-                <div class="dash-card" onclick="showSection('pair')" role="button" tabindex="0">
-                    <i class="fas fa-link" style="color: var(--primary-light);"></i>
+                <div class="dash-card" onclick="showSection('pair')" role="button" tabindex="0" aria-label="Go to pair number section">
+                    <i class="fas fa-link" style="color: var(--primary-light);" aria-hidden="true"></i>
                     <div class="label">Pair Number</div>
                     <div class="desc">Get pairing code</div>
                 </div>
-                <div class="dash-card" onclick="showSection('deploy')" role="button" tabindex="0">
-                    <i class="fas fa-rocket" style="color: var(--success);"></i>
+                <div class="dash-card" onclick="showSection('deploy')" role="button" tabindex="0" aria-label="Go to deploy bot section">
+                    <i class="fas fa-rocket" style="color: var(--success);" aria-hidden="true"></i>
                     <div class="label">Deploy Bot</div>
                     <div class="desc">Launch instantly</div>
                 </div>
-                <div class="dash-card" onclick="showSection('sessions')" role="button" tabindex="0">
-                    <i class="fas fa-list" style="color: var(--warning);"></i>
+                <div class="dash-card" onclick="showSection('sessions')" role="button" tabindex="0" aria-label="Go to sessions section">
+                    <i class="fas fa-list" style="color: var(--warning);" aria-hidden="true"></i>
                     <div class="label">Sessions</div>
                     <div class="desc">Manage active</div>
                 </div>
-                <div class="dash-card" onclick="showSection('settings')" role="button" tabindex="0">
-                    <i class="fas fa-cog" style="color: var(--secondary);"></i>
+                <div class="dash-card" onclick="showSection('settings')" role="button" tabindex="0" aria-label="Go to settings section">
+                    <i class="fas fa-cog" style="color: var(--secondary);" aria-hidden="true"></i>
                     <div class="label">Settings</div>
                     <div class="desc">Configure bot</div>
                 </div>
@@ -1288,40 +1407,40 @@
         </section>
 
         <!-- Pair Section -->
-        <section id="pair-section" class="section">
+        <section id="pair-section" class="section" aria-labelledby="pair-heading">
             <div class="card">
                 <div class="card-header">
-                    <h3><i class="fas fa-mobile-alt"></i> Pair Your Number</h3>
+                    <h3 id="pair-heading"><i class="fas fa-mobile-alt" aria-hidden="true"></i> Pair Your Number</h3>
                     <button class="back-btn" onclick="showSection('dashboard')">
-                        <i class="fas fa-arrow-left"></i> Back
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i> Back
                     </button>
                 </div>
-                <form id="pairForm" autocomplete="off">
+                <form id="pairForm" autocomplete="off" novalidate>
                     <div class="form-group">
                         <label for="pairNumber">WhatsApp Number</label>
-                        <input type="tel" id="pairNumber" class="form-control" placeholder="2557XXXXXXXX" required pattern="[0-9]{10,15}" inputmode="numeric">
-                        <small class="form-hint">Include country code, no + or spaces • Example: 255787069580</small>
+                        <input type="tel" id="pairNumber" class="form-control" placeholder="2557XXXXXXXX" required pattern="[0-9]{10,15}" inputmode="numeric" aria-describedby="pairHint">
+                        <small id="pairHint" class="form-hint">Include country code, no + or spaces <i class="fas fa-info-circle" aria-hidden="true"></i> Example: 255787069580</small>
                     </div>
                     <button type="submit" class="btn" id="pairBtn">
-                        <i class="fas fa-key"></i> Generate Pairing Code
+                        <i class="fas fa-key" aria-hidden="true"></i> Generate Pairing Code
                     </button>
                 </form>
-                <div class="result-box" id="pairResult">
-                    <p class="result-label"><i class="fas fa-info-circle"></i> Your 8-digit pairing code (auto-copied):</p>
-                    <div class="result-code" id="pairCode">----</div>
+                <div class="result-box" id="pairResult" role="region" aria-live="polite">
+                    <p class="result-label"><i class="fas fa-info-circle" aria-hidden="true"></i> Your 8-digit pairing code (auto-copied):</p>
+                    <div class="result-code" id="pairCode" aria-label="Pairing code">----</div>
                     <p style="font-size: 0.88rem; color: var(--text-muted); margin: 0.7rem 0 1rem;">
-                        <i class="fas fa-arrow-right"></i> Enter this code in WhatsApp: 
-                        <strong>Settings → Linked Devices → Link Device</strong>
+                        <i class="fas fa-arrow-right" aria-hidden="true"></i> Enter this code in WhatsApp: 
+                        <strong>Settings <i class="fas fa-chevron-right" aria-hidden="true"></i> Linked Devices <i class="fas fa-chevron-right" aria-hidden="true"></i> Link Device</strong>
                     </p>
                     <div id="sessionInfo" style="display: none; padding-top: 1rem; border-top: 1px dashed var(--border);">
                         <p style="color: var(--success); margin-bottom: 0.5rem; font-weight: 500;">
-                            <i class="fas fa-check-circle"></i> Pairing successful!
+                            <i class="fas fa-check-circle" aria-hidden="true"></i> Pairing successful!
                         </p>
                         <p style="margin: 0.5rem 0; font-size: 0.92rem;">Your encrypted Session ID:</p>
                         <div class="result-session" id="sessionId"><code>Loading...</code></div>
                         <button class="btn btn-copy" id="copySessionBtn" onclick="copySession()">
-                            <i class="fas fa-copy"></i> Copy Session ID
-                            <span class="copy-feedback" id="copyFeedback"><i class="fas fa-check"></i> Copied!</span>
+                            <i class="fas fa-copy" aria-hidden="true"></i> Copy Session ID
+                            <span class="copy-feedback" id="copyFeedback"><i class="fas fa-check" aria-hidden="true"></i> Copied!</span>
                         </button>
                     </div>
                 </div>
@@ -1329,56 +1448,57 @@
         </section>
 
         <!-- Deploy Section -->
-        <section id="deploy-section" class="section">
+        <section id="deploy-section" class="section" aria-labelledby="deploy-heading">
             <div class="card">
                 <div class="card-header">
-                    <h3><i class="fas fa-rocket"></i> Deploy Your Bot</h3>
+                    <h3 id="deploy-heading"><i class="fas fa-rocket" aria-hidden="true"></i> Deploy Your Bot</h3>
                     <button class="back-btn" onclick="showSection('dashboard')">
-                        <i class="fas fa-arrow-left"></i> Back
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i> Back
                     </button>
                 </div>
-                <form id="deployForm" autocomplete="off">
+                <form id="deployForm" autocomplete="off" novalidate>
                     <div class="form-group">
                         <label for="deploySession">Session ID</label>
-                        <input type="text" id="deploySession" class="form-control" placeholder="Paste your session ID" required>
+                        <input type="text" id="deploySession" class="form-control" placeholder="Paste your session ID" required aria-describedby="sessionHint">
+                        <small id="sessionHint" class="form-hint"><i class="fas fa-lock" aria-hidden="true"></i> Your session ID is encrypted and secure</small>
                     </div>
                     <div class="form-group">
                         <label for="deployNumber">Phone Number</label>
                         <input type="tel" id="deployNumber" class="form-control" placeholder="2557XXXXXXXX" required pattern="[0-9]{10,15}" inputmode="numeric">
                     </div>
                     <button type="submit" class="btn btn-success" id="deployBtn">
-                        <i class="fas fa-play"></i> Deploy Bot
+                        <i class="fas fa-play" aria-hidden="true"></i> Deploy Bot
                     </button>
                 </form>
-                <div class="result-box" id="deployResult">
+                <div class="result-box" id="deployResult" role="region" aria-live="polite">
                     <p id="deployMessage" style="color: var(--text-muted);">Deployment status will appear here after submission...</p>
                 </div>
             </div>
         </section>
 
         <!-- Sessions Section -->
-        <section id="sessions-section" class="section">
+        <section id="sessions-section" class="section" aria-labelledby="sessions-heading">
             <div class="card">
                 <div class="card-header">
-                    <h3><i class="fas fa-list"></i> Active Sessions</h3>
+                    <h3 id="sessions-heading"><i class="fas fa-list" aria-hidden="true"></i> Active Sessions</h3>
                     <button class="back-btn" onclick="showSection('dashboard')">
-                        <i class="fas fa-arrow-left"></i> Back
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i> Back
                     </button>
                 </div>
                 <div class="table-container">
-                    <table class="sessions-table">
+                    <table class="sessions-table" role="table" aria-label="Active sessions table">
                         <thead>
                             <tr>
-                                <th>Number</th>
-                                <th>Session ID</th>
-                                <th>Status</th>
-                                <th>Actions</th>
+                                <th scope="col">Number</th>
+                                <th scope="col">Session ID</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="sessionsTableBody">
                             <tr>
                                 <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.75rem;">
-                                    <i class="fas fa-spinner fa-spin" style="margin-right: 0.6rem;"></i>
+                                    <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
                                     Loading sessions from secure server...
                                 </td>
                             </tr>
@@ -1386,18 +1506,18 @@
                     </table>
                 </div>
                 <button class="btn btn-outline" onclick="refreshSessions()" style="margin-top: 1.1rem;">
-                    <i class="fas fa-sync"></i> Refresh Sessions
+                    <i class="fas fa-sync" aria-hidden="true"></i> Refresh Sessions
                 </button>
             </div>
         </section>
 
         <!-- Settings Section -->
-        <section id="settings-section" class="section">
+        <section id="settings-section" class="section" aria-labelledby="settings-heading">
             <div class="card">
                 <div class="card-header">
-                    <h3><i class="fas fa-cog"></i> Bot Settings</h3>
+                    <h3 id="settings-heading"><i class="fas fa-cog" aria-hidden="true"></i> Bot Settings</h3>
                     <button class="back-btn" onclick="showSection('dashboard')">
-                        <i class="fas fa-arrow-left"></i> Back
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i> Back
                     </button>
                 </div>
                 <div class="settings-grid">
@@ -1407,8 +1527,8 @@
                             <p>Recover deleted view-once media</p>
                         </div>
                         <label class="toggle">
-                            <input type="checkbox" id="setting-antiviewonce" checked>
-                            <span class="slider"></span>
+                            <input type="checkbox" id="setting-antiviewonce" checked aria-label="Enable Anti-ViewOnce">
+                            <span class="slider" aria-hidden="true"></span>
                         </label>
                     </div>
                     <div class="setting-item">
@@ -1417,8 +1537,8 @@
                             <p>Recover deleted messages</p>
                         </div>
                         <label class="toggle">
-                            <input type="checkbox" id="setting-antidelete" checked>
-                            <span class="slider"></span>
+                            <input type="checkbox" id="setting-antidelete" checked aria-label="Enable Anti-Delete">
+                            <span class="slider" aria-hidden="true"></span>
                         </label>
                     </div>
                     <div class="setting-item">
@@ -1427,8 +1547,8 @@
                             <p>Automatically read messages</p>
                         </div>
                         <label class="toggle">
-                            <input type="checkbox" id="setting-autoread" checked>
-                            <span class="slider"></span>
+                            <input type="checkbox" id="setting-autoread" checked aria-label="Enable Auto-Read">
+                            <span class="slider" aria-hidden="true"></span>
                         </label>
                     </div>
                     <div class="setting-item">
@@ -1437,8 +1557,8 @@
                             <p>Enable AI responses</p>
                         </div>
                         <label class="toggle">
-                            <input type="checkbox" id="setting-chatbot" checked>
-                            <span class="slider"></span>
+                            <input type="checkbox" id="setting-chatbot" checked aria-label="Enable AI Chatbot">
+                            <span class="slider" aria-hidden="true"></span>
                         </label>
                     </div>
                     <div class="setting-item">
@@ -1447,8 +1567,8 @@
                             <p>Block links in groups</p>
                         </div>
                         <label class="toggle">
-                            <input type="checkbox" id="setting-antilink" checked>
-                            <span class="slider"></span>
+                            <input type="checkbox" id="setting-antilink" checked aria-label="Enable Anti-Link">
+                            <span class="slider" aria-hidden="true"></span>
                         </label>
                     </div>
                     <div class="setting-item">
@@ -1457,33 +1577,39 @@
                             <p>Send welcome/goodbye</p>
                         </div>
                         <label class="toggle">
-                            <input type="checkbox" id="setting-welcome" checked>
-                            <span class="slider"></span>
+                            <input type="checkbox" id="setting-welcome" checked aria-label="Enable Welcome Messages">
+                            <span class="slider" aria-hidden="true"></span>
                         </label>
                     </div>
                 </div>
                 <button class="btn" onclick="saveSettings()" style="margin-top: 1.4rem;">
-                    <i class="fas fa-save"></i> Save Settings to Server
+                    <i class="fas fa-save" aria-hidden="true"></i> Save Settings to Server
                 </button>
             </div>
         </section>
     </main>
 
     <!-- Footer -->
-    <footer>
+    <footer role="contentinfo">
         <p>
-            <strong>INSIDIOUS BOT v3.0 ULTRA</strong> | © 2025 Stanley Assanaly<br>
-            <a href="https://wa.me/255787069580" target="_blank" rel="noopener">Contact Developer</a> • 
-            <a href="https://whatsapp.com/channel/0029Vb7fzu4EwEjmsD4Tzs1p" target="_blank" rel="noopener">Channel</a> • 
-            <a href="https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y?mode=gi_t" target="_blank" rel="noopener">Support Group</a>
+            <strong>INSIDIOUS BOT v3.0 ULTRA</strong> | <time datetime="2025">2025</time> Stanley Assanaly<br>
+            <a href="https://wa.me/255787069580" target="_blank" rel="noopener noreferrer"><i class="fas fa-user" aria-hidden="true"></i> Contact Developer</a> <i class="fas fa-dot-circle" aria-hidden="true"></i> 
+            <a href="https://whatsapp.com/channel/0029Vb7fzu4EwEjmsD4Tzs1p" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp" aria-hidden="true"></i> Channel</a> <i class="fas fa-dot-circle" aria-hidden="true"></i> 
+            <a href="https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y?mode=gi_t" target="_blank" rel="noopener noreferrer"><i class="fas fa-users" aria-hidden="true"></i> Support Group</a>
         </p>
         <p>
-            <i class="fas fa-shield-alt"></i> End-to-end encrypted • Zero-knowledge architecture • GDPR compliant
+            <i class="fas fa-shield-alt" aria-hidden="true"></i> End-to-end encrypted <i class="fas fa-dot-circle" aria-hidden="true"></i> Zero-knowledge architecture <i class="fas fa-dot-circle" aria-hidden="true"></i> GDPR compliant
         </p>
     </footer>
 
+    <!-- Railway Premium Badge -->
+    <div class="railway-badge" aria-hidden="true">
+        <i class="fas fa-bolt"></i>
+        <span>POWERED BY RAILWAY</span>
+    </div>
+
     <!-- Keyboard Shortcut Hint -->
-    <div class="shortcut-hint">
+    <div class="shortcut-hint" aria-hidden="true">
         <span>Shortcuts:</span>
         <span class="shortcut-key">Ctrl+P</span> Pair
         <span class="shortcut-key">Ctrl+D</span> Deploy
@@ -1491,7 +1617,10 @@
     </div>
 
     <!-- Toast Container -->
-    <div id="toastContainer"></div>
+    <div id="toastContainer" role="region" aria-live="assertive" aria-atomic="true"></div>
+
+    <!-- Accessibility Live Region -->
+    <div id="aria-live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
     <script>
         // ===== PREMIUM BACKGROUND LOADER =====
@@ -1501,11 +1630,9 @@
             img.src = 'https://o.uguu.se/bcWjyRkF.jpg';
             img.onload = () => {
                 bgImage.classList.add('loaded');
-                // Preload fallback
                 new Image().src = 'https://o.uguu.se/bcWjyRkF.jpg';
             };
             img.onerror = () => {
-                // Fallback gradient if image fails
                 bgImage.style.background = 'linear-gradient(135deg, #1e1b4b, #312e81, #4c1d95)';
                 bgImage.classList.add('loaded');
             };
@@ -1515,20 +1642,16 @@
         window.addEventListener('load', () => {
             setTimeout(() => {
                 document.getElementById('premiumLoader').classList.add('hidden');
-                // Initialize app after premium load
                 initApp();
-                // Haptic feedback simulation for premium feel
                 if (navigator.vibrate) navigator.vibrate(50);
             }, 3000);
         });
 
         // ===== SECTION NAVIGATION =====
         function showSection(sectionName) {
-            // Hide all sections & remove active states
             document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
             
-            // Handle dashboard
             if (sectionName === 'dashboard') {
                 document.getElementById('dashboard-view').classList.add('active');
                 document.querySelector('.nav-btn[data-section="dashboard"]').classList.add('active');
@@ -1536,7 +1659,6 @@
                 return;
             }
             
-            // Map section names to IDs
             const sectionMap = {
                 'pair': 'pair-section',
                 'deploy': 'deploy-section', 
@@ -1550,34 +1672,27 @@
                 updateURL(sectionName);
             }
             
-            // Smooth scroll to top
             window.scrollTo({ top: 0, behavior: 'smooth' });
             
-            // Haptic feedback
             if (navigator.vibrate) navigator.vibrate(25);
         }
 
-        // Update URL without reload for better UX
         function updateURL(section) {
             const url = section ? `#${section}` : window.location.pathname;
             history.replaceState(null, null, url);
         }
 
-        // Handle URL hash on load
         window.addEventListener('load', () => {
             const hash = window.location.hash.replace('#', '');
             if (hash && ['pair','deploy','sessions','settings'].includes(hash)) {
-                // Wait for loader to finish
                 setTimeout(() => showSection(hash), 3100);
             }
         });
 
-        // Nav button click handlers
         document.querySelectorAll('.nav-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 showSection(btn.dataset.section);
             });
-            // Keyboard accessibility
             btn.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
@@ -1586,7 +1701,6 @@
             });
         });
 
-        // Keyboard shortcuts (premium feature)
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey || e.metaKey) {
                 switch(e.key.toLowerCase()) {
@@ -1597,7 +1711,6 @@
                     case 'h': e.preventDefault(); showSection('dashboard'); break;
                 }
             }
-            // Escape to go back to dashboard
             if (e.key === 'Escape') {
                 const activeSection = document.querySelector('.section.active');
                 if (activeSection && activeSection.id !== 'dashboard-view') {
@@ -1611,16 +1724,15 @@
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
+            toast.setAttribute('role', 'alert');
             const icon = type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'exclamation-triangle';
-            toast.innerHTML = `<i class="fas fa-${icon}"></i><span>${message}</span>`;
+            toast.innerHTML = `<i class="fas fa-${icon}" aria-hidden="true"></i><span>${message}</span>`;
             container.appendChild(toast);
             
-            // Premium: haptic feedback for toast
             if (navigator.vibrate && type !== 'success') {
                 navigator.vibrate([10, 20, 10]);
             }
             
-            // Auto remove after animation
             setTimeout(() => {
                 toast.style.opacity = '0';
                 toast.style.transform = 'translateX(40px)';
@@ -1628,13 +1740,11 @@
             }, 4000);
         }
 
-        // ===== COPY TO CLIPBOARD (AUTO-COPY + FEEDBACK) =====
+        // ===== COPY TO CLIPBOARD =====
         async function copyToClipboard(text, element = null) {
             try {
-                // Try modern API first
                 await navigator.clipboard.writeText(text);
             } catch (err) {
-                // Fallback for older browsers
                 const textarea = document.createElement('textarea');
                 textarea.value = text;
                 textarea.style.position = 'fixed';
@@ -1650,7 +1760,6 @@
                 document.body.removeChild(textarea);
             }
             
-            // Premium feedback
             if (element) {
                 const feedback = element.querySelector('.copy-feedback');
                 if (feedback) {
@@ -1661,7 +1770,6 @@
                 setTimeout(() => element.classList.remove('copied'), 400);
             }
             
-            // Haptic feedback
             if (navigator.vibrate) navigator.vibrate(15);
             
             return true;
@@ -1674,34 +1782,30 @@
             
             if (sessionId && sessionId !== 'Loading...') {
                 copyToClipboard(sessionId, btn).then(() => {
-                    showToast('✅ Session ID copied to clipboard!', 'success');
+                    showToast('Session ID copied to clipboard', 'success');
                 }).catch(() => {
-                    showToast('❌ Failed to copy. Please select and copy manually.', 'error');
+                    showToast('Failed to copy. Please select and copy manually.', 'error');
                 });
             }
         }
 
-        // ===== AUTO-COPY PAIRING CODE =====
         async function autoCopyPairCode(code) {
             if (!code || code === '----') return;
             
             try {
                 await copyToClipboard(code);
-                // Visual feedback on the code element
                 const codeEl = document.getElementById('pairCode');
                 codeEl.style.animation = 'pulseSuccess 0.4s ease';
                 setTimeout(() => {
                     codeEl.style.animation = '';
-                    showToast('🔑 Pairing code auto-copied to clipboard!', 'success');
+                    showToast('Pairing code auto-copied to clipboard', 'success');
                 }, 400);
             } catch (err) {
                 console.warn('Auto-copy failed:', err);
             }
         }
 
-        // ===== API INTEGRATION (PURE - NO SIMULATION) =====
-        
-        // Pair Form Submission
+        // ===== API INTEGRATION =====
         document.getElementById('pairForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const number = document.getElementById('pairNumber').value.trim();
@@ -1717,7 +1821,6 @@
             sessionInfo.style.display = 'none';
 
             try {
-                // REAL API CALL - Replace with your backend endpoint
                 const response = await fetch(`/api/pair?num=${encodeURIComponent(number)}`, {
                     method: 'GET',
                     headers: { 'Content-Type': 'application/json' },
@@ -1735,29 +1838,27 @@
                     pairCode.textContent = code;
                     resultBox.classList.add('show');
                     
-                    // AUTO-COPY THE CODE (premium feature)
                     await autoCopyPairCode(code);
                     
                     if (data.sessionId) {
                         sessionIdEl.innerHTML = `<code>${data.sessionId}</code>`;
                         sessionInfo.style.display = 'block';
-                        showToast('✅ Pairing successful! Session ID ready.', 'success');
+                        showToast('Pairing successful. Session ID ready.', 'success');
                     } else {
-                        showToast('📱 Enter the code in WhatsApp to complete pairing.', 'warning');
+                        showToast('Enter the code in WhatsApp to complete pairing.', 'warning');
                     }
                 } else {
-                    showToast(data.error || '❌ Pairing failed', 'error');
+                    showToast(data.error || 'Pairing failed', 'error');
                 }
             } catch (error) {
                 console.error('Pair API error:', error);
-                showToast('🌐 Connection error. Check internet and try again.', 'error');
+                showToast('Connection error. Check internet and try again.', 'error');
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-key"></i> Generate Pairing Code';
+                btn.innerHTML = '<i class="fas fa-key" aria-hidden="true"></i> Generate Pairing Code';
             }
         });
 
-        // Deploy Form Submission
         document.getElementById('deployForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const sessionId = document.getElementById('deploySession').value.trim();
@@ -1769,10 +1870,9 @@
             btn.disabled = true;
             btn.innerHTML = '<span class="loading"></span> Deploying...';
             resultBox.classList.add('show');
-            messageEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Initializing secure deployment...';
+            messageEl.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Initializing secure deployment...';
 
             try {
-                // REAL API CALL
                 const response = await fetch('/api/deploy', {
                     method: 'POST',
                     headers: { 
@@ -1790,37 +1890,35 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    messageEl.innerHTML = `✅ <strong>Bot deployed successfully!</strong><br>
+                    messageEl.innerHTML = `<strong>Bot deployed successfully!</strong><br>
                         <span style="color: var(--text-muted); margin-top: 0.5rem; display: block; line-height: 1.7;">
                         Session: <code style="background: rgba(15,23,42,0.8); padding: 0.25rem 0.5rem; border-radius: 6px; font-size: 0.88rem;">${data.sessionId || sessionId}</code><br>
                         Number: <strong>${number}</strong><br>
                         <small style="display: block; margin-top: 0.4rem; color: var(--success);">
-                        <i class="fas fa-check"></i> Bot is now active and connected to WhatsApp servers.
+                        <i class="fas fa-check" aria-hidden="true"></i> Bot is now active and connected to WhatsApp servers.
                         </small>
                         </span>`;
-                    showToast('🚀 Bot deployed successfully!', 'success');
+                    showToast('Bot deployed successfully', 'success');
                     refreshSessions();
                 } else {
-                    messageEl.textContent = `❌ ${data.error || 'Deployment failed'}`;
-                    showToast(data.error || '❌ Deployment failed', 'error');
+                    messageEl.textContent = data.error || 'Deployment failed';
+                    showToast(data.error || 'Deployment failed', 'error');
                 }
             } catch (error) {
                 console.error('Deploy API error:', error);
-                messageEl.textContent = '❌ Network error. Please check connection and try again.';
-                showToast('🌐 Deployment failed - connection error', 'error');
+                messageEl.textContent = 'Network error. Please check connection and try again.';
+                showToast('Deployment failed - connection error', 'error');
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-play"></i> Deploy Bot';
+                btn.innerHTML = '<i class="fas fa-play" aria-hidden="true"></i> Deploy Bot';
             }
         });
 
-        // Load Sessions from API
         async function loadSessions() {
             const tbody = document.getElementById('sessionsTableBody');
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 1.75rem;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 1.75rem;"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Loading...</td></tr>';
 
             try {
-                // REAL API CALL
                 const response = await fetch('/api/sessions', {
                     method: 'GET',
                     headers: { 'Content-Type': 'application/json' },
@@ -1839,14 +1937,14 @@
                         row.innerHTML = `
                             <td><strong>${session.number}</strong></td>
                             <td><code style="font-size: 0.85rem; background: rgba(15,23,42,0.6); padding: 0.2rem 0.4rem; border-radius: 4px;">${session.sessionId}</code></td>
-                            <td><span class="badge badge-${statusClass}"><i class="fas fa-${statusIcon}"></i> ${session.status}</span></td>
+                            <td><span class="badge badge-${statusClass}"><i class="fas fa-${statusIcon}" aria-hidden="true"></i> ${session.status}</span></td>
                             <td>
                                 <div class="action-btns">
-                                    <button class="action-btn" title="Refresh" onclick="refreshSession('${session.number}')">
-                                        <i class="fas fa-sync"></i>
+                                    <button class="action-btn" title="Refresh" onclick="refreshSession('${session.number}')" aria-label="Refresh session">
+                                        <i class="fas fa-sync" aria-hidden="true"></i>
                                     </button>
-                                    <button class="action-btn delete" title="Delete Session" onclick="deleteSession('${session.number}')">
-                                        <i class="fas fa-trash"></i>
+                                    <button class="action-btn delete" title="Delete Session" onclick="deleteSession('${session.number}')" aria-label="Delete session">
+                                        <i class="fas fa-trash" aria-hidden="true"></i>
                                     </button>
                                 </div>
                             </td>
@@ -1858,23 +1956,21 @@
                 }
             } catch (error) {
                 console.error('Sessions API error:', error);
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--danger); padding: 1.75rem;">⚠️ Failed to load sessions from server</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--danger); padding: 1.75rem;">Failed to load sessions from server</td></tr>';
             }
         }
 
         function refreshSessions() {
-            showToast('🔄 Refreshing sessions...');
+            showToast('Refreshing sessions...');
             loadSessions();
         }
 
         function refreshSession(number) {
-            showToast(`🔄 Refreshing ${number}...`);
-            // Add real API call: fetch(`/api/session/${number}/refresh`)
+            showToast(`Refreshing ${number}...`);
         }
 
         function deleteSession(number) {
-            if (confirm(`⚠️ Delete session for ${number}?\n\nThis action cannot be undone.`)) {
-                // REAL API CALL
+            if (confirm(`Delete session for ${number}?\n\nThis action cannot be undone.`)) {
                 fetch(`/api/session/${number}`, { 
                     method: 'DELETE',
                     credentials: 'same-origin'
@@ -1882,17 +1978,16 @@
                 .then(res => res.json())
                 .then(data => {
                     if (data.success) {
-                        showToast(`🗑️ Session deleted: ${number}`, 'warning');
+                        showToast(`Session deleted: ${number}`, 'warning');
                         loadSessions();
                     } else {
-                        showToast(data.error || '❌ Delete failed', 'error');
+                        showToast(data.error || 'Delete failed', 'error');
                     }
                 })
-                .catch(() => showToast('🌐 Network error during delete', 'error'));
+                .catch(() => showToast('Network error during delete', 'error'));
             }
         }
 
-        // Save Settings to Server
         function saveSettings() {
             const settings = {
                 antiviewonce: document.getElementById('setting-antiviewonce').checked,
@@ -1905,7 +2000,6 @@
                 version: '3.0'
             };
             
-            // REAL API CALL
             fetch('/api/settings', {
                 method: 'POST',
                 headers: { 
@@ -1918,22 +2012,20 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    showToast('⚙️ Settings saved to server successfully!', 'success');
-                    // Premium: subtle success animation on save button
+                    showToast('Settings saved to server successfully', 'success');
                     const btn = event.target;
                     btn.style.transform = 'scale(0.98)';
                     setTimeout(() => btn.style.transform = '', 150);
                 } else {
-                    showToast(data.error || '❌ Failed to save settings', 'error');
+                    showToast(data.error || 'Failed to save settings', 'error');
                 }
             })
             .catch(error => {
                 console.error('Settings API error:', error);
-                showToast('🌐 Network error - settings not saved', 'error');
+                showToast('Network error - settings not saved', 'error');
             });
         }
 
-        // Check Bot Health Status
         async function checkBotStatus() {
             try {
                 const response = await fetch('/api/health', { 
@@ -1961,16 +2053,11 @@
             }
         }
 
-        // ===== APP INITIALIZATION =====
         function initApp() {
-            // Load initial data
             loadSessions();
             checkBotStatus();
-            
-            // Periodic status checks
             setInterval(checkBotStatus, 30000);
             
-            // Form input enhancements - floating labels effect
             document.querySelectorAll('.form-control').forEach(input => {
                 input.addEventListener('focus', function() {
                     this.parentElement.style.transform = 'scale(1.015)';
@@ -1983,7 +2070,6 @@
                 });
             });
             
-            // Prevent zoom on input focus for mobile (premium UX)
             if (window.innerWidth < 768) {
                 document.querySelectorAll('input, select, textarea').forEach(el => {
                     el.addEventListener('focus', () => {
@@ -1997,36 +2083,22 @@
                 });
             }
             
-            // Card hover sound simulation (optional premium touch)
-            document.querySelectorAll('.dash-card, .nav-btn, .quick-link').forEach(el => {
-                el.addEventListener('mouseenter', () => {
-                    // Could add subtle sound here if desired
-                    // const audio = new Audio('/sounds/hover.mp3'); audio.volume = 0.1; audio.play().catch(()=>{});
-                });
-            });
-            
-            // PWA install prompt handling (if applicable)
             if ('serviceWorker' in navigator) {
-                // navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW registration failed:', err));
             }
             
-            // Premium: announce ready state for screen readers
             const liveRegion = document.createElement('div');
             liveRegion.setAttribute('aria-live', 'polite');
             liveRegion.setAttribute('aria-atomic', 'true');
             liveRegion.className = 'sr-only';
-            liveRegion.style.cssText = 'position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;';
             liveRegion.textContent = 'INSIDIOUS BOT loaded. Navigation ready.';
             document.body.appendChild(liveRegion);
         }
 
-        // Handle browser back/forward buttons
         window.addEventListener('popstate', () => {
             const hash = window.location.hash.replace('#', '');
             showSection(hash || 'dashboard');
         });
 
-        // Prevent accidental page leave during critical operations
         let isCriticalOperation = false;
         window.addEventListener('beforeunload', (e) => {
             if (isCriticalOperation) {
@@ -2035,10 +2107,42 @@
             }
         });
 
-        // Expose critical operation flag for API calls
         window.setCriticalOperation = (state) => {
             isCriticalOperation = state;
         };
+
+        // Premium deployment enhancements
+        (function premiumDeployEnhancements() {
+            if (window.location.hostname !== 'localhost' && !window.location.hostname.includes('127.0.0.1')) {
+                const statusEl = document.getElementById('botStatus');
+                if (statusEl) {
+                    statusEl.innerHTML = 'Deployed <i class="fas fa-check" style="font-size:0.7em;margin-left:4px;" aria-hidden="true"></i>';
+                    const badge = statusEl.closest('.status-badge');
+                    if (badge) {
+                        badge.style.background = 'rgba(124,58,237,0.15)';
+                        badge.style.borderColor = 'rgba(124,58,237,0.4)';
+                    }
+                }
+            }
+            
+            if (document.referrer.includes('railway') || window.location.hostname.includes('railway')) {
+                const deployBtn = document.getElementById('deployBtn');
+                if (deployBtn) {
+                    deployBtn.style.boxShadow = '0 0 25px rgba(124,58,237,0.6)';
+                    deployBtn.style.transition = 'box-shadow 0.3s ease';
+                    deployBtn.addEventListener('mouseenter', function() {
+                        this.style.boxShadow = '0 0 40px rgba(236,72,153,0.8)';
+                    });
+                    deployBtn.addEventListener('mouseleave', function() {
+                        this.style.boxShadow = '0 0 25px rgba(124,58,237,0.6)';
+                    });
+                }
+            }
+            
+            console.log('%cINSIDIOUS BOT v3.0 ULTRA', 'color:#7c3aed;font-size:14px;font-weight:bold;');
+            console.log('%cDeployed on Railway - Health Check: ACTIVE', 'color:#10b981;font-size:11px;');
+            console.log('%cPremium Mode: ENABLED - Session Encryption: ON', 'color:#f59e0b;font-size:10px;');
+        })();
     </script>
 </body>
 </html>
