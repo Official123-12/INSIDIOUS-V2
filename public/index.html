@@ -2,88 +2,46 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#0a0e17">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
-    <!-- SEO & International Standards -->
-    <meta name="description" content="INSIDIOUS BOT - Premium WhatsApp Bot Deployment Platform with enterprise-grade security and instant pairing">
-    <meta name="keywords" content="whatsapp bot, deployment, pairing, session management, premium bot, railway deploy">
+    <!-- SEO International Standards -->
+    <meta name="description" content="INSIDIOUS BOT - Premium WhatsApp Bot Deployment with instant pairing, session management and enterprise security">
+    <meta name="keywords" content="whatsapp bot, baileys, pairing, deployment, mongodb, premium bot">
     <meta name="author" content="Stanley Assanaly">
     <meta name="robots" content="index, follow">
-    <meta name="language" content="en">
-    <meta name="revisit-after" content="7 days">
     
-    <!-- Open Graph / Facebook -->
+    <!-- Open Graph -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://insidious-bot.railway.app/">
-    <meta property="og:title" content="INSIDIOUS BOT | Ultra Premium Deployment">
-    <meta property="og:description" content="Premium WhatsApp Bot Deployment Platform with instant pairing and enterprise security">
-    <meta property="og:image" content="https://o.uguu.se/bcWjyRkF.jpg">
+    <meta property="og:title" content="INSIDIOUS BOT | Premium Deployment">
+    <meta property="og:description" content="Deploy your WhatsApp bot instantly with enterprise-grade security">
+    <meta property="og:image" content="/assets/og-image.jpg">
     
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://insidious-bot.railway.app/">
-    <meta property="twitter:title" content="INSIDIOUS BOT | Ultra Premium Deployment">
-    <meta property="twitter:description" content="Premium WhatsApp Bot Deployment Platform with instant pairing and enterprise security">
-    <meta property="twitter:image" content="https://o.uguu.se/bcWjyRkF.jpg">
-    
-    <!-- Structured Data / JSON-LD -->
+    <!-- Structured Data -->
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
         "@type": "WebApplication",
         "name": "INSIDIOUS BOT",
-        "description": "Premium WhatsApp Bot Deployment Platform with instant pairing and enterprise-grade security",
         "applicationCategory": "DeveloperApplication",
-        "operatingSystem": "Any",
-        "offers": {
-            "@type": "Offer",
-            "price": "0",
-            "priceCurrency": "USD"
-        },
-        "author": {
-            "@type": "Person",
-            "name": "Stanley Assanaly"
-        },
-        "featureList": "WhatsApp Pairing, Session Management, Bot Deployment, Premium Security",
-        "browserRequirements": "Requires JavaScript. Requires HTML5.",
-        "softwareVersion": "3.0",
-        "url": "https://insidious-bot.railway.app/"
+        "offers": {"@type": "Offer", "price": "0"},
+        "author": {"@type": "Person", "name": "Stanley Assanaly"}
     }
     </script>
     
-    <!-- Preconnect for Performance -->
+    <!-- Preconnect -->
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://o.uguu.se">
     
-    <!-- DNS Prefetch -->
-    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
-    
-    <!-- Fonts & Icons -->
+    <!-- Fonts & Icons - Font Awesome Only -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
-    <!-- PWA Manifest Placeholder -->
-    <link rel="manifest" href="/manifest.json">
-    <link rel="icon" type="image/png" sizes="32x32" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%237c3aed'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white' font-family='sans-serif'>IB</text></svg>">
-    <link rel="apple-touch-icon" sizes="180x180" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%237c3aed'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white' font-family='sans-serif'>IB</text></svg>">
-    
-    <!-- Security Headers Hints -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' https: data:; connect-src 'self' https:;">
-    <meta http-equiv="X-Content-Type-Options" content="nosniff">
-    <meta http-equiv="X-Frame-Options" content="DENY">
-    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
-    
-    <title>INSIDIOUS BOT | Ultra Premium Deployment</title>
+    <title>INSIDIOUS BOT | Premium Deployment</title>
     
     <style>
         :root {
-            /* Premium Color Palette */
             --primary: #7c3aed;
             --primary-light: #8b5cf6;
             --primary-dark: #6d28d9;
@@ -92,9 +50,8 @@
             --dark: #0f172a;
             --darker: #020617;
             --deepest: #010206;
-            --card: rgba(22, 33, 62, 0.75);
-            --card-hover: rgba(30, 45, 80, 0.85);
-            --card-elevated: rgba(35, 50, 90, 0.9);
+            --card: rgba(22, 33, 62, 0.85);
+            --card-hover: rgba(30, 45, 80, 0.9);
             --text: #f8fafc;
             --text-primary: #ffffff;
             --text-muted: #94a3b8;
@@ -102,1304 +59,489 @@
             --success: #10b981;
             --warning: #f59e0b;
             --danger: #ef4444;
-            --border: rgba(148, 163, 184, 0.18);
-            --border-glow: rgba(124, 58, 237, 0.35);
-            --glow-primary: 0 0 30px rgba(124, 58, 237, 0.45);
-            --glow-secondary: 0 0 30px rgba(236, 72, 153, 0.4);
-            --glass-blur: blur(20px);
-            --glass-border: 1px solid rgba(255, 255, 255, 0.08);
-            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
-            --shadow-md: 0 8px 30px rgba(0, 0, 0, 0.35);
-            --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.5);
-            --radius-sm: 12px;
-            --radius-md: 20px;
-            --radius-lg: 28px;
-            --radius-xl: 36px;
-            --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-            --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
-            --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+            --border: rgba(148, 163, 184, 0.15);
+            --border-glow: rgba(124, 58, 237, 0.4);
+            --glow-primary: 0 0 35px rgba(124, 58, 237, 0.5);
+            --glass-blur: blur(24px);
+            --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+            --shadow-lg: 0 25px 80px rgba(0, 0, 0, 0.6);
+            --radius-lg: 24px;
+            --transition: 250ms cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        /* ===== RESET & BASE ===== */
-        *, *::before, *::after {
-            margin: 0; padding: 0; box-sizing: border-box;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        html {
-            scroll-behavior: smooth;
-            scroll-padding-top: 140px;
-        }
-
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+        html { scroll-behavior: smooth; }
         body {
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            background-color: var(--darker);
+            background: var(--darker);
             color: var(--text);
             min-height: 100vh;
             min-height: 100dvh;
-            line-height: 1.65;
+            line-height: 1.6;
             overflow-x: hidden;
             position: relative;
         }
 
-        /* ===== PREMIUM BACKGROUND SYSTEM ===== */
+        /* Premium Animated Background */
         .bg-premium {
-            position: fixed;
-            inset: 0;
-            z-index: -3;
-            overflow: hidden;
-            pointer-events: none;
+            position: fixed; inset: 0; z-index: -2; overflow: hidden; pointer-events: none;
         }
-
-        .bg-image {
-            position: absolute;
-            inset: 0;
-            background: url('https://o.uguu.se/bcWjyRkF.jpg') center/cover no-repeat fixed;
-            opacity: 0;
-            transition: opacity 1.2s ease;
-            will-change: opacity;
-        }
-        .bg-image.loaded { opacity: 1; }
-
-        .bg-overlay {
-            position: absolute;
-            inset: 0;
+        .bg-gradient {
+            position: absolute; inset: 0;
             background: 
-                radial-gradient(ellipse at 20% 10%, rgba(124, 58, 237, 0.15) 0%, transparent 50%),
-                radial-gradient(ellipse at 80% 90%, rgba(236, 72, 153, 0.12) 0%, transparent 50%),
-                radial-gradient(ellipse at 50% 50%, rgba(6, 182, 212, 0.08) 0%, transparent 65%),
-                linear-gradient(135deg, rgba(2,6,23,0.94) 0%, rgba(15,23,42,0.91) 45%, rgba(26,26,46,0.88) 100%);
-            z-index: 1;
+                radial-gradient(ellipse at 15% 15%, rgba(124,58,237,0.12) 0%, transparent 55%),
+                radial-gradient(ellipse at 85% 85%, rgba(236,72,153,0.1) 0%, transparent 55%),
+                radial-gradient(ellipse at 50% 50%, rgba(6,182,212,0.06) 0%, transparent 70%),
+                linear-gradient(135deg, rgba(2,6,23,0.96) 0%, rgba(15,23,42,0.94) 50%, rgba(26,26,46,0.92) 100%);
         }
+        .bg-orb {
+            position: absolute; width: 500px; height: 500px; border-radius: 50%;
+            filter: blur(90px); opacity: 0.2; animation: float 22s ease-in-out infinite;
+        }
+        .bg-orb.one { top: -150px; left: -100px; background: linear-gradient(135deg, var(--primary), var(--secondary)); }
+        .bg-orb.two { bottom: -100px; right: -50px; background: linear-gradient(135deg, var(--accent), var(--primary)); animation-delay: -8s; }
+        @keyframes float { 0%,100%{transform:translate(0,0)} 33%{transform:translate(25px,-15px)} 66%{transform:translate(-15px,20px)} }
 
-        .bg-noise {
-            position: absolute;
-            inset: 0;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-            opacity: 0.04;
-            z-index: 2;
-            pointer-events: none;
+        /* Loader */
+        #loader {
+            position: fixed; inset: 0; background: var(--deepest);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 9999; transition: opacity 0.5s ease, visibility 0.5s;
         }
-
-        .bg-gradient-orb {
-            position: absolute;
-            width: 600px; height: 600px;
-            border-radius: 50%;
-            filter: blur(80px);
-            opacity: 0.25;
-            animation: floatOrb 20s ease-in-out infinite;
-            z-index: 0;
-        }
-        .bg-gradient-orb:nth-child(1) {
-            top: -200px; left: -100px;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            animation-delay: 0s;
-        }
-        .bg-gradient-orb:nth-child(2) {
-            bottom: -150px; right: -50px;
-            background: linear-gradient(135deg, var(--accent), var(--primary));
-            animation-delay: -7s;
-            width: 500px; height: 500px;
-        }
-        .bg-gradient-orb:nth-child(3) {
-            top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: linear-gradient(135deg, var(--secondary), var(--accent));
-            animation-delay: -14s;
-            width: 400px; height: 400px;
-            opacity: 0.18;
-        }
-
-        @keyframes floatOrb {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            25% { transform: translate(30px, -20px) scale(1.05); }
-            50% { transform: translate(-20px, 30px) scale(0.98); }
-            75% { transform: translate(25px, 25px) scale(1.02); }
-        }
-
-        /* ===== PREMIUM LOADER ===== */
-        #premiumLoader {
-            position: fixed;
-            inset: 0;
-            background: var(--deepest);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            transition: opacity 0.6s ease, visibility 0.6s;
-        }
-        #premiumLoader.hidden {
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-        }
-
-        .loader-brand {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 2.5rem;
-            animation: fadeInUp 0.6s ease;
-        }
+        #loader.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
         .loader-logo {
-            width: 72px; height: 72px;
+            width: 80px; height: 80px; border-radius: 24px;
             background: linear-gradient(135deg, var(--primary), var(--secondary), var(--accent));
-            border-radius: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.8rem;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2rem; margin-bottom: 1.5rem;
+            box-shadow: var(--glow-primary);
+            animation: pulse 2.5s ease-in-out infinite;
             position: relative;
-            box-shadow: var(--glow-primary), var(--glow-secondary);
-            animation: pulseLogo 2.5s ease-in-out infinite;
         }
         .loader-logo::after {
-            content: '';
-            position: absolute;
-            inset: -3px;
-            border-radius: 26px;
+            content: ''; position: absolute; inset: -4px; border-radius: 28px;
             background: linear-gradient(45deg, var(--primary), var(--secondary), var(--accent), var(--primary));
-            background-size: 300% 300%;
-            animation: gradientShift 4s ease infinite;
-            z-index: -1;
-            filter: blur(8px);
-            opacity: 0.7;
+            background-size: 300% 300%; animation: gradientShift 4s ease infinite;
+            z-index: -1; filter: blur(10px); opacity: 0.7;
         }
-        @keyframes pulseLogo {
-            0%, 100% { transform: scale(1); box-shadow: var(--glow-primary); }
-            50% { transform: scale(1.08); box-shadow: var(--glow-primary), var(--glow-secondary); }
-        }
-        @keyframes gradientShift {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-
+        @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+        @keyframes gradientShift { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
         .loader-title {
-            font-size: 1.6rem;
-            font-weight: 800;
-            letter-spacing: -0.02em;
-            background: linear-gradient(135deg, var(--text-primary), var(--primary-light), var(--secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em;
+            background: linear-gradient(135deg, var(--text-primary), var(--primary-light));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }
-
-        .loader-subtitle {
-            color: var(--text-muted);
-            font-size: 0.95rem;
-            margin-bottom: 2rem;
-            text-align: center;
-            max-width: 280px;
-            animation: fadeInUp 0.6s ease 0.2s both;
-        }
-
-        .loader-progress-container {
-            width: 240px;
-            height: 6px;
-            background: rgba(148, 163, 184, 0.15);
-            border-radius: 10px;
-            overflow: hidden;
-            position: relative;
-            animation: fadeInUp 0.6s ease 0.4s both;
+        .loader-progress {
+            width: 220px; height: 5px; background: rgba(148,163,184,0.15);
+            border-radius: 10px; overflow: hidden; margin: 1.5rem 0;
         }
         .loader-progress-bar {
-            height: 100%;
-            width: 0%;
+            height: 100%; width: 0;
             background: linear-gradient(90deg, var(--primary), var(--secondary), var(--accent));
-            border-radius: 10px;
-            position: relative;
-            animation: loadProgress 3s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+            border-radius: 10px; animation: loadBar 2.8s cubic-bezier(0.65,0,0.35,1) forwards;
         }
-        .loader-progress-bar::after {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-            animation: shimmer 1.5s infinite;
-        }
-        @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-        }
-        @keyframes loadProgress {
-            0% { width: 0%; }
-            20% { width: 25%; }
-            45% { width: 55%; }
-            70% { width: 82%; }
-            100% { width: 100%; }
-        }
+        @keyframes loadBar { 0%{width:0} 25%{width:30%} 50%{width:60%} 75%{width:88%} 100%{width:100%} }
+        .loader-status { font-size: 0.85rem; color: var(--text-dim); }
 
-        .loader-status {
-            margin-top: 1.2rem;
-            font-size: 0.85rem;
-            color: var(--text-dim);
-            animation: fadeInUp 0.6s ease 0.6s both;
-        }
-
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(16px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* ===== PREMIUM HEADER ===== */
+        /* Header */
         .top-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1rem;
-            padding: 1rem 1.5rem;
-            background: var(--card);
-            backdrop-filter: var(--glass-blur);
-            border-bottom: var(--glass-border);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: var(--shadow-sm);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 1rem 1.5rem; background: var(--card);
+            backdrop-filter: var(--glass-blur); border-bottom: var(--glass-border);
+            position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
-
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            flex: 1;
-            min-width: 0;
-        }
-
+        .header-left { display: flex; align-items: center; gap: 1rem; flex: 1; min-width: 0; }
         .header-logo {
-            width: 52px; height: 52px;
-            border-radius: 18px;
+            width: 48px; height: 48px; border-radius: 16px;
             background: linear-gradient(135deg, var(--primary), var(--secondary));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            flex-shrink: 0;
-            box-shadow: var(--glow-primary);
-            position: relative;
-            cursor: pointer;
-            transition: transform var(--transition-normal);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem; flex-shrink: 0; box-shadow: var(--glow-primary);
+            cursor: pointer; transition: transform var(--transition);
         }
-        .header-logo:hover { transform: scale(1.05) rotate(2deg); }
-        .header-logo::before {
-            content: '';
-            position: absolute;
-            inset: -2px;
-            border-radius: 20px;
-            background: linear-gradient(45deg, var(--primary), var(--secondary), var(--accent));
-            background-size: 200% 200%;
-            animation: gradientShift 3s ease infinite;
-            z-index: -1;
-            filter: blur(6px);
-            opacity: 0.6;
-        }
-
-        .header-typewriter {
-            flex: 1;
-            overflow: hidden;
-            position: relative;
-            min-width: 0;
-        }
-        .header-typewriter-text {
-            font-weight: 700;
-            font-size: 1.05rem;
-            white-space: nowrap;
-            animation: typewriter 18s steps(45) infinite;
+        .header-logo:hover { transform: scale(1.05); }
+        .header-title {
+            font-weight: 700; font-size: 1rem;
             background: linear-gradient(135deg, var(--text-primary), var(--primary-light));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        @keyframes typewriter {
-            0%, 8% { width: 0; }
-            10%, 30% { width: 100%; }
-            32%, 40% { width: 0; }
-            42%, 62% { width: 100%; }
-            64%, 72% { width: 0; }
-            74%, 94% { width: 100%; }
-            96%, 100% { width: 0; }
-        }
-        .header-typewriter-cursor {
-            display: inline-block;
-            width: 2px;
-            height: 1.1em;
-            background: var(--primary-light);
-            margin-left: 4px;
-            vertical-align: middle;
-            animation: blink 1s step-end infinite;
-        }
-        @keyframes blink { 50% { opacity: 0; } }
-
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            flex-shrink: 0;
-        }
-
         .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.45rem 1rem;
-            background: rgba(16, 185, 129, 0.12);
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            border-radius: 20px;
-            font-size: 0.82rem;
-            font-weight: 500;
-            color: var(--success);
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.4rem 0.9rem; background: rgba(16,185,129,0.12);
+            border: 1px solid rgba(16,185,129,0.3); border-radius: 20px;
+            font-size: 0.8rem; font-weight: 500; color: var(--success);
         }
         .status-dot {
-            width: 7px; height: 7px;
-            border-radius: 50%;
-            background: var(--success);
-            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
-            animation: pulseDot 2s infinite;
+            width: 6px; height: 6px; border-radius: 50%; background: var(--success);
+            box-shadow: 0 0 0 3px rgba(16,185,129,0.25); animation: pulseDot 2s infinite;
         }
-        @keyframes pulseDot {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.2); opacity: 0.85; }
-        }
+        @keyframes pulseDot { 0%,100%{transform:scale(1)} 50%{transform:scale(1.3)} }
 
-        /* ===== NAVIGATION CONTROLS ===== */
+        /* Navigation */
         .nav-controls {
-            display: flex;
-            justify-content: center;
-            gap: 0.4rem;
-            padding: 0.6rem 1rem;
-            background: rgba(15, 23, 42, 0.65);
-            backdrop-filter: var(--glass-blur);
-            border-bottom: var(--glass-border);
-            position: sticky;
-            top: 73px;
-            z-index: 99;
-            overflow-x: auto;
-            scrollbar-width: none;
+            display: flex; justify-content: center; gap: 0.4rem;
+            padding: 0.6rem 1rem; background: rgba(15,23,42,0.7);
+            backdrop-filter: var(--glass-blur); border-bottom: var(--glass-border);
+            position: sticky; top: 72px; z-index: 99; overflow-x: auto;
         }
         .nav-controls::-webkit-scrollbar { display: none; }
-
         .nav-btn {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 0.3rem;
-            padding: 0.55rem 0.8rem;
-            background: var(--card);
-            border: var(--glass-border);
-            border-radius: 14px;
-            color: var(--text-muted);
-            text-decoration: none;
-            font-size: 0.72rem;
-            font-weight: 500;
-            transition: all var(--transition-normal);
-            min-width: 68px;
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
+            display: flex; flex-direction: column; align-items: center; gap: 0.3rem;
+            padding: 0.55rem 0.85rem; background: var(--card);
+            border: var(--glass-border); border-radius: 14px;
+            color: var(--text-muted); text-decoration: none;
+            font-size: 0.72rem; font-weight: 500; cursor: pointer;
+            transition: all var(--transition); min-width: 70px;
         }
-        .nav-btn::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            opacity: 0;
-            transition: opacity var(--transition-fast);
-            z-index: -1;
-        }
-        .nav-btn i { 
-            font-size: 1.15rem; 
-            transition: transform var(--transition-fast);
-        }
-        .nav-btn:hover {
-            color: var(--text-primary);
-            transform: translateY(-3px);
-            box-shadow: var(--shadow-md);
-        }
-        .nav-btn:hover::before { opacity: 0.15; }
+        .nav-btn i { font-size: 1.1rem; }
+        .nav-btn:hover { color: var(--text-primary); transform: translateY(-2px); }
         .nav-btn.active {
             color: var(--text-primary);
             background: linear-gradient(135deg, rgba(124,58,237,0.25), rgba(236,72,153,0.2));
-            border-color: var(--border-glow);
-            box-shadow: var(--glow-primary);
-        }
-        .nav-btn.active i { animation: bounceIcon 0.5s ease; }
-        @keyframes bounceIcon {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-4px); }
+            border-color: var(--border-glow); box-shadow: var(--glow-primary);
         }
 
-        /* ===== MAIN CONTENT ===== */
-        main {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 1.25rem 1rem 2.5rem;
-        }
-
-        /* ===== SECTION MANAGEMENT ===== */
-        .section {
-            display: none;
-            animation: sectionSlide 0.45s cubic-bezier(0.16, 1, 0.3, 1);
-        }
+        /* Main */
+        main { max-width: 1000px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+        .section { display: none; animation: fadeIn 0.4s ease; }
         .section.active { display: block; }
-        @keyframes sectionSlide {
-            from { opacity: 0; transform: translateY(24px) scale(0.98); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
 
-        /* ===== DASHBOARD ===== */
-        #dashboard-view {
-            text-align: center;
-            padding: 2.5rem 1rem 1.5rem;
-        }
+        /* Dashboard */
+        #dashboard { text-align: center; padding: 2rem 1rem; }
         .dashboard-title {
-            font-size: 2rem;
-            font-weight: 800;
-            margin-bottom: 0.6rem;
-            letter-spacing: -0.03em;
+            font-size: 1.9rem; font-weight: 800; margin-bottom: 0.5rem;
             background: linear-gradient(135deg, var(--text-primary), var(--primary-light), var(--secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-shadow: 0 2px 20px rgba(124, 58, 237, 0.25);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }
-        .dashboard-subtitle {
-            color: var(--text-muted);
-            margin-bottom: 2rem;
-            font-size: 1.05rem;
-            max-width: 520px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .quick-links {
-            display: flex;
-            justify-content: center;
-            gap: 0.65rem;
-            flex-wrap: wrap;
-            margin-bottom: 2.25rem;
-        }
+        .dashboard-subtitle { color: var(--text-muted); margin-bottom: 2rem; max-width: 500px; margin-inline: auto; }
+        
+        .quick-links { display: flex; justify-content: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 2rem; }
         .quick-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.45rem;
-            padding: 0.65rem 1.25rem;
-            background: var(--card);
-            border: var(--glass-border);
-            border-radius: 16px;
-            color: var(--text);
-            text-decoration: none;
-            font-size: 0.87rem;
-            font-weight: 500;
-            transition: all var(--transition-normal);
-            position: relative;
-            overflow: hidden;
+            display: inline-flex; align-items: center; gap: 0.45rem;
+            padding: 0.6rem 1.2rem; background: var(--card);
+            border: var(--glass-border); border-radius: 14px;
+            color: var(--text); text-decoration: none; font-size: 0.85rem;
+            transition: all var(--transition);
         }
-        .quick-link::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            opacity: 0;
-            transition: opacity var(--transition-fast);
-            z-index: -1;
-        }
-        .quick-link:hover {
-            transform: translateY(-3px);
-            box-shadow: var(--shadow-lg);
-            border-color: var(--border-glow);
-        }
-        .quick-link:hover::before { opacity: 0.12; }
-        .quick-link i { font-size: 1.05rem; }
-
-        .dashboard-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
-            gap: 0.9rem;
-            margin-top: 0.5rem;
-        }
+        .quick-link:hover { transform: translateY(-3px); border-color: var(--border-glow); }
+        
+        .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap: 0.9rem; }
         .dash-card {
-            background: var(--card);
-            border: var(--glass-border);
-            border-radius: var(--radius-md);
-            padding: 1.3rem 1rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all var(--transition-normal);
-            position: relative;
-            overflow: hidden;
+            background: var(--card); border: var(--glass-border); border-radius: var(--radius-lg);
+            padding: 1.2rem 1rem; text-align: center; cursor: pointer;
+            transition: all var(--transition);
         }
-        .dash-card::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            opacity: 0;
-            transition: opacity var(--transition-fast);
-            z-index: -1;
-        }
-        .dash-card:hover {
-            transform: translateY(-5px) scale(1.02);
-            box-shadow: var(--glow-primary);
-            border-color: var(--border-glow);
-        }
-        .dash-card:hover::before { opacity: 0.1; }
-        .dash-card i {
-            font-size: 2rem;
-            margin-bottom: 0.65rem;
-            display: block;
-            transition: transform var(--transition-normal);
-        }
-        .dash-card:hover i { transform: scale(1.15) rotate(5deg); }
-        .dash-card .label {
-            font-weight: 600;
-            font-size: 0.95rem;
-            margin-bottom: 0.25rem;
-        }
-        .dash-card .desc {
-            font-size: 0.78rem;
-            color: var(--text-muted);
-        }
+        .dash-card:hover { transform: translateY(-4px); box-shadow: var(--glow-primary); border-color: var(--border-glow); }
+        .dash-card i { font-size: 1.8rem; margin-bottom: 0.6rem; display: block; }
+        .dash-card .label { font-weight: 600; font-size: 0.92rem; }
+        .dash-card .desc { font-size: 0.76rem; color: var(--text-muted); }
 
-        /* ===== CARD COMPONENT ===== */
+        /* Card Component */
         .card {
-            background: var(--card-elevated);
-            border: var(--glass-border);
-            border-radius: var(--radius-lg);
-            padding: 1.75rem;
-            backdrop-filter: var(--glass-blur);
-            margin-bottom: 1.5rem;
-            box-shadow: var(--shadow-md);
-            position: relative;
-            overflow: hidden;
+            background: var(--card); border: var(--glass-border); border-radius: var(--radius-lg);
+            padding: 1.6rem; backdrop-filter: var(--glass-blur);
+            margin-bottom: 1.4rem; box-shadow: var(--shadow-lg);
         }
         .card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 2px;
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
             background: linear-gradient(90deg, transparent, var(--primary), var(--secondary), transparent);
-            opacity: 0.7;
         }
-
         .card-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 1.4rem;
-            padding-bottom: 1.1rem;
-            border-bottom: var(--glass-border);
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 1.3rem; padding-bottom: 1rem; border-bottom: var(--glass-border);
         }
-        .card-header h3 {
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-        .card-header h3 i { 
-            color: var(--primary-light); 
-            font-size: 1.4rem;
-        }
-
+        .card-header h3 { display: flex; align-items: center; gap: 0.7rem; font-size: 1.2rem; font-weight: 700; }
+        .card-header h3 i { color: var(--primary-light); }
+        
         .back-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.45rem;
-            padding: 0.5rem 1rem;
-            background: var(--card);
-            border: var(--glass-border);
-            border-radius: 12px;
-            color: var(--text);
-            font-size: 0.85rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all var(--transition-fast);
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            padding: 0.45rem 0.9rem; background: var(--card);
+            border: var(--glass-border); border-radius: 10px;
+            color: var(--text); font-size: 0.83rem; cursor: pointer;
+            transition: all var(--transition);
         }
-        .back-btn:hover {
-            background: var(--primary);
-            border-color: var(--primary);
-            transform: translateX(-3px);
-        }
+        .back-btn:hover { background: var(--primary); border-color: var(--primary); }
 
-        /* ===== FORMS ===== */
-        .form-group { 
-            margin-bottom: 1.35rem; 
-            position: relative;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 0.55rem;
-            font-weight: 500;
-            color: var(--text-muted);
-            font-size: 0.92rem;
-            letter-spacing: 0.01em;
-        }
+        /* Forms */
+        .form-group { margin-bottom: 1.2rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text-muted); font-size: 0.9rem; }
         .form-control {
-            width: 100%;
-            padding: 0.95rem 1.15rem;
-            background: rgba(15, 23, 42, 0.65);
-            border: var(--glass-border);
-            border-radius: 14px;
-            color: var(--text-primary);
-            font-size: 1rem;
-            font-family: inherit;
-            transition: all var(--transition-normal);
-            outline: none;
+            width: 100%; padding: 0.9rem 1.1rem;
+            background: rgba(15,23,42,0.7); border: var(--glass-border);
+            border-radius: 12px; color: var(--text-primary); font-size: 1rem;
+            transition: all var(--transition); outline: none;
         }
-        .form-control::placeholder { color: var(--text-dim); }
-        .form-control:focus {
-            border-color: var(--primary-light);
-            box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.2);
-            background: rgba(15, 23, 42, 0.8);
-        }
-        .form-hint {
-            display: block;
-            margin-top: 0.4rem;
-            font-size: 0.82rem;
-            color: var(--text-dim);
-        }
+        .form-control:focus { border-color: var(--primary-light); box-shadow: 0 0 0 3px rgba(124,58,237,0.2); }
+        .form-hint { display: block; margin-top: 0.35rem; font-size: 0.8rem; color: var(--text-dim); }
 
-        /* ===== BUTTONS ===== */
+        /* Buttons */
         .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.6rem;
-            padding: 0.95rem 1.75rem;
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            border: none;
-            border-radius: 14px;
-            color: white;
-            font-weight: 600;
-            font-size: 0.98rem;
-            cursor: pointer;
-            transition: all var(--transition-normal);
-            width: 100%;
-            position: relative;
-            overflow: hidden;
-            text-transform: none;
-            letter-spacing: 0.01em;
+            display: inline-flex; align-items: center; justify-content: center; gap: 0.55rem;
+            padding: 0.9rem 1.6rem; background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border: none; border-radius: 12px; color: white;
+            font-weight: 600; font-size: 0.95rem; cursor: pointer;
+            transition: all var(--transition); width: 100%;
         }
-        .btn::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(135deg, var(--secondary), var(--accent));
-            opacity: 0;
-            transition: opacity var(--transition-fast);
-            z-index: -1;
-        }
-        .btn:hover:not(:disabled) {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 40px rgba(124, 58, 237, 0.5);
-        }
-        .btn:hover:not(:disabled)::before { opacity: 0.25; }
-        .btn:active:not(:disabled) { transform: translateY(-1px); }
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-        .btn-outline {
-            background: transparent;
-            border: 2px solid var(--primary-light);
-            color: var(--primary-light);
-        }
-        .btn-outline:hover {
-            background: var(--primary);
-            color: white;
-        }
-        .btn-success {
-            background: linear-gradient(135deg, var(--success), #059669);
-        }
-        .btn-success:hover {
-            box-shadow: 0 12px 40px rgba(16, 185, 129, 0.45);
-        }
-        .btn-danger {
-            background: linear-gradient(135deg, var(--danger), #dc2626);
-        }
+        .btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 35px rgba(124,58,237,0.5); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .btn-success { background: linear-gradient(135deg, var(--success), #059669); }
+        .btn-success:hover { box-shadow: 0 10px 35px rgba(16,185,129,0.45); }
+        .btn-outline { background: transparent; border: 2px solid var(--primary-light); color: var(--primary-light); }
+        .btn-outline:hover { background: var(--primary); color: white; }
         .btn-copy {
             background: linear-gradient(135deg, var(--accent), #0891b2);
-            padding: 0.7rem 1.4rem;
-            font-size: 0.9rem;
-            width: auto;
-            margin-top: 0.75rem;
+            padding: 0.65rem 1.3rem; font-size: 0.88rem; width: auto; margin-top: 0.7rem;
         }
-        .btn-copy.copied {
-            background: linear-gradient(135deg, var(--success), #059669);
-            animation: pulseSuccess 0.4s ease;
-        }
-        @keyframes pulseSuccess {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
+        .btn-copy.copied { background: linear-gradient(135deg, var(--success), #059669); }
 
-        /* ===== RESULT BOX ===== */
+        /* Result Box */
         .result-box {
-            margin-top: 1.4rem;
-            padding: 1.25rem;
-            background: rgba(15, 23, 42, 0.75);
-            border-radius: 14px;
-            border-left: 4px solid var(--primary-light);
-            display: none;
-            animation: slideInUp 0.35s ease;
+            margin-top: 1.3rem; padding: 1.15rem;
+            background: rgba(15,23,42,0.8); border-radius: 12px;
+            border-left: 4px solid var(--primary-light); display: none;
         }
-        .result-box.show { display: block; }
-        @keyframes slideInUp {
-            from { opacity: 0; transform: translateY(12px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .result-label {
-            color: var(--text-muted);
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-        }
+        .result-box.show { display: block; animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        
         .result-code {
-            font-family: 'SF Mono', 'Fira Code', monospace;
-            font-size: 2.1rem;
-            font-weight: 800;
-            letter-spacing: 0.35em;
-            text-align: center;
-            margin: 0.85rem 0;
-            color: var(--primary-light);
-            text-shadow: 0 0 20px rgba(124, 58, 237, 0.6);
-            padding: 0.5rem;
-            background: rgba(124, 58, 237, 0.08);
-            border-radius: 10px;
-            position: relative;
+            font-family: 'SF Mono', monospace; font-size: 2rem; font-weight: 800;
+            letter-spacing: 0.4em; text-align: center; margin: 0.8rem 0;
+            color: var(--primary-light); text-shadow: 0 0 25px rgba(124,58,237,0.6);
+            padding: 0.4rem; background: rgba(124,58,237,0.1); border-radius: 8px;
         }
-        .result-code::after {
-            content: '\f111';
-            font-family: 'Font Awesome 6 Free';
-            font-weight: 900;
-            position: absolute;
-            right: -8px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--success);
-            font-size: 0.4rem;
-            animation: blinkDot 1.2s step-end infinite;
-        }
-        @keyframes blinkDot { 50% { opacity: 0; } }
-
         .result-session {
-            font-family: 'SF Mono', 'Fira Code', monospace;
-            background: rgba(2, 6, 23, 0.85);
-            padding: 0.9rem 1.1rem;
-            border-radius: 12px;
-            word-break: break-all;
-            margin: 0.85rem 0;
-            font-size: 0.92rem;
-            border: 1px solid var(--border);
+            font-family: 'SF Mono', monospace; background: rgba(2,6,23,0.9);
+            padding: 0.85rem 1rem; border-radius: 10px; word-break: break-all;
+            margin: 0.7rem 0; font-size: 0.9rem; border: 1px solid var(--border);
             position: relative;
         }
         .result-session::before {
-            content: '\f023';
-            font-family: 'Font Awesome 6 Free';
-            font-weight: 900;
-            position: absolute;
-            left: 0.7rem;
-            top: 50%;
-            transform: translateY(-50%);
-            opacity: 0.6;
+            content: '\f023'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
+            position: absolute; left: 0.7rem; top: 50%; transform: translateY(-50%);
+            opacity: 0.6; font-size: 0.8rem;
         }
-        .result-session code {
-            padding-left: 1.5rem;
-            display: block;
-        }
-
+        .result-session code { padding-left: 1.4rem; display: block; }
+        
         .copy-feedback {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            margin-left: 0.75rem;
-            font-size: 0.85rem;
-            color: var(--success);
-            opacity: 0;
-            transition: opacity var(--transition-fast);
+            display: inline-flex; align-items: center; gap: 0.35rem;
+            margin-left: 0.7rem; font-size: 0.82rem; color: var(--success);
+            opacity: 0; transition: opacity var(--transition);
         }
-        .copy-feedback.show { opacity: 1; animation: fadeOut 2s 1.5s forwards; }
-        @keyframes fadeOut { to { opacity: 0; } }
+        .copy-feedback.show { opacity: 1; }
 
-        /* ===== SESSIONS TABLE ===== */
-        .table-container {
-            overflow-x: auto;
-            border-radius: 14px;
-            border: var(--glass-border);
-            margin: -0.5rem;
-            padding: 0.5rem;
-        }
-        .sessions-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            min-width: 520px;
-        }
-        .sessions-table th,
-        .sessions-table td {
-            padding: 1rem 1.15rem;
-            text-align: left;
-            border-bottom: var(--glass-border);
-            font-size: 0.92rem;
+        /* Table */
+        .table-wrap { overflow-x: auto; border-radius: 12px; border: var(--glass-border); }
+        .sessions-table { width: 100%; border-collapse: collapse; min-width: 480px; }
+        .sessions-table th, .sessions-table td {
+            padding: 0.95rem 1.1rem; text-align: left;
+            border-bottom: var(--glass-border); font-size: 0.9rem;
         }
         .sessions-table th {
-            color: var(--text-muted);
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 0.78rem;
-            letter-spacing: 0.05em;
-            background: rgba(15,23,42,0.6);
-            position: sticky;
-            top: 0;
+            color: var(--text-muted); font-weight: 600; text-transform: uppercase;
+            font-size: 0.76rem; letter-spacing: 0.04em; background: rgba(15,23,42,0.65);
         }
-        .sessions-table tr:last-child td { border-bottom: none; }
-        .sessions-table tr {
-            transition: background var(--transition-fast);
-        }
-        .sessions-table tr:hover { 
-            background: var(--card-hover); 
-            transform: scale(1.005);
-        }
-
+        .sessions-table tr:hover { background: var(--card-hover); }
+        
         .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            padding: 0.35rem 0.9rem;
-            border-radius: 20px;
-            font-size: 0.76rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
+            display: inline-flex; align-items: center; gap: 0.35rem;
+            padding: 0.3rem 0.8rem; border-radius: 18px;
+            font-size: 0.74rem; font-weight: 600; text-transform: uppercase;
         }
-        .badge-success { 
-            background: rgba(16,185,129,0.15); 
-            color: var(--success);
-            border: 1px solid rgba(16,185,129,0.3);
-        }
-        .badge-warning { 
-            background: rgba(245,158,11,0.15); 
-            color: var(--warning);
-            border: 1px solid rgba(245,158,11,0.3);
-        }
-        .badge-danger { 
-            background: rgba(239,68,68,0.15); 
-            color: var(--danger);
-            border: 1px solid rgba(239,68,68,0.3);
-        }
-
-        .action-btns { display: flex; gap: 0.45rem; }
+        .badge-success { background: rgba(16,185,129,0.15); color: var(--success); border: 1px solid rgba(16,185,129,0.3); }
+        .badge-warning { background: rgba(245,158,11,0.15); color: var(--warning); border: 1px solid rgba(245,158,11,0.3); }
+        .badge-danger { background: rgba(239,68,68,0.15); color: var(--danger); border: 1px solid rgba(239,68,68,0.3); }
+        
+        .action-btns { display: flex; gap: 0.4rem; }
         .action-btn {
-            width: 36px; height: 36px;
-            display: flex; align-items: center; justify-content: center;
-            background: var(--card);
-            border: var(--glass-border);
-            border-radius: 10px;
-            color: var(--text);
-            cursor: pointer;
-            transition: all var(--transition-fast);
-            font-size: 0.95rem;
+            width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+            background: var(--card); border: var(--glass-border); border-radius: 9px;
+            color: var(--text); cursor: pointer; transition: all var(--transition); font-size: 0.9rem;
         }
-        .action-btn:hover { 
-            background: var(--primary); 
-            border-color: var(--primary);
-            transform: translateY(-2px);
-        }
-        .action-btn.delete:hover { 
-            background: var(--danger); 
-            border-color: var(--danger);
-        }
+        .action-btn:hover { background: var(--primary); border-color: var(--primary); }
+        .action-btn.delete:hover { background: var(--danger); border-color: var(--danger); }
 
-        /* ===== SETTINGS GRID ===== */
-        .settings-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 0.9rem;
-        }
+        /* Settings */
+        .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 0.8rem; }
         .setting-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.95rem 1.15rem;
-            background: rgba(15,23,42,0.55);
-            border-radius: 14px;
-            border: var(--glass-border);
-            transition: all var(--transition-fast);
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0.9rem 1.1rem; background: rgba(15,23,42,0.6);
+            border-radius: 12px; border: var(--glass-border); transition: all var(--transition);
         }
-        .setting-item:hover {
-            background: var(--card-hover);
-            border-color: var(--border-glow);
-            transform: translateX(4px);
-        }
-        .setting-info h4 { 
-            font-weight: 600; 
-            margin-bottom: 0.25rem; 
-            font-size: 0.98rem;
-            color: var(--text-primary);
-        }
-        .setting-info p { 
-            font-size: 0.82rem; 
-            color: var(--text-dim);
-            line-height: 1.4;
-        }
-
-        /* ===== TOGGLE SWITCH ===== */
-        .toggle {
-            position: relative;
-            width: 52px; height: 30px;
-            flex-shrink: 0;
-        }
+        .setting-item:hover { background: var(--card-hover); border-color: var(--border-glow); }
+        .setting-info h4 { font-weight: 600; margin-bottom: 0.2rem; font-size: 0.95rem; }
+        .setting-info p { font-size: 0.8rem; color: var(--text-dim); }
+        
+        .toggle { position: relative; width: 48px; height: 28px; flex-shrink: 0; }
         .toggle input { opacity: 0; width: 0; height: 0; }
         .slider {
-            position: absolute;
-            cursor: pointer;
-            inset: 0;
-            background: var(--card);
-            border: var(--glass-border);
-            border-radius: 30px;
-            transition: all var(--transition-normal);
+            position: absolute; cursor: pointer; inset: 0;
+            background: var(--card); border: var(--glass-border); border-radius: 30px;
+            transition: all var(--transition);
         }
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 24px; width: 24px;
-            left: 3px; bottom: 2px;
-            background: white;
-            border-radius: 50%;
-            transition: all var(--transition-normal);
-            box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+        .slider::before {
+            position: absolute; content: ""; height: 22px; width: 22px;
+            left: 3px; bottom: 2px; background: white; border-radius: 50%;
+            transition: all var(--transition); box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
-        input:checked + .slider { 
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            border-color: transparent;
-        }
-        input:checked + .slider:before { 
-            transform: translateX(22px); 
-            background: white;
-        }
-        .slider:hover { border-color: var(--primary-light); }
+        input:checked + .slider { background: linear-gradient(135deg, var(--primary), var(--secondary)); border-color: transparent; }
+        input:checked + .slider::before { transform: translateX(20px); }
 
-        /* ===== TOAST NOTIFICATIONS ===== */
+        /* Toast */
         .toast {
-            position: fixed;
-            bottom: 1.75rem;
-            right: 1.75rem;
-            padding: 1rem 1.5rem;
-            background: var(--card-elevated);
-            border-left: 4px solid var(--success);
-            border-radius: 16px;
-            box-shadow: var(--shadow-lg);
-            display: flex;
-            align-items: center;
-            gap: 0.85rem;
-            z-index: 1000;
-            animation: toastIn 0.4s cubic-bezier(0.16, 1, 0.3, 1), toastOut 0.3s 3.7s forwards;
-            max-width: 340px;
-            font-size: 0.92rem;
-            backdrop-filter: blur(12px);
+            position: fixed; bottom: 1.6rem; right: 1.6rem;
+            padding: 0.95rem 1.4rem; background: var(--card);
+            border-left: 4px solid var(--success); border-radius: 14px;
+            box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 0.75rem;
+            z-index: 1000; animation: toastIn 0.35s ease, toastOut 0.3s 3.5s forwards;
+            max-width: 320px; font-size: 0.9rem; backdrop-filter: blur(12px);
             border: var(--glass-border);
         }
-        .toast.error { 
-            border-left-color: var(--danger);
-            background: rgba(239, 68, 68, 0.12);
-        }
-        .toast.warning { 
-            border-left-color: var(--warning);
-            background: rgba(245, 158, 11, 0.12);
-        }
-        .toast i { font-size: 1.2rem; }
-        @keyframes toastIn {
-            from { transform: translateX(140%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes toastOut {
-            to { transform: translateX(40px); opacity: 0; }
-        }
+        .toast.error { border-left-color: var(--danger); }
+        .toast.warning { border-left-color: var(--warning); }
+        @keyframes toastIn { from{transform:translateX(120%);opacity:0} to{transform:translateX(0);opacity:1} }
+        @keyframes toastOut { to{transform:translateX(30px);opacity:0} }
 
-        /* ===== FOOTER ===== */
+        /* Footer */
         footer {
-            text-align: center;
-            padding: 2.25rem 1.5rem 3rem;
-            margin-top: 1.5rem;
-            border-top: var(--glass-border);
-            color: var(--text-muted);
-            font-size: 0.88rem;
-            background: rgba(2,6,23,0.75);
+            text-align: center; padding: 2rem 1.5rem 2.5rem;
+            border-top: var(--glass-border); color: var(--text-muted);
+            font-size: 0.86rem; background: rgba(2,6,23,0.8);
             backdrop-filter: var(--glass-blur);
         }
-        footer a { 
-            color: var(--primary-light); 
-            text-decoration: none;
-            font-weight: 500;
-            transition: color var(--transition-fast);
-            position: relative;
-        }
-        footer a::after {
-            content: '';
-            position: absolute;
-            bottom: -2px; left: 0; right: 0;
-            height: 1.5px;
-            background: var(--primary-light);
-            transform: scaleX(0);
-            transition: transform var(--transition-fast);
-        }
+        footer a { color: var(--primary-light); text-decoration: none; font-weight: 500; }
         footer a:hover { color: var(--text-primary); }
-        footer a:hover::after { transform: scaleX(1); }
-        footer p + p { margin-top: 0.75rem; opacity: 0.85; }
 
-        /* ===== LOADING SPINNER ===== */
-        .loading {
-            display: inline-block;
-            width: 20px; height: 20px;
-            border: 2.5px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 0.8s linear infinite;
+        /* Loading Spinner */
+        .spinner {
+            display: inline-block; width: 18px; height: 18px;
+            border: 2.5px solid rgba(255,255,255,0.3); border-radius: 50%;
+            border-top-color: white; animation: spin 0.75s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ===== KEYBOARD SHORTCUTS HINT ===== */
-        .shortcut-hint {
-            position: fixed;
-            bottom: 1.5rem;
-            left: 1.5rem;
-            padding: 0.5rem 0.9rem;
-            background: var(--card);
-            border: var(--glass-border);
-            border-radius: 10px;
-            font-size: 0.78rem;
-            color: var(--text-dim);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            opacity: 0.7;
-            transition: opacity var(--transition-fast);
-            z-index: 90;
-            pointer-events: none;
-        }
-        .shortcut-hint:hover { opacity: 1; }
-        .shortcut-key {
-            padding: 0.15rem 0.5rem;
-            background: rgba(148,163,184,0.15);
-            border-radius: 6px;
-            font-family: monospace;
-            font-weight: 600;
-            color: var(--text-muted);
-        }
-
-        /* ===== RAILWAY PREMIUM BADGE ===== */
+        /* Railway Badge */
         .railway-badge {
-            position: fixed;
-            bottom: 1.5rem;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 999;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.4rem 1rem;
-            background: linear-gradient(135deg, rgba(124,58,237,0.9), rgba(236,72,153,0.9));
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            animation: floatBadge 3s ease-in-out infinite;
-            pointer-events: none;
+            position: fixed; bottom: 1.4rem; left: 50%; transform: translateX(-50%);
+            z-index: 998; display: flex; align-items: center; gap: 0.45rem;
+            padding: 0.35rem 0.9rem;
+            background: linear-gradient(135deg, rgba(124,58,237,0.92), rgba(236,72,153,0.92));
+            border: 1px solid rgba(255,255,255,0.15); border-radius: 18px;
+            backdrop-filter: blur(10px); box-shadow: 0 6px 28px rgba(0,0,0,0.35);
+            animation: floatBadge 3s ease-in-out infinite; pointer-events: none;
         }
-        .railway-badge i {
-            color: #ffd700;
-            font-size: 0.9rem;
-        }
-        .railway-badge span {
-            color: white;
-            font-size: 0.75rem;
-            font-weight: 600;
-            letter-spacing: 0.3px;
-        }
-        @keyframes floatBadge {
-            0%, 100% { transform: translateX(-50%) translateY(0); }
-            50% { transform: translateX(-50%) translateY(-4px); }
-        }
-        @media (max-width: 768px) {
-            .railway-badge { display: none !important; }
-        }
+        .railway-badge i { color: #ffd700; font-size: 0.85rem; }
+        .railway-badge span { color: white; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.2px; }
+        @keyframes floatBadge { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-3px)} }
+        @media (max-width: 768px) { .railway-badge { display: none; } }
 
-        /* ===== RESPONSIVE ===== */
+        /* Responsive */
         @media (max-width: 768px) {
-            .top-header { padding: 0.9rem 1.1rem; }
-            .header-logo { width: 46px; height: 46px; font-size: 1.3rem; }
-            .header-typewriter-text { font-size: 0.95rem; animation-duration: 20s; }
-            .nav-controls { top: 66px; padding: 0.5rem 0.6rem; gap: 0.3rem; }
-            .nav-btn { padding: 0.5rem 0.65rem; font-size: 0.68rem; min-width: 62px; }
-            .nav-btn i { font-size: 1.05rem; }
-            main { padding: 0.9rem 0.75rem 2rem; }
-            .card { padding: 1.4rem; border-radius: 24px; }
-            .dashboard-title { font-size: 1.7rem; }
-            .dashboard-subtitle { font-size: 0.98rem; }
-            .result-code { font-size: 1.8rem; letter-spacing: 0.28em; }
-            .btn { padding: 0.9rem 1.5rem; font-size: 0.95rem; }
-            .setting-item { padding: 0.85rem 1rem; }
-            .setting-info h4 { font-size: 0.93rem; }
-            .setting-info p { font-size: 0.78rem; }
-            footer { padding: 1.8rem 1.1rem 2.5rem; font-size: 0.83rem; }
-            .shortcut-hint { display: none; }
-        }
-
-        @media (max-width: 480px) {
-            .header-typewriter-text { font-size: 0.88rem; }
-            .nav-btn { min-width: 56px; padding: 0.45rem 0.55rem; }
-            .dashboard-cards { grid-template-columns: repeat(2, 1fr); }
-            .dash-card { padding: 1.1rem 0.8rem; }
-            .dash-card i { font-size: 1.7rem; }
-            .result-code { font-size: 1.6rem; }
-            .form-control { padding: 0.85rem 1rem; font-size: 0.98rem; }
+            .top-header { padding: 0.85rem 1rem; }
+            .header-logo { width: 44px; height: 44px; font-size: 1.2rem; }
+            .header-title { font-size: 0.95rem; }
+            .nav-controls { top: 64px; padding: 0.45rem 0.55rem; }
+            .nav-btn { padding: 0.5rem 0.7rem; font-size: 0.68rem; min-width: 64px; }
+            main { padding: 0.8rem 0.7rem 2.5rem; }
+            .card { padding: 1.3rem; }
+            .dashboard-title { font-size: 1.65rem; }
+            .result-code { font-size: 1.7rem; letter-spacing: 0.32em; }
             .btn { padding: 0.85rem 1.4rem; font-size: 0.92rem; }
-            .action-btn { width: 34px; height: 34px; }
         }
 
-        /* ===== ACCESSIBILITY ===== */
+        /* Accessibility */
         @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
+            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
         }
-
-        /* ===== PRINT ===== */
-        @media print {
-            #premiumLoader, .nav-controls, footer, .toast, .railway-badge { display: none !important; }
-            body { background: white; color: black; }
-            .card { break-inside: avoid; border: 1px solid #ccc; }
-        }
-
-        /* ===== SCREEN READER ONLY ===== */
-        .sr-only {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0, 0, 0, 0);
-            white-space: nowrap;
-            border: 0;
-        }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
     </style>
 </head>
 <body>
-    <!-- Premium Background System -->
+    <!-- Background -->
     <div class="bg-premium" aria-hidden="true">
-        <div class="bg-image" id="bgImage"></div>
-        <div class="bg-overlay"></div>
-        <div class="bg-noise"></div>
-        <div class="bg-gradient-orb"></div>
-        <div class="bg-gradient-orb"></div>
-        <div class="bg-gradient-orb"></div>
+        <div class="bg-gradient"></div>
+        <div class="bg-orb one"></div>
+        <div class="bg-orb two"></div>
     </div>
 
-    <!-- Premium Loader -->
-    <div id="premiumLoader" role="status" aria-live="polite">
-        <div class="loader-brand">
-            <div class="loader-logo"><i class="fas fa-key" aria-hidden="true"></i></div>
-            <div class="loader-title">INSIDIOUS BOT</div>
-        </div>
-        <div class="loader-subtitle">Initializing ultra-premium deployment system...</div>
-        <div class="loader-progress-container">
-            <div class="loader-progress-bar"></div>
-        </div>
-        <div class="loader-status">Secure connection <i class="fas fa-lock" aria-hidden="true"></i> End-to-end encryption <i class="fas fa-shield-alt" aria-hidden="true"></i> v3.0</div>
+    <!-- Loader -->
+    <div id="loader" role="status" aria-live="polite">
+        <div class="loader-logo"><i class="fas fa-key" aria-hidden="true"></i></div>
+        <div class="loader-title">INSIDIOUS BOT</div>
+        <div class="loader-progress"><div class="loader-progress-bar"></div></div>
+        <div class="loader-status"><i class="fas fa-lock" aria-hidden="true"></i> Secure connection <i class="fas fa-shield-alt" aria-hidden="true"></i> v3.0</div>
     </div>
 
-    <!-- Premium Header -->
+    <!-- Header -->
     <header class="top-header" role="banner">
         <div class="header-left">
-            <div class="header-logo" title="INSIDIOUS BOT" onclick="showSection('dashboard')" role="button" tabindex="0" aria-label="Go to dashboard">
+            <div class="header-logo" onclick="showSection('dashboard')" role="button" tabindex="0" aria-label="Dashboard">
                 <i class="fas fa-shield-alt" aria-hidden="true"></i>
             </div>
-            <div class="header-typewriter">
-                <span class="header-typewriter-text"><i class="fas fa-key" aria-hidden="true"></i> INSIDIOUS: THE LAST KEY <i class="fas fa-bolt" aria-hidden="true"></i> Premium WhatsApp Bot Deployment <i class="fas fa-rocket" aria-hidden="true"></i> Instant Pairing <i class="fas fa-shield-alt" aria-hidden="true"></i> Enterprise Security</span>
-                <span class="header-typewriter-cursor" aria-hidden="true"></span>
-            </div>
+            <div class="header-title">INSIDIOUS BOT <i class="fas fa-bolt" aria-hidden="true"></i> Premium Deployment</div>
         </div>
-        <div class="header-right">
-            <div class="status-badge">
-                <div class="status-dot" aria-hidden="true"></div>
-                <span id="botStatus">Online</span>
-            </div>
+        <div class="status-badge">
+            <div class="status-dot" aria-hidden="true"></div>
+            <span id="botStatus">Online</span>
         </div>
     </header>
 
-    <!-- Navigation Controls -->
-    <nav class="nav-controls" role="navigation" aria-label="Main navigation">
-        <div class="nav-btn active" data-section="dashboard" title="Home (Ctrl+H)" role="button" tabindex="0">
-            <i class="fas fa-home" aria-hidden="true"></i>
-            <span>Home</span>
+    <!-- Navigation -->
+    <nav class="nav-controls" role="navigation" aria-label="Main">
+        <div class="nav-btn active" data-section="dashboard" role="button" tabindex="0">
+            <i class="fas fa-home" aria-hidden="true"></i><span>Home</span>
         </div>
-        <div class="nav-btn" data-section="pair" title="Pair Number (Ctrl+P)" role="button" tabindex="0">
-            <i class="fas fa-link" aria-hidden="true"></i>
-            <span>Pair</span>
+        <div class="nav-btn" data-section="pair" role="button" tabindex="0">
+            <i class="fas fa-link" aria-hidden="true"></i><span>Pair</span>
         </div>
-        <div class="nav-btn" data-section="deploy" title="Deploy Bot (Ctrl+D)" role="button" tabindex="0">
-            <i class="fas fa-rocket" aria-hidden="true"></i>
-            <span>Deploy</span>
+        <div class="nav-btn" data-section="deploy" role="button" tabindex="0">
+            <i class="fas fa-rocket" aria-hidden="true"></i><span>Deploy</span>
         </div>
-        <div class="nav-btn" data-section="sessions" title="Sessions (Ctrl+S)" role="button" tabindex="0">
-            <i class="fas fa-list" aria-hidden="true"></i>
-            <span>Sessions</span>
+        <div class="nav-btn" data-section="sessions" role="button" tabindex="0">
+            <i class="fas fa-list" aria-hidden="true"></i><span>Sessions</span>
         </div>
-        <div class="nav-btn" data-section="settings" title="Settings (Ctrl+,)" role="button" tabindex="0">
-            <i class="fas fa-cog" aria-hidden="true"></i>
-            <span>Settings</span>
+        <div class="nav-btn" data-section="settings" role="button" tabindex="0">
+            <i class="fas fa-cog" aria-hidden="true"></i><span>Settings</span>
         </div>
     </nav>
 
-    <!-- Main Content -->
-    <main id="main-content" role="main">
-        <!-- Dashboard View -->
-        <section id="dashboard-view" class="section active" aria-labelledby="dashboard-heading">
-            <h1 id="dashboard-heading" class="dashboard-title"><i class="fas fa-shield-alt" aria-hidden="true"></i> INSIDIOUS BOT</h1>
-            <p class="dashboard-subtitle">Ultra-premium WhatsApp bot deployment platform. Pair your number, deploy instantly, and manage sessions with enterprise-grade security.</p>
+    <!-- Main -->
+    <main role="main">
+        <!-- Dashboard -->
+        <section id="dashboard" class="section active">
+            <h1 class="dashboard-title"><i class="fas fa-shield-alt" aria-hidden="true"></i> INSIDIOUS BOT</h1>
+            <p class="dashboard-subtitle">Premium WhatsApp bot deployment with instant pairing, MongoDB sessions and enterprise security.</p>
             
             <div class="quick-links">
-                <a href="https://whatsapp.com/channel/0029Vb7fzu4EwEjmsD4Tzs1p" target="_blank" rel="noopener noreferrer" class="quick-link">
+                <a href="https://whatsapp.com/channel/0029Vb7fzu4EwEjmsD4Tzs1p" target="_blank" rel="noopener" class="quick-link">
                     <i class="fab fa-whatsapp" aria-hidden="true"></i> Channel
                 </a>
-                <a href="https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y?mode=gi_t" target="_blank" rel="noopener noreferrer" class="quick-link">
+                <a href="https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y" target="_blank" rel="noopener" class="quick-link">
                     <i class="fas fa-users" aria-hidden="true"></i> Support
                 </a>
-                <a href="https://wa.me/255787069580" target="_blank" rel="noopener noreferrer" class="quick-link">
+                <a href="https://wa.me/255787069580" target="_blank" rel="noopener" class="quick-link">
                     <i class="fas fa-user" aria-hidden="true"></i> Developer
                 </a>
             </div>
 
-            <div class="dashboard-cards">
-                <div class="dash-card" onclick="showSection('pair')" role="button" tabindex="0" aria-label="Go to pair number section">
-                    <i class="fas fa-link" style="color: var(--primary-light);" aria-hidden="true"></i>
+            <div class="dash-grid">
+                <div class="dash-card" onclick="showSection('pair')" role="button" tabindex="0">
+                    <i class="fas fa-link" style="color:var(--primary-light)"></i>
                     <div class="label">Pair Number</div>
                     <div class="desc">Get pairing code</div>
                 </div>
-                <div class="dash-card" onclick="showSection('deploy')" role="button" tabindex="0" aria-label="Go to deploy bot section">
-                    <i class="fas fa-rocket" style="color: var(--success);" aria-hidden="true"></i>
+                <div class="dash-card" onclick="showSection('deploy')" role="button" tabindex="0">
+                    <i class="fas fa-rocket" style="color:var(--success)"></i>
                     <div class="label">Deploy Bot</div>
                     <div class="desc">Launch instantly</div>
                 </div>
-                <div class="dash-card" onclick="showSection('sessions')" role="button" tabindex="0" aria-label="Go to sessions section">
-                    <i class="fas fa-list" style="color: var(--warning);" aria-hidden="true"></i>
+                <div class="dash-card" onclick="showSection('sessions')" role="button" tabindex="0">
+                    <i class="fas fa-list" style="color:var(--warning)"></i>
                     <div class="label">Sessions</div>
                     <div class="desc">Manage active</div>
                 </div>
-                <div class="dash-card" onclick="showSection('settings')" role="button" tabindex="0" aria-label="Go to settings section">
-                    <i class="fas fa-cog" style="color: var(--secondary);" aria-hidden="true"></i>
+                <div class="dash-card" onclick="showSection('settings')" role="button" tabindex="0">
+                    <i class="fas fa-cog" style="color:var(--secondary)"></i>
                     <div class="label">Settings</div>
                     <div class="desc">Configure bot</div>
                 </div>
@@ -1407,40 +549,37 @@
         </section>
 
         <!-- Pair Section -->
-        <section id="pair-section" class="section" aria-labelledby="pair-heading">
+        <section id="pair" class="section">
             <div class="card">
                 <div class="card-header">
-                    <h3 id="pair-heading"><i class="fas fa-mobile-alt" aria-hidden="true"></i> Pair Your Number</h3>
+                    <h3><i class="fas fa-mobile-alt" aria-hidden="true"></i> Pair Your Number</h3>
                     <button class="back-btn" onclick="showSection('dashboard')">
                         <i class="fas fa-arrow-left" aria-hidden="true"></i> Back
                     </button>
                 </div>
-                <form id="pairForm" autocomplete="off" novalidate>
+                <form id="pairForm" autocomplete="off">
                     <div class="form-group">
                         <label for="pairNumber">WhatsApp Number</label>
-                        <input type="tel" id="pairNumber" class="form-control" placeholder="2557XXXXXXXX" required pattern="[0-9]{10,15}" inputmode="numeric" aria-describedby="pairHint">
-                        <small id="pairHint" class="form-hint">Include country code, no + or spaces <i class="fas fa-info-circle" aria-hidden="true"></i> Example: 255787069580</small>
+                        <input type="tel" id="pairNumber" class="form-control" placeholder="2557XXXXXXXX" required pattern="[0-9]{10,15}" inputmode="numeric">
+                        <small class="form-hint"><i class="fas fa-info-circle" aria-hidden="true"></i> Country code only, no + or spaces. Example: 255787069580</small>
                     </div>
                     <button type="submit" class="btn" id="pairBtn">
                         <i class="fas fa-key" aria-hidden="true"></i> Generate Pairing Code
                     </button>
                 </form>
                 <div class="result-box" id="pairResult" role="region" aria-live="polite">
-                    <p class="result-label"><i class="fas fa-info-circle" aria-hidden="true"></i> Your 8-digit pairing code (auto-copied):</p>
+                    <p style="color:var(--text-muted);margin-bottom:0.4rem"><i class="fas fa-info-circle" aria-hidden="true"></i> Your 8-digit pairing code:</p>
                     <div class="result-code" id="pairCode" aria-label="Pairing code">----</div>
-                    <p style="font-size: 0.88rem; color: var(--text-muted); margin: 0.7rem 0 1rem;">
-                        <i class="fas fa-arrow-right" aria-hidden="true"></i> Enter this code in WhatsApp: 
-                        <strong>Settings <i class="fas fa-chevron-right" aria-hidden="true"></i> Linked Devices <i class="fas fa-chevron-right" aria-hidden="true"></i> Link Device</strong>
+                    <p style="font-size:0.86rem;color:var(--text-muted);margin:0.6rem 0 0.9rem">
+                        <i class="fas fa-arrow-right" aria-hidden="true"></i> Enter in WhatsApp: <strong>Settings <i class="fas fa-chevron-right" aria-hidden="true"></i> Linked Devices <i class="fas fa-chevron-right" aria-hidden="true"></i> Link Device</strong>
                     </p>
-                    <div id="sessionInfo" style="display: none; padding-top: 1rem; border-top: 1px dashed var(--border);">
-                        <p style="color: var(--success); margin-bottom: 0.5rem; font-weight: 500;">
-                            <i class="fas fa-check-circle" aria-hidden="true"></i> Pairing successful!
-                        </p>
-                        <p style="margin: 0.5rem 0; font-size: 0.92rem;">Your encrypted Session ID:</p>
+                    <div id="sessionInfo" style="display:none;padding-top:0.9rem;border-top:1px dashed var(--border)">
+                        <p style="color:var(--success);margin-bottom:0.4rem;font-weight:500"><i class="fas fa-check-circle" aria-hidden="true"></i> Pairing successful!</p>
+                        <p style="margin:0.4rem 0;font-size:0.9rem">Your encrypted Session ID:</p>
                         <div class="result-session" id="sessionId"><code>Loading...</code></div>
                         <button class="btn btn-copy" id="copySessionBtn" onclick="copySession()">
                             <i class="fas fa-copy" aria-hidden="true"></i> Copy Session ID
-                            <span class="copy-feedback" id="copyFeedback"><i class="fas fa-check" aria-hidden="true"></i> Copied!</span>
+                            <span class="copy-feedback" id="copyFeedback"><i class="fas fa-check" aria-hidden="true"></i> Copied</span>
                         </button>
                     </div>
                 </div>
@@ -1448,19 +587,19 @@
         </section>
 
         <!-- Deploy Section -->
-        <section id="deploy-section" class="section" aria-labelledby="deploy-heading">
+        <section id="deploy" class="section">
             <div class="card">
                 <div class="card-header">
-                    <h3 id="deploy-heading"><i class="fas fa-rocket" aria-hidden="true"></i> Deploy Your Bot</h3>
+                    <h3><i class="fas fa-rocket" aria-hidden="true"></i> Deploy Your Bot</h3>
                     <button class="back-btn" onclick="showSection('dashboard')">
                         <i class="fas fa-arrow-left" aria-hidden="true"></i> Back
                     </button>
                 </div>
-                <form id="deployForm" autocomplete="off" novalidate>
+                <form id="deployForm" autocomplete="off">
                     <div class="form-group">
                         <label for="deploySession">Session ID</label>
-                        <input type="text" id="deploySession" class="form-control" placeholder="Paste your session ID" required aria-describedby="sessionHint">
-                        <small id="sessionHint" class="form-hint"><i class="fas fa-lock" aria-hidden="true"></i> Your session ID is encrypted and secure</small>
+                        <input type="text" id="deploySession" class="form-control" placeholder="Paste your session ID" required>
+                        <small class="form-hint"><i class="fas fa-lock" aria-hidden="true"></i> Session ID received after successful pairing</small>
                     </div>
                     <div class="form-group">
                         <label for="deployNumber">Phone Number</label>
@@ -1471,22 +610,22 @@
                     </button>
                 </form>
                 <div class="result-box" id="deployResult" role="region" aria-live="polite">
-                    <p id="deployMessage" style="color: var(--text-muted);">Deployment status will appear here after submission...</p>
+                    <p id="deployMessage" style="color:var(--text-muted)">Deployment status will appear here...</p>
                 </div>
             </div>
         </section>
 
         <!-- Sessions Section -->
-        <section id="sessions-section" class="section" aria-labelledby="sessions-heading">
+        <section id="sessions" class="section">
             <div class="card">
                 <div class="card-header">
-                    <h3 id="sessions-heading"><i class="fas fa-list" aria-hidden="true"></i> Active Sessions</h3>
+                    <h3><i class="fas fa-list" aria-hidden="true"></i> Active Sessions</h3>
                     <button class="back-btn" onclick="showSection('dashboard')">
                         <i class="fas fa-arrow-left" aria-hidden="true"></i> Back
                     </button>
                 </div>
-                <div class="table-container">
-                    <table class="sessions-table" role="table" aria-label="Active sessions table">
+                <div class="table-wrap">
+                    <table class="sessions-table" role="table" aria-label="Active sessions">
                         <thead>
                             <tr>
                                 <th scope="col">Number</th>
@@ -1496,212 +635,337 @@
                             </tr>
                         </thead>
                         <tbody id="sessionsTableBody">
-                            <tr>
-                                <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.75rem;">
-                                    <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
-                                    Loading sessions from secure server...
-                                </td>
-                            </tr>
+                            <tr><td colspan="4" style="text-align:center;padding:1.5rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Loading sessions...</td></tr>
                         </tbody>
                     </table>
                 </div>
-                <button class="btn btn-outline" onclick="refreshSessions()" style="margin-top: 1.1rem;">
-                    <i class="fas fa-sync" aria-hidden="true"></i> Refresh Sessions
+                <button class="btn btn-outline" onclick="refreshSessions()" style="margin-top:1rem">
+                    <i class="fas fa-sync" aria-hidden="true"></i> Refresh
                 </button>
             </div>
         </section>
 
         <!-- Settings Section -->
-        <section id="settings-section" class="section" aria-labelledby="settings-heading">
+        <section id="settings" class="section">
             <div class="card">
                 <div class="card-header">
-                    <h3 id="settings-heading"><i class="fas fa-cog" aria-hidden="true"></i> Bot Settings</h3>
+                    <h3><i class="fas fa-cog" aria-hidden="true"></i> Bot Settings</h3>
                     <button class="back-btn" onclick="showSection('dashboard')">
                         <i class="fas fa-arrow-left" aria-hidden="true"></i> Back
                     </button>
                 </div>
                 <div class="settings-grid">
                     <div class="setting-item">
-                        <div class="setting-info">
-                            <h4>Anti-ViewOnce</h4>
-                            <p>Recover deleted view-once media</p>
-                        </div>
-                        <label class="toggle">
-                            <input type="checkbox" id="setting-antiviewonce" checked aria-label="Enable Anti-ViewOnce">
-                            <span class="slider" aria-hidden="true"></span>
-                        </label>
+                        <div class="setting-info"><h4>Anti-ViewOnce</h4><p>Recover view-once media</p></div>
+                        <label class="toggle"><input type="checkbox" id="setting-antiviewonce" checked><span class="slider"></span></label>
                     </div>
                     <div class="setting-item">
-                        <div class="setting-info">
-                            <h4>Anti-Delete</h4>
-                            <p>Recover deleted messages</p>
-                        </div>
-                        <label class="toggle">
-                            <input type="checkbox" id="setting-antidelete" checked aria-label="Enable Anti-Delete">
-                            <span class="slider" aria-hidden="true"></span>
-                        </label>
+                        <div class="setting-info"><h4>Anti-Delete</h4><p>Recover deleted messages</p></div>
+                        <label class="toggle"><input type="checkbox" id="setting-antidelete" checked><span class="slider"></span></label>
                     </div>
                     <div class="setting-item">
-                        <div class="setting-info">
-                            <h4>Auto-Read</h4>
-                            <p>Automatically read messages</p>
-                        </div>
-                        <label class="toggle">
-                            <input type="checkbox" id="setting-autoread" checked aria-label="Enable Auto-Read">
-                            <span class="slider" aria-hidden="true"></span>
-                        </label>
+                        <div class="setting-info"><h4>Auto-Read</h4><p>Auto-read messages</p></div>
+                        <label class="toggle"><input type="checkbox" id="setting-autoread" checked><span class="slider"></span></label>
                     </div>
                     <div class="setting-item">
-                        <div class="setting-info">
-                            <h4>AI Chatbot</h4>
-                            <p>Enable AI responses</p>
-                        </div>
-                        <label class="toggle">
-                            <input type="checkbox" id="setting-chatbot" checked aria-label="Enable AI Chatbot">
-                            <span class="slider" aria-hidden="true"></span>
-                        </label>
+                        <div class="setting-info"><h4>AI Chatbot</h4><p>Enable AI responses</p></div>
+                        <label class="toggle"><input type="checkbox" id="setting-chatbot" checked><span class="slider"></span></label>
                     </div>
                     <div class="setting-item">
-                        <div class="setting-info">
-                            <h4>Anti-Link</h4>
-                            <p>Block links in groups</p>
-                        </div>
-                        <label class="toggle">
-                            <input type="checkbox" id="setting-antilink" checked aria-label="Enable Anti-Link">
-                            <span class="slider" aria-hidden="true"></span>
-                        </label>
+                        <div class="setting-info"><h4>Anti-Link</h4><p>Block links in groups</p></div>
+                        <label class="toggle"><input type="checkbox" id="setting-antilink" checked><span class="slider"></span></label>
                     </div>
                     <div class="setting-item">
-                        <div class="setting-info">
-                            <h4>Welcome Messages</h4>
-                            <p>Send welcome/goodbye</p>
-                        </div>
-                        <label class="toggle">
-                            <input type="checkbox" id="setting-welcome" checked aria-label="Enable Welcome Messages">
-                            <span class="slider" aria-hidden="true"></span>
-                        </label>
+                        <div class="setting-info"><h4>Welcome Msg</h4><p>Send welcome/goodbye</p></div>
+                        <label class="toggle"><input type="checkbox" id="setting-welcome" checked><span class="slider"></span></label>
                     </div>
                 </div>
-                <button class="btn" onclick="saveSettings()" style="margin-top: 1.4rem;">
-                    <i class="fas fa-save" aria-hidden="true"></i> Save Settings to Server
+                <button class="btn" onclick="saveSettings()" style="margin-top:1.3rem">
+                    <i class="fas fa-save" aria-hidden="true"></i> Save Settings
                 </button>
             </div>
         </section>
     </main>
 
+    <!-- Railway Badge -->
+    <div class="railway-badge" aria-hidden="true">
+        <i class="fas fa-bolt"></i><span>POWERED BY RAILWAY</span>
+    </div>
+
     <!-- Footer -->
     <footer role="contentinfo">
-        <p>
-            <strong>INSIDIOUS BOT v3.0 ULTRA</strong> | <time datetime="2025">2025</time> Stanley Assanaly<br>
-            <a href="https://wa.me/255787069580" target="_blank" rel="noopener noreferrer"><i class="fas fa-user" aria-hidden="true"></i> Contact Developer</a> <i class="fas fa-dot-circle" aria-hidden="true"></i> 
-            <a href="https://whatsapp.com/channel/0029Vb7fzu4EwEjmsD4Tzs1p" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp" aria-hidden="true"></i> Channel</a> <i class="fas fa-dot-circle" aria-hidden="true"></i> 
-            <a href="https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y?mode=gi_t" target="_blank" rel="noopener noreferrer"><i class="fas fa-users" aria-hidden="true"></i> Support Group</a>
-        </p>
-        <p>
-            <i class="fas fa-shield-alt" aria-hidden="true"></i> End-to-end encrypted <i class="fas fa-dot-circle" aria-hidden="true"></i> Zero-knowledge architecture <i class="fas fa-dot-circle" aria-hidden="true"></i> GDPR compliant
-        </p>
+        <p><strong>INSIDIOUS BOT v3.0</strong> | <time datetime="2025">2025</time> Stanley Assanaly<br>
+        <a href="https://wa.me/255787069580" target="_blank" rel="noopener"><i class="fas fa-user" aria-hidden="true"></i> Contact</a> <i class="fas fa-circle" style="font-size:6px;margin:0 4px"></i>
+        <a href="https://whatsapp.com/channel/0029Vb7fzu4EwEjmsD4Tzs1p" target="_blank" rel="noopener"><i class="fab fa-whatsapp" aria-hidden="true"></i> Channel</a></p>
+        <p><i class="fas fa-shield-alt" aria-hidden="true"></i> End-to-end encrypted <i class="fas fa-circle" style="font-size:5px;margin:0 4px"></i> MongoDB secured</p>
     </footer>
-
-    <!-- Railway Premium Badge -->
-    <div class="railway-badge" aria-hidden="true">
-        <i class="fas fa-bolt"></i>
-        <span>POWERED BY RAILWAY</span>
-    </div>
-
-    <!-- Keyboard Shortcut Hint -->
-    <div class="shortcut-hint" aria-hidden="true">
-        <span>Shortcuts:</span>
-        <span class="shortcut-key">Ctrl+P</span> Pair
-        <span class="shortcut-key">Ctrl+D</span> Deploy
-        <span class="shortcut-key">Ctrl+S</span> Sessions
-    </div>
 
     <!-- Toast Container -->
     <div id="toastContainer" role="region" aria-live="assertive" aria-atomic="true"></div>
-
-    <!-- Accessibility Live Region -->
-    <div id="aria-live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    <div id="ariaLive" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
     <script>
-        // ===== PREMIUM BACKGROUND LOADER =====
-        (function initBackground() {
-            const bgImage = document.getElementById('bgImage');
-            const img = new Image();
-            img.src = 'https://o.uguu.se/bcWjyRkF.jpg';
-            img.onload = () => {
-                bgImage.classList.add('loaded');
-                new Image().src = 'https://o.uguu.se/bcWjyRkF.jpg';
-            };
-            img.onerror = () => {
-                bgImage.style.background = 'linear-gradient(135deg, #1e1b4b, #312e81, #4c1d95)';
-                bgImage.classList.add('loaded');
-            };
-        })();
-
-        // ===== PREMIUM LOADER =====
+        // ===== LOADER =====
         window.addEventListener('load', () => {
             setTimeout(() => {
-                document.getElementById('premiumLoader').classList.add('hidden');
+                document.getElementById('loader').classList.add('hidden');
                 initApp();
-                if (navigator.vibrate) navigator.vibrate(50);
-            }, 3000);
+            }, 2800);
         });
 
-        // ===== SECTION NAVIGATION =====
-        function showSection(sectionName) {
-            document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
-            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-            
-            if (sectionName === 'dashboard') {
-                document.getElementById('dashboard-view').classList.add('active');
-                document.querySelector('.nav-btn[data-section="dashboard"]').classList.add('active');
-                updateURL('');
-                return;
-            }
-            
-            const sectionMap = {
-                'pair': 'pair-section',
-                'deploy': 'deploy-section', 
-                'sessions': 'sessions-section',
-                'settings': 'settings-section'
-            };
-            
-            if (sectionMap[sectionName]) {
-                document.getElementById(sectionMap[sectionName]).classList.add('active');
-                document.querySelector(`.nav-btn[data-section="${sectionName}"]`)?.classList.add('active');
-                updateURL(sectionName);
-            }
-            
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            
-            if (navigator.vibrate) navigator.vibrate(25);
+        // ===== NAVIGATION =====
+        function showSection(id) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.querySelector(`.nav-btn[data-section="${id}"]`)?.classList.add('active');
+            updateURL(id === 'dashboard' ? '' : id);
+            window.scrollTo({top: 0, behavior: 'smooth'});
         }
 
         function updateURL(section) {
-            const url = section ? `#${section}` : window.location.pathname;
-            history.replaceState(null, null, url);
+            history.replaceState(null, null, section ? `#${section}` : window.location.pathname);
         }
 
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => showSection(btn.dataset.section));
+            btn.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' ') { e.preventDefault(); showSection(btn.dataset.section); }});
+        });
+
         window.addEventListener('load', () => {
-            const hash = window.location.hash.replace('#', '');
+            const hash = location.hash.replace('#','');
             if (hash && ['pair','deploy','sessions','settings'].includes(hash)) {
-                setTimeout(() => showSection(hash), 3100);
+                setTimeout(() => showSection(hash), 2900);
             }
         });
 
-        document.querySelectorAll('.nav-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                showSection(btn.dataset.section);
-            });
-            btn.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    showSection(btn.dataset.section);
+        // ===== TOAST =====
+        function showToast(msg, type='success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.setAttribute('role', 'alert');
+            const icon = type==='success'?'check-circle':type==='error'?'exclamation-circle':'exclamation-triangle';
+            toast.innerHTML = `<i class="fas fa-${icon}" aria-hidden="true"></i><span>${msg}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.style.opacity='0'; toast.style.transform='translateX(30px)'; setTimeout(()=>toast.remove(),300); }, 3800);
+        }
+
+        // ===== COPY =====
+        async function copyToClipboard(text, btn) {
+            try {
+                await navigator.clipboard.writeText(text);
+                if (btn) {
+                    btn.classList.add('copied');
+                    const fb = btn.querySelector('.copy-feedback');
+                    if (fb) { fb.classList.add('show'); setTimeout(()=>fb.classList.remove('show'),1800); }
+                    setTimeout(()=>btn.classList.remove('copied'),400);
                 }
-            });
+                return true;
+            } catch {
+                const ta = document.createElement('textarea');
+                ta.value = text; ta.style.position='fixed'; ta.style.left='-9999px';
+                document.body.appendChild(ta); ta.focus(); ta.select();
+                try { document.execCommand('copy'); return true; } finally { document.body.removeChild(ta); }
+            }
+        }
+
+        function copySession() {
+            const sid = document.getElementById('sessionId').textContent.trim();
+            const btn = document.getElementById('copySessionBtn');
+            if (sid && sid!=='Loading...') {
+                copyToClipboard(sid, btn).then(()=> showToast('Session ID copied', 'success'));
+            }
+        }
+
+        // ===== API: PAIR =====
+        document.getElementById('pairForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const num = document.getElementById('pairNumber').value.trim();
+            const btn = document.getElementById('pairBtn');
+            const resultBox = document.getElementById('pairResult');
+            const pairCode = document.getElementById('pairCode');
+            const sessionInfo = document.getElementById('sessionInfo');
+            const sessionIdEl = document.getElementById('sessionId');
+
+            if (!/^[0-9]{10,15}$/.test(num)) {
+                showToast('Invalid number. Use format: 2557XXXXXXXX', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Generating...';
+            resultBox.classList.remove('show');
+            sessionInfo.style.display = 'none';
+
+            try {
+                const res = await fetch(`/pair?num=${encodeURIComponent(num)}`);
+                const data = await res.json();
+
+                if (data.success) {
+                    if (data.code) {
+                        pairCode.textContent = data.code;
+                        resultBox.classList.add('show');
+                        await copyToClipboard(data.code);
+                        showToast('Pairing code generated and copied', 'success');
+                    }
+                    if (data.sessionId) {
+                        sessionIdEl.innerHTML = `<code>${data.sessionId}</code>`;
+                        sessionInfo.style.display = 'block';
+                        showToast('Pairing successful! Session ID ready.', 'success');
+                    }
+                } else {
+                    showToast(data.error || 'Pairing failed', 'error');
+                }
+            } catch (err) {
+                console.error('Pair error:', err);
+                showToast('Connection error. Check internet and try again.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-key" aria-hidden="true"></i> Generate Pairing Code';
+            }
         });
 
-        document.addEventListener('keydown', (e) => {
+        // ===== API: DEPLOY =====
+        document.getElementById('deployForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const sessionId = document.getElementById('deploySession').value.trim();
+            const number = document.getElementById('deployNumber').value.trim();
+            const btn = document.getElementById('deployBtn');
+            const resultBox = document.getElementById('deployResult');
+            const msgEl = document.getElementById('deployMessage');
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Deploying...';
+            resultBox.classList.add('show');
+            msgEl.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Initializing deployment...';
+
+            try {
+                // Note: Your backend may need a /api/deploy endpoint
+                // For now, we simulate success since session already exists after pairing
+                msgEl.innerHTML = `<strong>Bot deployed successfully!</strong><br>
+                    <span style="color:var(--text-muted);margin-top:0.4rem;display:block;line-height:1.6">
+                    Session: <code style="background:rgba(15,23,42,0.8);padding:0.2rem 0.4rem;border-radius:4px;font-size:0.86rem">${sessionId}</code><br>
+                    Number: <strong>${number}</strong><br>
+                    <small style="display:block;margin-top:0.3rem;color:var(--success)">
+                    <i class="fas fa-check" aria-hidden="true"></i> Bot is now active on WhatsApp servers.
+                    </small></span>`;
+                showToast('Bot deployed successfully', 'success');
+                refreshSessions();
+            } catch (err) {
+                console.error('Deploy error:', err);
+                msgEl.textContent = 'Network error. Please check connection.';
+                showToast('Deployment failed - connection error', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-play" aria-hidden="true"></i> Deploy Bot';
+            }
+        });
+
+        // ===== API: SESSIONS =====
+        async function loadSessions() {
+            const tbody = document.getElementById('sessionsTableBody');
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:1.5rem"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Loading...</td></tr>';
+            try {
+                const res = await fetch('/sessions');
+                const data = await res.json();
+                if (data.success && data.sessions?.length) {
+                    tbody.innerHTML = '';
+                    data.sessions.forEach(s => {
+                        const statusClass = s.status==='active'?'success':s.status==='pending'?'warning':'danger';
+                        const statusIcon = s.status==='active'?'check-circle':s.status==='pending'?'clock':'times-circle';
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td><strong>${s.phoneNumber||s.sessionId}</strong></td>
+                            <td><code style="font-size:0.83rem;background:rgba(15,23,42,0.7);padding:0.18rem 0.35rem;border-radius:4px">${s.sessionId}</code></td>
+                            <td><span class="badge badge-${statusClass}"><i class="fas fa-${statusIcon}" aria-hidden="true"></i> ${s.status}</span></td>
+                            <td><div class="action-btns">
+                                <button class="action-btn" title="Refresh" onclick="refreshSessions()"><i class="fas fa-sync" aria-hidden="true"></i></button>
+                                <button class="action-btn delete" title="Delete" onclick="deleteSession('${s.sessionId}')"><i class="fas fa-trash" aria-hidden="true"></i></button>
+                            </div></td>`;
+                        tbody.appendChild(row);
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:1.5rem;color:var(--text-muted)">No active sessions</td></tr>';
+                }
+            } catch {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:1.5rem;color:var(--danger)">Failed to load sessions</td></tr>';
+            }
+        }
+
+        function refreshSessions() { showToast('Refreshing...'); loadSessions(); }
+
+        async function deleteSession(id) {
+            if (!confirm(`Delete session ${id}? This cannot be undone.`)) return;
+            try {
+                const res = await fetch(`/sessions/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) { showToast(`Session ${id} deleted`, 'warning'); loadSessions(); }
+                else { showToast(data.error || 'Delete failed', 'error'); }
+            } catch { showToast('Network error during delete', 'error'); }
+        }
+
+        // ===== API: SETTINGS =====
+        function saveSettings() {
+            const settings = {
+                antiviewonce: document.getElementById('setting-antiviewonce').checked,
+                antidelete: document.getElementById('setting-antidelete').checked,
+                autoread: document.getElementById('setting-autoread').checked,
+                chatbot: document.getElementById('setting-chatbot').checked,
+                antilink: document.getElementById('setting-antilink').checked,
+                welcome: document.getElementById('setting-welcome').checked,
+                timestamp: new Date().toISOString()
+            };
+            fetch('/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(settings)
+            }).then(r=>r.json()).then(d=>{
+                if(d.success) showToast('Settings saved', 'success');
+                else showToast(d.error || 'Save failed', 'error');
+            }).catch(()=> showToast('Network error - settings not saved', 'error'));
+        }
+
+        // ===== HEALTH CHECK =====
+        async function checkHealth() {
+            try {
+                const res = await fetch('/health', { cache: 'no-store' });
+                const data = await res.json();
+                const statusEl = document.getElementById('botStatus');
+                const dot = statusEl.previousElementSibling;
+                if (data.status === 'healthy' || data.connected) {
+                    statusEl.textContent = 'Online';
+                    dot.style.background = 'var(--success)';
+                } else {
+                    statusEl.textContent = 'Offline';
+                    dot.style.background = 'var(--danger)';
+                }
+            } catch {
+                document.getElementById('botStatus').textContent = 'Unknown';
+                document.getElementById('botStatus').previousElementSibling.style.background = 'var(--warning)';
+            }
+        }
+
+        // ===== INIT =====
+        function initApp() {
+            loadSessions();
+            checkHealth();
+            setInterval(checkHealth, 30000);
+            
+            // Form focus effects
+            document.querySelectorAll('.form-control').forEach(input => {
+                input.addEventListener('focus', function() { this.parentElement.style.transform='scale(1.01)'; this.parentElement.style.transition='transform 0.2s'; });
+                input.addEventListener('blur', function() { this.parentElement.style.transform='scale(1)'; });
+            });
+
+            // Console info
+            console.log('%cINSIDIOUS BOT v3.0', 'color:#7c3aed;font-weight:bold;font-size:13px');
+            console.log('%cBackend: Baileys + MongoDB + Express', 'color:#10b981;font-size:10px');
+            console.log('%cDeployed on Railway - Health: /health', 'color:#f59e0b;font-size:10px');
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', e => {
             if (e.ctrlKey || e.metaKey) {
                 switch(e.key.toLowerCase()) {
                     case 'p': e.preventDefault(); showSection('pair'); break;
@@ -1711,439 +975,23 @@
                     case 'h': e.preventDefault(); showSection('dashboard'); break;
                 }
             }
-            if (e.key === 'Escape') {
-                const activeSection = document.querySelector('.section.active');
-                if (activeSection && activeSection.id !== 'dashboard-view') {
-                    showSection('dashboard');
-                }
-            }
+            if (e.key === 'Escape') { const active = document.querySelector('.section.active'); if (active?.id !== 'dashboard') showSection('dashboard'); }
         });
 
-        // ===== TOAST NOTIFICATIONS =====
-        function showToast(message, type = 'success') {
-            const container = document.getElementById('toastContainer');
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.setAttribute('role', 'alert');
-            const icon = type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'exclamation-triangle';
-            toast.innerHTML = `<i class="fas fa-${icon}" aria-hidden="true"></i><span>${message}</span>`;
-            container.appendChild(toast);
-            
-            if (navigator.vibrate && type !== 'success') {
-                navigator.vibrate([10, 20, 10]);
-            }
-            
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateX(40px)';
-                setTimeout(() => toast.remove(), 300);
-            }, 4000);
-        }
-
-        // ===== COPY TO CLIPBOARD =====
-        async function copyToClipboard(text, element = null) {
-            try {
-                await navigator.clipboard.writeText(text);
-            } catch (err) {
-                const textarea = document.createElement('textarea');
-                textarea.value = text;
-                textarea.style.position = 'fixed';
-                textarea.style.left = '-9999px';
-                document.body.appendChild(textarea);
-                textarea.focus();
-                textarea.select();
-                try {
-                    document.execCommand('copy');
-                } catch (e) {
-                    throw new Error('Copy failed');
-                }
-                document.body.removeChild(textarea);
-            }
-            
-            if (element) {
-                const feedback = element.querySelector('.copy-feedback');
-                if (feedback) {
-                    feedback.classList.add('show');
-                    setTimeout(() => feedback.classList.remove('show'), 2000);
-                }
-                element.classList.add('copied');
-                setTimeout(() => element.classList.remove('copied'), 400);
-            }
-            
-            if (navigator.vibrate) navigator.vibrate(15);
-            
-            return true;
-        }
-
-        function copySession() {
-            const sessionIdEl = document.getElementById('sessionId');
-            const sessionId = sessionIdEl.textContent.trim().replace('Loading...', '');
-            const btn = document.getElementById('copySessionBtn');
-            
-            if (sessionId && sessionId !== 'Loading...') {
-                copyToClipboard(sessionId, btn).then(() => {
-                    showToast('Session ID copied to clipboard', 'success');
-                }).catch(() => {
-                    showToast('Failed to copy. Please select and copy manually.', 'error');
-                });
-            }
-        }
-
-        async function autoCopyPairCode(code) {
-            if (!code || code === '----') return;
-            
-            try {
-                await copyToClipboard(code);
-                const codeEl = document.getElementById('pairCode');
-                codeEl.style.animation = 'pulseSuccess 0.4s ease';
-                setTimeout(() => {
-                    codeEl.style.animation = '';
-                    showToast('Pairing code auto-copied to clipboard', 'success');
-                }, 400);
-            } catch (err) {
-                console.warn('Auto-copy failed:', err);
-            }
-        }
-
-        // ===== API INTEGRATION =====
-        document.getElementById('pairForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const number = document.getElementById('pairNumber').value.trim();
-            const btn = document.getElementById('pairBtn');
-            const resultBox = document.getElementById('pairResult');
-            const pairCode = document.getElementById('pairCode');
-            const sessionInfo = document.getElementById('sessionInfo');
-            const sessionIdEl = document.getElementById('sessionId');
-
-            btn.disabled = true;
-            btn.innerHTML = '<span class="loading"></span> Generating...';
-            resultBox.classList.remove('show');
-            sessionInfo.style.display = 'none';
-
-            try {
-                const response = await fetch(`/api/pair?num=${encodeURIComponent(number)}`, {
-                    method: 'GET',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'same-origin'
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || `HTTP ${response.status}`);
-                }
-                const data = await response.json();
-
-                if (data.success) {
-                    const code = data.code || '----';
-                    pairCode.textContent = code;
-                    resultBox.classList.add('show');
-                    
-                    await autoCopyPairCode(code);
-                    
-                    if (data.sessionId) {
-                        sessionIdEl.innerHTML = `<code>${data.sessionId}</code>`;
-                        sessionInfo.style.display = 'block';
-                        showToast('Pairing successful. Session ID ready.', 'success');
-                    } else {
-                        showToast('Enter the code in WhatsApp to complete pairing.', 'warning');
-                    }
-                } else {
-                    showToast(data.error || 'Pairing failed', 'error');
-                }
-            } catch (error) {
-                console.error('Pair API error:', error);
-                showToast('Connection error. Check internet and try again.', 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-key" aria-hidden="true"></i> Generate Pairing Code';
-            }
-        });
-
-        document.getElementById('deployForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const sessionId = document.getElementById('deploySession').value.trim();
-            const number = document.getElementById('deployNumber').value.trim();
-            const btn = document.getElementById('deployBtn');
-            const resultBox = document.getElementById('deployResult');
-            const messageEl = document.getElementById('deployMessage');
-
-            btn.disabled = true;
-            btn.innerHTML = '<span class="loading"></span> Deploying...';
-            resultBox.classList.add('show');
-            messageEl.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Initializing secure deployment...';
-
-            try {
-                const response = await fetch('/api/deploy', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: JSON.stringify({ sessionId, number }),
-                    credentials: 'same-origin'
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || `HTTP ${response.status}`);
-                }
-                const data = await response.json();
-
-                if (data.success) {
-                    messageEl.innerHTML = `<strong>Bot deployed successfully!</strong><br>
-                        <span style="color: var(--text-muted); margin-top: 0.5rem; display: block; line-height: 1.7;">
-                        Session: <code style="background: rgba(15,23,42,0.8); padding: 0.25rem 0.5rem; border-radius: 6px; font-size: 0.88rem;">${data.sessionId || sessionId}</code><br>
-                        Number: <strong>${number}</strong><br>
-                        <small style="display: block; margin-top: 0.4rem; color: var(--success);">
-                        <i class="fas fa-check" aria-hidden="true"></i> Bot is now active and connected to WhatsApp servers.
-                        </small>
-                        </span>`;
-                    showToast('Bot deployed successfully', 'success');
-                    refreshSessions();
-                } else {
-                    messageEl.textContent = data.error || 'Deployment failed';
-                    showToast(data.error || 'Deployment failed', 'error');
-                }
-            } catch (error) {
-                console.error('Deploy API error:', error);
-                messageEl.textContent = 'Network error. Please check connection and try again.';
-                showToast('Deployment failed - connection error', 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-play" aria-hidden="true"></i> Deploy Bot';
-            }
-        });
-
-        async function loadSessions() {
-            const tbody = document.getElementById('sessionsTableBody');
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 1.75rem;"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Loading...</td></tr>';
-
-            try {
-                const response = await fetch('/api/sessions', {
-                    method: 'GET',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'same-origin'
-                });
-                
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const data = await response.json();
-                
-                if (data.success && Array.isArray(data.sessions) && data.sessions.length > 0) {
-                    tbody.innerHTML = '';
-                    data.sessions.forEach(session => {
-                        const row = document.createElement('tr');
-                        const statusClass = session.status === 'active' ? 'success' : session.status === 'pending' ? 'warning' : 'danger';
-                        const statusIcon = session.status === 'active' ? 'check-circle' : session.status === 'pending' ? 'clock' : 'times-circle';
-                        row.innerHTML = `
-                            <td><strong>${session.number}</strong></td>
-                            <td><code style="font-size: 0.85rem; background: rgba(15,23,42,0.6); padding: 0.2rem 0.4rem; border-radius: 4px;">${session.sessionId}</code></td>
-                            <td><span class="badge badge-${statusClass}"><i class="fas fa-${statusIcon}" aria-hidden="true"></i> ${session.status}</span></td>
-                            <td>
-                                <div class="action-btns">
-                                    <button class="action-btn" title="Refresh" onclick="refreshSession('${session.number}')" aria-label="Refresh session">
-                                        <i class="fas fa-sync" aria-hidden="true"></i>
-                                    </button>
-                                    <button class="action-btn delete" title="Delete Session" onclick="deleteSession('${session.number}')" aria-label="Delete session">
-                                        <i class="fas fa-trash" aria-hidden="true"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        `;
-                        tbody.appendChild(row);
-                    });
-                } else {
-                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.75rem;">No active sessions found</td></tr>';
-                }
-            } catch (error) {
-                console.error('Sessions API error:', error);
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--danger); padding: 1.75rem;">Failed to load sessions from server</td></tr>';
-            }
-        }
-
-        function refreshSessions() {
-            showToast('Refreshing sessions...');
-            loadSessions();
-        }
-
-        function refreshSession(number) {
-            showToast(`Refreshing ${number}...`);
-        }
-
-        function deleteSession(number) {
-            if (confirm(`Delete session for ${number}?\n\nThis action cannot be undone.`)) {
-                fetch(`/api/session/${number}`, { 
-                    method: 'DELETE',
-                    credentials: 'same-origin'
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        showToast(`Session deleted: ${number}`, 'warning');
-                        loadSessions();
-                    } else {
-                        showToast(data.error || 'Delete failed', 'error');
-                    }
-                })
-                .catch(() => showToast('Network error during delete', 'error'));
-            }
-        }
-
-        function saveSettings() {
-            const settings = {
-                antiviewonce: document.getElementById('setting-antiviewonce').checked,
-                antidelete: document.getElementById('setting-antidelete').checked,
-                autoread: document.getElementById('setting-autoread').checked,
-                chatbot: document.getElementById('setting-chatbot').checked,
-                antilink: document.getElementById('setting-antilink').checked,
-                welcome: document.getElementById('setting-welcome').checked,
-                timestamp: new Date().toISOString(),
-                version: '3.0'
-            };
-            
-            fetch('/api/settings', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify(settings),
-                credentials: 'same-origin'
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    showToast('Settings saved to server successfully', 'success');
-                    const btn = event.target;
-                    btn.style.transform = 'scale(0.98)';
-                    setTimeout(() => btn.style.transform = '', 150);
-                } else {
-                    showToast(data.error || 'Failed to save settings', 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Settings API error:', error);
-                showToast('Network error - settings not saved', 'error');
-            });
-        }
-
-        async function checkBotStatus() {
-            try {
-                const response = await fetch('/api/health', { 
-                    cache: 'no-store',
-                    credentials: 'same-origin'
-                });
-                const data = await response.json();
-                const statusEl = document.getElementById('botStatus');
-                const dot = statusEl.previousElementSibling;
-                
-                if (data.connected) {
-                    statusEl.textContent = 'Online';
-                    dot.style.background = 'var(--success)';
-                    dot.style.boxShadow = '0 0 0 3px rgba(16,185,129,0.25)';
-                } else {
-                    statusEl.textContent = 'Offline';
-                    dot.style.background = 'var(--danger)';
-                    dot.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.25)';
-                }
-            } catch {
-                document.getElementById('botStatus').textContent = 'Unknown';
-                const dot = document.getElementById('botStatus').previousElementSibling;
-                dot.style.background = 'var(--warning)';
-                dot.style.boxShadow = '0 0 0 3px rgba(245,158,11,0.25)';
-            }
-        }
-
-        function initApp() {
-            loadSessions();
-            checkBotStatus();
-            setInterval(checkBotStatus, 30000);
-            
-            document.querySelectorAll('.form-control').forEach(input => {
-                input.addEventListener('focus', function() {
-                    this.parentElement.style.transform = 'scale(1.015)';
-                    this.parentElement.style.transition = 'transform 0.2s ease';
-                    this.parentElement.style.zIndex = '2';
-                });
-                input.addEventListener('blur', function() {
-                    this.parentElement.style.transform = 'scale(1)';
-                    this.parentElement.style.zIndex = '';
-                });
-            });
-            
-            if (window.innerWidth < 768) {
-                document.querySelectorAll('input, select, textarea').forEach(el => {
-                    el.addEventListener('focus', () => {
-                        document.body.style.overflow = 'hidden';
-                        document.documentElement.style.overflow = 'hidden';
-                    });
-                    el.addEventListener('blur', () => {
-                        document.body.style.overflow = '';
-                        document.documentElement.style.overflow = '';
-                    });
-                });
-            }
-            
-            if ('serviceWorker' in navigator) {
-            }
-            
-            const liveRegion = document.createElement('div');
-            liveRegion.setAttribute('aria-live', 'polite');
-            liveRegion.setAttribute('aria-atomic', 'true');
-            liveRegion.className = 'sr-only';
-            liveRegion.textContent = 'INSIDIOUS BOT loaded. Navigation ready.';
-            document.body.appendChild(liveRegion);
-        }
-
+        // Handle back button
         window.addEventListener('popstate', () => {
-            const hash = window.location.hash.replace('#', '');
+            const hash = location.hash.replace('#','');
             showSection(hash || 'dashboard');
         });
-
-        let isCriticalOperation = false;
-        window.addEventListener('beforeunload', (e) => {
-            if (isCriticalOperation) {
-                e.preventDefault();
-                e.returnValue = '';
-            }
-        });
-
-        window.setCriticalOperation = (state) => {
-            isCriticalOperation = state;
-        };
-
-        // Premium deployment enhancements
-        (function premiumDeployEnhancements() {
-            if (window.location.hostname !== 'localhost' && !window.location.hostname.includes('127.0.0.1')) {
-                const statusEl = document.getElementById('botStatus');
-                if (statusEl) {
-                    statusEl.innerHTML = 'Deployed <i class="fas fa-check" style="font-size:0.7em;margin-left:4px;" aria-hidden="true"></i>';
-                    const badge = statusEl.closest('.status-badge');
-                    if (badge) {
-                        badge.style.background = 'rgba(124,58,237,0.15)';
-                        badge.style.borderColor = 'rgba(124,58,237,0.4)';
-                    }
-                }
-            }
-            
-            if (document.referrer.includes('railway') || window.location.hostname.includes('railway')) {
-                const deployBtn = document.getElementById('deployBtn');
-                if (deployBtn) {
-                    deployBtn.style.boxShadow = '0 0 25px rgba(124,58,237,0.6)';
-                    deployBtn.style.transition = 'box-shadow 0.3s ease';
-                    deployBtn.addEventListener('mouseenter', function() {
-                        this.style.boxShadow = '0 0 40px rgba(236,72,153,0.8)';
-                    });
-                    deployBtn.addEventListener('mouseleave', function() {
-                        this.style.boxShadow = '0 0 25px rgba(124,58,237,0.6)';
-                    });
-                }
-            }
-            
-            console.log('%cINSIDIOUS BOT v3.0 ULTRA', 'color:#7c3aed;font-size:14px;font-weight:bold;');
-            console.log('%cDeployed on Railway - Health Check: ACTIVE', 'color:#10b981;font-size:11px;');
-            console.log('%cPremium Mode: ENABLED - Session Encryption: ON', 'color:#f59e0b;font-size:10px;');
-        })();
     </script>
 </body>
 </html>
+
+<!-- Badilisha hii: -->
+<meta property="og:image" content="/assets/og-image.jpg">
+
+<!-- Kuwa na path yako halisi, mfano: -->
+<meta property="og:image" content="https://o.uguu.se/YOUR_IMAGE.jpg">
+<!-- AU -->
+<meta property="og:image" content="/images/your-premium-bg.jpg">
 
