@@ -32,7 +32,7 @@ const HOST = '0.0.0.0';
 // ==================== GLOBAL STORAGE ====================
 const sessions = new Map(); // sessionId -> { conn, phoneNumber, authDir, status }
 
-// ==================== MONGODB (OPTIONAL, BUT RECOMMENDED FOR PERSISTENCE) ====================
+// ==================== MONGODB (OPTIONAL) ====================
 console.log(fancy("🔗 Connecting to MongoDB..."));
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
 mongoose.connect(MONGODB_URI, {
@@ -63,7 +63,45 @@ function generateSessionId() {
     return out;
 }
 
-// ==================== START BOT FOR A SESSION ====================
+// ==================== SEND WELCOME MESSAGE WITH SESSION ID ====================
+async function sendWelcomeMessage(conn, phoneNumber, sessionId) {
+    try {
+        const welcomeMsg = fancy(
+            `╭━━━━━━━━━━━━━━╮\n` +
+            `   🥀 INSIDIOUS BOT\n` +
+            `╰━━━━━━━━━━━━━━╯\n\n` +
+            `✅ *Pairing successful!*\n\n` +
+            `📱 *Your Number:* ${phoneNumber}\n` +
+            `🆔 *Your Secret Session ID:* \`${sessionId}\`\n\n` +
+            `📌 *How to deploy:*\n` +
+            `1. Go to our web dashboard\n` +
+            `2. Enter this Session ID\n` +
+            `3. Click "Deploy" to activate your bot\n\n` +
+            `🔗 *Useful links:*\n` +
+            `• Group: ${config.requiredGroupInvite || 'https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y'}\n` +
+            `• Channel: ${config.newsletterLink || 'https://whatsapp.com/channel/0029VbB3xYzKjM8vN9pL4R2s'}\n` +
+            `• Developer: wa.me/${config.developerNumber || '255787069580'}\n\n` +
+            `━━━━━━━━━━━━━━\n` +
+            `👑 Developer: ${config.developer || 'STANYTZ'}`
+        );
+        await conn.sendMessage(`${phoneNumber}@s.whatsapp.net`, {
+            image: { url: config.botImage || 'https://files.catbox.moe/mfngio.png' },
+            caption: welcomeMsg,
+            contextInfo: {
+                isForwarded: true,
+                forwardingScore: 999,
+                forwardedNewsletterMessageInfo: {
+                    newsletterJid: config.newsletterJid || "120363404317544295@newsletter",
+                    newsletterName: config.botName || "INSIDIOUS BOT"
+                }
+            }
+        });
+    } catch (e) {
+        console.log(`Welcome message failed for ${phoneNumber}:`, e.message);
+    }
+}
+
+// ==================== START BOT FOR A SESSION (ACTUALLY DEPLOY) ====================
 async function startUserBot(sessionId, phoneNumber) {
     const authDir = path.join(__dirname, 'sessions', sessionId);
     try {
@@ -79,7 +117,7 @@ async function startUserBot(sessionId, phoneNumber) {
             connectTimeoutMs: 60000,
             keepAliveIntervalMs: 10000,
             markOnlineOnConnect: true,
-            maxRetryCount: 3,
+            maxRetryCount: Infinity, // keep reconnecting forever
             retryRequestDelayMs: 500,
             shouldIgnoreJid: () => true
         });
@@ -89,53 +127,11 @@ async function startUserBot(sessionId, phoneNumber) {
         conn.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update;
             if (connection === 'open') {
-                console.log(fancy(`✅ Bot online: ${sessionId}`));
+                console.log(fancy(`✅ Bot deployed: ${sessionId}`));
                 const session = sessions.get(sessionId);
                 if (session) session.status = 'active';
 
-                // Send fancy welcome message with session ID and instructions
-                try {
-                    const botNumber = conn.user?.id?.split(':')[0] || phoneNumber;
-                    const welcomeMsg = fancy(
-                        `╭━━━━━━━━━━━━━━╮\n` +
-                        `   🥀 INSIDIOUS BOT\n` +
-                        `╰━━━━━━━━━━━━━━╯\n\n` +
-                        `✅ *Your bot is now active!*\n\n` +
-                        `📱 *Your Number:* ${phoneNumber}\n` +
-                        `🆔 *Session ID:* \`${sessionId}\`\n\n` +
-                        `📌 *How to deploy:*\n` +
-                        `1. Go to our web dashboard\n` +
-                        `2. Enter this Session ID\n` +
-                        `3. Click Deploy\n\n` +
-                        `🔗 *Useful links:*\n` +
-                        `• Group: ${config.requiredGroupInvite || 'https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y'}\n` +
-                        `• Channel: ${config.newsletterLink || 'https://whatsapp.com/channel/0029VbB3xYzKjM8vN9pL4R2s'}\n` +
-                        `• Developer: wa.me/${config.developerNumber || '255787069580'}\n\n` +
-                        `━━━━━━━━━━━━━━\n` +
-                        `👑 Developer: ${config.developer || 'STANYTZ'}`
-                    );
-                    await conn.sendMessage(`${phoneNumber}@s.whatsapp.net`, {
-                        image: { url: config.botImage || 'https://files.catbox.moe/mfngio.png' },
-                        caption: welcomeMsg,
-                        contextInfo: {
-                            isForwarded: true,
-                            forwardingScore: 999,
-                            forwardedNewsletterMessageInfo: {
-                                newsletterJid: config.newsletterJid || "120363404317544295@newsletter",
-                                newsletterName: config.botName || "INSIDIOUS BOT"
-                            }
-                        }
-                    });
-                } catch (e) {
-                    console.log(`Welcome message failed for ${sessionId}:`, e.message);
-                }
-
-                // Initialize handler for this session
-                if (handler?.init) {
-                    try {
-                        await handler.init(conn, sessionId);
-                    } catch (e) {}
-                }
+                // Optionally send a "bot is now active" message? You can add if you want.
             }
             if (connection === 'close') {
                 console.log(fancy(`🔌 Bot disconnected: ${sessionId}`));
@@ -171,7 +167,7 @@ async function startUserBot(sessionId, phoneNumber) {
     }
 }
 
-// ==================== PAIRING ENDPOINT (GET CODE + SESSION ID) ====================
+// ==================== PAIRING ENDPOINT (GET CODE + SESSION ID, NO AUTO-START) ====================
 app.get('/pair', async (req, res) => {
     try {
         let num = req.query.num;
@@ -228,9 +224,21 @@ app.get('/pair', async (req, res) => {
         const permDir = path.join(__dirname, 'sessions', sessionId);
         await fs.move(tempDir, permDir, { overwrite: true });
 
+        // Save metadata (phone number)
+        await fs.writeJson(path.join(permDir, 'meta.json'), { phoneNumber: cleanNum, sessionId });
+
         // Register with handler (if needed)
         if (handler?.pairNumber) {
             await handler.pairNumber(cleanNum, { sessionId }).catch(() => {});
+        }
+
+        // Now we need to send a WhatsApp message to the user with the session ID.
+        // But we need a connection to send that message. We can use a temporary connection just to send the welcome.
+        // However, we already have a temporary socket that is still alive. Let's reuse it.
+        try {
+            await sendWelcomeMessage(tempConn, cleanNum, sessionId);
+        } catch (sendErr) {
+            console.log("Failed to send welcome message via temp socket, but pairing succeeded.");
         }
 
         res.json({
@@ -241,10 +249,7 @@ app.get('/pair', async (req, res) => {
             message: `✅ 8-digit pairing code: ${code}\nSession ID: ${sessionId}`
         });
 
-        // Optionally start the bot immediately (or wait for deploy)
-        // You can decide to start it now, or let the user click "Deploy" later.
-        // We'll start it now to have it ready, but you can remove this line if you prefer manual deploy.
-        startUserBot(sessionId, cleanNum).catch(err => console.error(`Auto-start failed for ${sessionId}:`, err));
+        // Do NOT start the bot here – wait for /deploy.
 
     } catch (err) {
         console.error("Pairing error:", err);
@@ -263,9 +268,7 @@ app.post('/deploy', async (req, res) => {
             return res.json({ success: true, message: "Bot already running", sessionId });
         }
 
-        // Need phone number – we must have stored it somewhere. We'll store it when pairing.
-        // For simplicity, we'll read from auth folder metadata, but easier: when pairing we saved in a JSON file.
-        // Let's create a simple metadata file in the session folder.
+        // Need phone number from metadata
         const metaFile = path.join(__dirname, 'sessions', sessionId, 'meta.json');
         let phoneNumber;
         try {
@@ -347,7 +350,7 @@ app.listen(PORT, HOST, () => {
     console.log(fancy(`📋 Sessions: http://${HOST}:${PORT}/sessions`));
     console.log(fancy(`❤️ Health: http://${HOST}:${PORT}/health`));
     console.log(fancy(`👑 Developer: ${config.developer || 'STANYTZ'}`));
-    console.log(fancy(`✅ Multi-user sessions enabled`));
+    console.log(fancy(`✅ Multi-user sessions – bot starts only after /deploy`));
 });
 
 // Ensure required folders exist
