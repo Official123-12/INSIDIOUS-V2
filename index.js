@@ -8,10 +8,6 @@ const fs = require('fs');
 // ==================== HANDLER ====================
 const handler = require('./handler');
 
-// ==================== MODELS & UTILS ====================
-const Session = require('./models/Session');
-const useMongoAuthState = require('./utils/mongoAuth');
-
 // ✅ **FANCY FUNCTION**
 function fancy(text) {
     if (!text || typeof text !== 'string') return text;
@@ -40,7 +36,7 @@ function fancy(text) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ **MONGODB CONNECTION**
+// ✅ **MONGODB CONNECTION (OPTIONAL)**
 console.log(fancy("🔗 Connecting to MongoDB..."));
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
 
@@ -51,13 +47,10 @@ mongoose.connect(MONGODB_URI, {
 })
 .then(() => {
     console.log(fancy("✅ MongoDB Connected"));
-    // Load all saved sessions after DB connects
-    loadAllSessions();
 })
 .catch((err) => {
     console.log(fancy("❌ MongoDB Connection FAILED"));
     console.log(fancy("💡 Error: " + err.message));
-    process.exit(1);
 });
 
 // ✅ **MIDDLEWARE**
@@ -78,8 +71,9 @@ app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
-// ✅ **GLOBAL VARIABLES FOR MULTI‑SESSION**
-const activeConnections = new Map(); // key: phoneNumber, value: { sock, saveCreds, keyData }
+// ✅ **GLOBAL VARIABLES**
+let globalConn = null;
+let isConnected = false;
 let botStartTime = Date.now();
 
 // ✅ **LOAD CONFIG**
@@ -98,130 +92,87 @@ try {
     };
 }
 
-// ==================== MULTI‑SESSION MANAGEMENT ====================
+// ✅ **MAIN BOT FUNCTION**
+async function startBot() {
+    try {
+        console.log(fancy("🚀 Starting INSIDIOUS..."));
+        
+        // ✅ **AUTHENTICATION**
+        const { state, saveCreds } = await useMultiFileAuthState('insidious_session');
+        const { version } = await fetchLatestBaileysVersion();
 
-async function startUserBot(phoneNumber) {
-    if (activeConnections.has(phoneNumber)) {
-        return activeConnections.get(phoneNumber).sock;
-    }
+        // ✅ **CREATE CONNECTION**
+        const conn = makeWASocket({
+            version,
+            auth: { 
+                creds: state.creds, 
+                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) 
+            },
+            logger: pino({ level: "silent" }),
+            browser: Browsers.macOS("Safari"),
+            syncFullHistory: false,
+            connectTimeoutMs: 60000,
+            keepAliveIntervalMs: 10000,
+            markOnlineOnConnect: true
+        });
 
-    console.log(fancy(`🚀 Starting bot for ${phoneNumber}...`));
+        globalConn = conn;
+        botStartTime = Date.now();
 
-    const { state, saveCreds, keyData } = await useMongoAuthState(phoneNumber);
-    const { version } = await fetchLatestBaileysVersion();
-
-    const sock = makeWASocket({
-        version,
-        auth: {
-            creds: state.creds,
-            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'fatal' }))
-        },
-        logger: pino({ level: 'silent' }),
-        browser: Browsers.macOS('Safari'),
-        syncFullHistory: false,
-        connectTimeoutMs: 60000,
-        keepAliveIntervalMs: 10000,
-        markOnlineOnConnect: true
-    });
-
-    activeConnections.set(phoneNumber, { sock, saveCreds, keyData });
-
-    // ---------- CREDENTIALS UPDATE ----------
-    sock.ev.on('creds.update', async () => {
-        const fullCreds = sock.authState.creds;
-        const entry = activeConnections.get(phoneNumber);
-        if (entry && entry.keyData) {
-            await Session.findOneAndUpdate(
-                { phoneNumber },
-                { $set: { creds: fullCreds, keys: entry.keyData } },
-                { upsert: true, new: true }
-            );
-            console.log(fancy(`💾 Saved session for ${phoneNumber}`));
-        }
-    });
-
-    // ---------- CONNECTION UPDATE ----------
-    sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect } = update;
-
-        if (connection === 'open') {
-            console.log(fancy(`✅ ${phoneNumber} is now online`));
-            // Send welcome message if this is the owner
-            if (config.ownerNumber && config.ownerNumber.includes(phoneNumber)) {
-                sendWelcomeMessage(sock, phoneNumber);
-            }
-        }
-
-        if (connection === 'close') {
-            console.log(fancy(`🔌 Connection closed for ${phoneNumber}`));
-            activeConnections.delete(phoneNumber);
-
-            const statusCode = lastDisconnect?.error?.output?.statusCode;
-            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-
-            if (shouldReconnect) {
-                console.log(fancy(`🔄 Reconnecting ${phoneNumber} in 5 seconds...`));
-                setTimeout(() => startUserBot(phoneNumber), 5000);
-            } else {
-                console.log(fancy(`🚫 ${phoneNumber} logged out.`));
-                // Optionally delete session from DB
-                // await Session.deleteOne({ phoneNumber });
-            }
-        }
-    });
-
-    // ---------- MESSAGES ----------
-    sock.ev.on('messages.upsert', async (m) => {
-        try {
-            if (handler && typeof handler === 'function') {
-                await handler(sock, m);
-            }
-        } catch (error) {
-            console.error(`Message handler error for ${phoneNumber}:`, error.message);
-        }
-    });
-
-    // ---------- GROUP PARTICIPANTS ----------
-    sock.ev.on('group-participants.update', async (update) => {
-        try {
-            if (handler && handler.handleGroupUpdate) {
-                await handler.handleGroupUpdate(sock, update);
-            }
-        } catch (error) {
-            console.error(`Group update error for ${phoneNumber}:`, error.message);
-        }
-    });
-
-    // ---------- CALLS ----------
-    sock.ev.on('call', async (call) => {
-        try {
-            if (handler && handler.handleCall) {
-                await handler.handleCall(sock, call);
-            }
-        } catch (error) {
-            console.error(`Call handler error for ${phoneNumber}:`, error.message);
-        }
-    });
-
-    return sock;
-}
-
-// Helper to send welcome message to owner
-async function sendWelcomeMessage(sock, phoneNumber) {
-    setTimeout(async () => {
-        try {
-            const ownerJid = phoneNumber + '@s.whatsapp.net';
-            const botSecret = handler.getBotId ? handler.getBotId() : 'Unknown';
-            const pairedCount = activeConnections.size;
-
-            const welcomeMsg = `
+        // ✅ **CONNECTION EVENT HANDLER**
+        conn.ev.on('connection.update', async (update) => {
+            const { connection, lastDisconnect } = update;
+            
+            if (connection === 'open') {
+                console.log(fancy("👹 INSIDIOUS: THE LAST KEY ACTIVATED"));
+                console.log(fancy("✅ Bot is now online"));
+                
+                isConnected = true;
+                
+                // Get bot info
+                let botName = conn.user?.name || "INSIDIOUS";
+                let botNumber = "Unknown";
+                let botId = conn.user?.id || "Unknown";
+                
+                if (conn.user?.id) {
+                    botNumber = conn.user.id.split(':')[0] || "Unknown";
+                }
+                
+                // 🔥 GET BOT ID AND PAIRED COUNT FROM HANDLER
+                const botSecret = handler.getBotId ? handler.getBotId() : 'Unknown';
+                const pairedCount = handler.getPairedNumbers ? handler.getPairedNumbers().length : 0;
+                
+                console.log(fancy(`🤖 Name: ${botName}`));
+                console.log(fancy(`📞 Number: ${botNumber}`));
+                console.log(fancy(`🆔 Bot ID: ${botSecret}`));
+                console.log(fancy(`👥 Paired Owners: ${pairedCount}`));
+                
+                // ✅ **INITIALIZE HANDLER**
+                try {
+                    if (handler && typeof handler.init === 'function') {
+                        await handler.init(conn);
+                        console.log(fancy("✅ Handler initialized"));
+                    }
+                } catch (e) {
+                    console.error(fancy("❌ Handler init error:"), e.message);
+                }
+                
+                // ✅ **SEND WELCOME MESSAGE TO OWNER**
+                setTimeout(async () => {
+                    try {
+                        if (config.ownerNumber && config.ownerNumber.length > 0) {
+                            const ownerNum = config.ownerNumber[0].replace(/[^0-9]/g, '');
+                            if (ownerNum.length >= 10) {
+                                const ownerJid = ownerNum + '@s.whatsapp.net';
+                                
+                                const welcomeMsg = `
 ╭─── • 🥀 • ───╮
    INSIDIOUS: THE LAST KEY
 ╰─── • 🥀 • ───╯
 
 ✅ *Bot Connected Successfully!*
-🤖 *Name:* ${sock.user?.name || 'INSIDIOUS'}
-📞 *Number:* ${phoneNumber}
+🤖 *Name:* ${botName}
+📞 *Number:* ${botNumber}
 🆔 *Bot ID:* ${botSecret}
 👥 *Paired Owners:* ${pairedCount}
 
@@ -243,117 +194,133 @@ async function sendWelcomeMessage(sock, phoneNumber) {
 
 👑 *Developer:* STANYTZ
 💾 *Version:* 2.1.1 | Year: 2025`;
-
-            await sock.sendMessage(ownerJid, {
-                image: { url: config.botImage || "https://files.catbox.moe/f3c07u.jpg" },
-                caption: welcomeMsg,
-                contextInfo: {
-                    isForwarded: true,
-                    forwardingScore: 999,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: config.newsletterJid || "120363404317544295@newsletter",
-                        newsletterName: config.botName || "INSIDIOUS BOT"
+                                
+                                // Send with image and forwarded style
+                                await conn.sendMessage(ownerJid, { 
+                                    image: { 
+                                        url: config.botImage || "https://files.catbox.moe/f3c07u.jpg"
+                                    },
+                                    caption: welcomeMsg,
+                                    contextInfo: { 
+                                        isForwarded: true,
+                                        forwardingScore: 999,
+                                        forwardedNewsletterMessageInfo: { 
+                                            newsletterJid: config.newsletterJid || "120363404317544295@newsletter",
+                                            newsletterName: config.botName || "INSIDIOUS BOT"
+                                        }
+                                    }
+                                });
+                                console.log(fancy("✅ Welcome message sent to owner"));
+                            }
+                        }
+                    } catch (e) {
+                        console.log(fancy("⚠️ Could not send welcome message:"), e.message);
                     }
+                }, 3000);
+            }
+            
+            if (connection === 'close') {
+                console.log(fancy("🔌 Connection closed"));
+                isConnected = false;
+                
+                const statusCode = lastDisconnect?.error?.output?.statusCode;
+                const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+                
+                if (shouldReconnect) {
+                    console.log(fancy("🔄 Restarting bot in 5 seconds..."));
+                    setTimeout(() => {
+                        startBot();
+                    }, 5000);
+                } else {
+                    console.log(fancy("🚫 Logged out. Please scan QR again."));
                 }
-            });
-            console.log(fancy(`✅ Welcome message sent to ${phoneNumber}`));
-        } catch (e) {
-            console.log(fancy(`⚠️ Could not send welcome message to ${phoneNumber}:`), e.message);
-        }
-    }, 3000);
-}
+            }
+        });
 
-// Load all saved sessions from MongoDB
-async function loadAllSessions() {
-    try {
-        const sessions = await Session.find({});
-        console.log(fancy(`📂 Found ${sessions.length} saved session(s). Starting bots...`));
-        for (const session of sessions) {
-            startUserBot(session.phoneNumber).catch(err => {
-                console.error(`Failed to start bot for ${session.phoneNumber}:`, err.message);
-            });
-        }
-    } catch (err) {
-        console.error('Error loading sessions:', err.message);
+        // ✅ **CREDENTIALS UPDATE**
+        conn.ev.on('creds.update', saveCreds);
+
+        // ✅ **MESSAGE HANDLER**
+        conn.ev.on('messages.upsert', async (m) => {
+            try {
+                if (handler && typeof handler === 'function') {
+                    await handler(conn, m);
+                }
+            } catch (error) {
+                console.error("Message handler error:", error.message);
+            }
+        });
+
+        // ✅ **GROUP UPDATE HANDLER**
+        conn.ev.on('group-participants.update', async (update) => {
+            try {
+                if (handler && handler.handleGroupUpdate) {
+                    await handler.handleGroupUpdate(conn, update);
+                }
+            } catch (error) {
+                console.error("Group update error:", error.message);
+            }
+        });
+
+        // ✅ **CALL HANDLER**
+        conn.ev.on('call', async (call) => {
+            try {
+                if (handler && handler.handleCall) {
+                    await handler.handleCall(conn, call);
+                }
+            } catch (error) {
+                console.error("Call handler error:", error.message);
+            }
+        });
+
+        console.log(fancy("🚀 Bot ready for pairing via web interface"));
+        
+    } catch (error) {
+        console.error("Start error:", error.message);
+        // Restart once on error
+        setTimeout(() => {
+            startBot();
+        }, 10000);
     }
 }
 
-/**
- * Waits for the socket's connection to be established (open).
- * Resolves when connection is open, rejects if it closes before that or timeout.
- */
-function waitForConnection(sock, phoneNumber, timeoutMs = 10000) {
-    return new Promise((resolve, reject) => {
-        // If already open (maybe unlikely), resolve immediately
-        if (sock.user) {
-            return resolve();
-        }
-
-        const timeout = setTimeout(() => {
-            cleanup();
-            reject(new Error('Timeout waiting for connection'));
-        }, timeoutMs);
-
-        const onConnUpdate = (update) => {
-            const { connection, lastDisconnect } = update;
-            if (connection === 'open') {
-                cleanup();
-                resolve();
-            } else if (connection === 'close') {
-                cleanup();
-                const reason = lastDisconnect?.error?.message || 'Unknown reason';
-                reject(new Error(`Connection closed: ${reason}`));
-            }
-        };
-
-        const cleanup = () => {
-            clearTimeout(timeout);
-            sock.ev.off('connection.update', onConnUpdate);
-        };
-
-        sock.ev.on('connection.update', onConnUpdate);
-    });
-}
+// ✅ **START BOT**
+startBot();
 
 // ==================== HTTP ENDPOINTS ====================
 
-// ✅ **PAIRING ENDPOINT**
+// ✅ **PAIRING ENDPOINT (8-DIGIT CODE) – HAKUNA CONNECTION CLOSE**
 app.get('/pair', async (req, res) => {
     try {
         let num = req.query.num;
         if (!num) {
             return res.json({ success: false, error: "Provide number! Example: /pair?num=255123456789" });
         }
-
+        
         const cleanNum = num.replace(/[^0-9]/g, '');
         if (cleanNum.length < 10) {
             return res.json({ success: false, error: "Invalid number. Must be at least 10 digits." });
         }
-
-        console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum}`));
-
-        const sock = await startUserBot(cleanNum);
-
-        // If already registered, don't request code again
-        if (sock.authState.creds && sock.authState.creds.registered) {
-            return res.json({ success: true, message: "Number already paired and connected." });
+        
+        // Hakikisha globalConn ipo
+        if (!globalConn) {
+            return res.json({ success: false, error: "Bot is initializing. Please try again in a few seconds." });
         }
-
-        // Wait for the socket to establish a connection (websocket open)
-        await waitForConnection(sock, cleanNum, 15000);
-
-        // Now request the pairing code
+        
+        console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum}`));
+        
+        // Jaribu kupata code kwa timeout ya sekunde 30
         const code = await Promise.race([
-            sock.requestPairingCode(cleanNum),
+            globalConn.requestPairingCode(cleanNum),
             new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout - no response from WhatsApp')), 30000))
         ]);
-
-        res.json({
-            success: true,
+        
+        res.json({ 
+            success: true, 
             code: code,
             message: `8-digit pairing code: ${code}`
         });
-
+        
     } catch (err) {
         console.error("Pairing error:", err.message);
         if (err.message.includes("already paired")) {
@@ -371,27 +338,25 @@ app.get('/unpair', async (req, res) => {
         if (!num) {
             return res.json({ success: false, error: "Provide number! Example: /unpair?num=255123456789" });
         }
-
+        
         const cleanNum = num.replace(/[^0-9]/g, '');
         if (cleanNum.length < 10) {
             return res.json({ success: false, error: "Invalid number" });
         }
-
-        // Close the connection if active
-        if (activeConnections.has(cleanNum)) {
-            const { sock } = activeConnections.get(cleanNum);
-            sock.end(new Error('Unpaired by user'));
-            activeConnections.delete(cleanNum);
+        
+        // Call handler to unpair
+        let result = false;
+        if (handler && handler.unpairNumber) {
+            result = await handler.unpairNumber(cleanNum);
+        } else {
+            return res.json({ success: false, error: "Unpair function not available in handler" });
         }
-
-        // Remove from database
-        const result = await Session.deleteOne({ phoneNumber: cleanNum });
-
-        res.json({
-            success: result.deletedCount > 0,
-            message: result.deletedCount > 0 ? `Number ${cleanNum} unpaired successfully` : `No session found for ${cleanNum}`
+        
+        res.json({ 
+            success: result, 
+            message: result ? `Number ${cleanNum} unpaired successfully` : `Failed to unpair ${cleanNum}`
         });
-
+        
     } catch (err) {
         console.error("Unpair error:", err.message);
         res.json({ success: false, error: "Failed: " + err.message });
@@ -404,10 +369,10 @@ app.get('/health', (req, res) => {
     const hours = Math.floor(uptime / 3600);
     const minutes = Math.floor((uptime % 3600) / 60);
     const seconds = Math.floor(uptime % 60);
-
+    
     res.json({
         status: 'healthy',
-        activeConnections: activeConnections.size,
+        connected: isConnected,
         uptime: `${hours}h ${minutes}m ${seconds}s`,
         database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
     });
@@ -415,14 +380,25 @@ app.get('/health', (req, res) => {
 
 // ✅ **BOT INFO ENDPOINT**
 app.get('/botinfo', (req, res) => {
+    if (!globalConn || !globalConn.user) {
+        return res.json({ 
+            success: false,
+            error: "Bot not connected",
+            connected: isConnected
+        });
+    }
+    
     const botSecret = handler.getBotId ? handler.getBotId() : 'Unknown';
-    const activeNumbers = Array.from(activeConnections.keys());
-
+    const pairedCount = handler.getPairedNumbers ? handler.getPairedNumbers().length : 0;
+    
     res.json({
         success: true,
+        botName: globalConn.user?.name || "INSIDIOUS",
+        botNumber: globalConn.user?.id?.split(':')[0] || "Unknown",
+        botJid: globalConn.user?.id || "Unknown",
         botSecret: botSecret,
-        activeConnections: activeNumbers.length,
-        numbers: activeNumbers,
+        pairedOwners: pairedCount,
+        connected: isConnected,
         uptime: Date.now() - botStartTime
     });
 });
