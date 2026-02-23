@@ -5,10 +5,14 @@ const mongoose = require("mongoose");
 const path = require("path");
 const fs = require('fs-extra');
 
+// ==================== HANDLER ====================
 const handler = require('./handler');
+
+// ==================== MODELS & HELPERS ====================
 const Session = require('./models/Session');
 const useMongoAuthState = require('./lib/mongoAuth');
 
+// ✅ **FANCY FUNCTION**
 function fancy(text) {
     if (!text || typeof text !== 'string') return text;
     const map = {
@@ -25,6 +29,7 @@ function fancy(text) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ✅ **MONGODB CONNECTION**
 console.log(fancy("🔗 Connecting to MongoDB..."));
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
 
@@ -36,16 +41,20 @@ mongoose.connect(MONGODB_URI, {
 .then(() => console.log(fancy("✅ MongoDB Connected")))
 .catch(err => console.log(fancy("❌ MongoDB Connection FAILED: " + err.message)));
 
+// ✅ **MIDDLEWARE**
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ✅ **CREATE PUBLIC FOLDER IF NOT EXISTS**
 if (!fs.existsSync(path.join(__dirname, 'public'))) {
     fs.mkdirSync(path.join(__dirname, 'public'), { recursive: true });
 }
 
+// ✅ **SIMPLE ROUTES**
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
 
+// ✅ **LOAD CONFIG**
 let config = {};
 try {
     config = require('./config');
@@ -61,8 +70,15 @@ try {
     };
 }
 
+// ==================== MULTI‑SESSION MANAGEMENT ====================
+/** @type {Map<string, { socket: any, saveCreds: function, startTime: number }>} */
 const activeSessions = new Map();
 
+/**
+ * Start a WhatsApp client for a specific phone number.
+ * @param {string} phoneNumber - e.g. "255712345678"
+ * @returns {Promise<any>} the socket
+ */
 async function startSocket(phoneNumber) {
     console.log(fancy(`🚀 Starting session for ${phoneNumber}`));
 
@@ -89,11 +105,14 @@ async function startSocket(phoneNumber) {
         startTime: Date.now()
     });
 
+    // ---- Connection Events ----
     socket.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect } = update;
 
         if (connection === 'open') {
             console.log(fancy(`✅ ${phoneNumber} is now online`));
+
+            // Optionally send welcome message to owner numbers
             if (config.ownerNumber.includes(phoneNumber)) {
                 setTimeout(async () => {
                     try {
@@ -166,13 +185,15 @@ async function startSocket(phoneNumber) {
             } else {
                 console.log(fancy(`🚫 Logged out for ${phoneNumber}. Removing session.`));
                 activeSessions.delete(phoneNumber);
-                await Session.findByIdAndDelete(phoneNumber).catch(() => {});
+                // Optionally delete from DB to force re-pair next time
+                // await Session.findByIdAndDelete(phoneNumber);
             }
         }
     });
 
     socket.ev.on('creds.update', saveCreds);
 
+    // ---- Message Handler ----
     socket.ev.on('messages.upsert', async (m) => {
         try {
             if (handler && typeof handler === 'function') {
@@ -183,6 +204,7 @@ async function startSocket(phoneNumber) {
         }
     });
 
+    // ---- Group Updates ----
     socket.ev.on('group-participants.update', async (update) => {
         try {
             if (handler && handler.handleGroupUpdate) {
@@ -193,6 +215,7 @@ async function startSocket(phoneNumber) {
         }
     });
 
+    // ---- Call Handler ----
     socket.ev.on('call', async (call) => {
         try {
             if (handler && handler.handleCall) {
@@ -206,6 +229,9 @@ async function startSocket(phoneNumber) {
     return socket;
 }
 
+/**
+ * Load all existing sessions from MongoDB and start them.
+ */
 async function loadAllSessions() {
     const sessions = await Session.find({});
     console.log(fancy(`📂 Found ${sessions.length} saved sessions`));
@@ -216,27 +242,14 @@ async function loadAllSessions() {
     }
 }
 
-// 🔥 Ondoa index zote zenye matatizo (id_1, pairingCode_1)
-mongoose.connection.once('open', async () => {
-    try {
-        const collection = mongoose.connection.db.collection('sessions');
-        const indexes = await collection.indexes();
-        const problematicIndexes = ['id_1', 'pairingCode_1'];
-        
-        for (const idx of indexes) {
-            if (problematicIndexes.includes(idx.name)) {
-                await collection.dropIndex(idx.name);
-                console.log(fancy(`✅ Dropped index: ${idx.name}`));
-            }
-        }
-    } catch (err) {
-        console.log('Index cleanup error:', err.message);
-    }
+// Start all saved sessions after DB is connected
+mongoose.connection.once('open', () => {
     loadAllSessions();
 });
 
 // ==================== HTTP ENDPOINTS ====================
 
+// ✅ **PAIRING ENDPOINT (8-DIGIT CODE)**
 app.get('/pair', async (req, res) => {
     try {
         let num = req.query.num;
@@ -249,23 +262,15 @@ app.get('/pair', async (req, res) => {
             return res.json({ success: false, error: "Invalid number. Must be at least 10 digits." });
         }
 
-        // Futa session yoyote iliyopo kwenye database (kama ipo)
-        const existing = await Session.findById(cleanNum);
-        if (existing) {
-            console.log(fancy(`🗑️ Deleting old session for ${cleanNum}`));
-            await Session.findByIdAndDelete(cleanNum);
-        }
-
-        // Ikiwa session ipo kwenye activeSessions, funga na uiondoe
-        const active = activeSessions.get(cleanNum);
-        if (active) {
-            active.socket.end(undefined);
-            activeSessions.delete(cleanNum);
+        // If a session already exists, return error (or you could reuse it)
+        if (activeSessions.has(cleanNum)) {
+            return res.json({ success: false, error: "A session for this number already exists." });
         }
 
         console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum}`));
 
-        const { state, saveCreds } = await useMongoAuthState(cleanNum);
+        // Create a temporary socket with empty credentials
+        const { state, saveCreds } = await useMongoAuthState(cleanNum); // creates blank session
         const { version } = await fetchLatestBaileysVersion();
 
         const tempSocket = makeWASocket({
@@ -282,26 +287,35 @@ app.get('/pair', async (req, res) => {
             markOnlineOnConnect: true
         });
 
+        // Save creds when they update
         tempSocket.ev.on('creds.update', saveCreds);
 
+        // Request the pairing code
         const code = await Promise.race([
             tempSocket.requestPairingCode(cleanNum),
             new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout - no response from WhatsApp')), 30000))
         ]);
 
+        // Send code to client immediately
         res.json({
             success: true,
             code: code,
             message: `8-digit pairing code: ${code}`
         });
 
+        // When the socket connects, add it to active sessions and attach all handlers
         tempSocket.ev.on('connection.update', async (update) => {
             const { connection } = update;
             if (connection === 'open') {
                 console.log(fancy(`✅ Successfully paired ${cleanNum}`));
+                
+                // Replace the temporary socket with a fully managed one
                 tempSocket.end(undefined);
+                
+                // Start the permanent session
                 await startSocket(cleanNum);
             } else if (connection === 'close') {
+                // If pairing fails (e.g., user didn't complete), clean up the blank session
                 const error = update.lastDisconnect?.error;
                 if (error && !error.message?.includes('already paired')) {
                     console.log(fancy(`❌ Pairing failed for ${cleanNum}`));
@@ -320,6 +334,7 @@ app.get('/pair', async (req, res) => {
     }
 });
 
+// ✅ **UNPAIR ENDPOINT**
 app.get('/unpair', async (req, res) => {
     try {
         let num = req.query.num;
@@ -332,12 +347,14 @@ app.get('/unpair', async (req, res) => {
             return res.json({ success: false, error: "Invalid number" });
         }
 
+        // Close the socket if active
         const session = activeSessions.get(cleanNum);
         if (session) {
             session.socket.end(undefined);
             activeSessions.delete(cleanNum);
         }
 
+        // Remove from database
         await Session.findByIdAndDelete(cleanNum);
 
         res.json({ success: true, message: `Number ${cleanNum} unpaired successfully` });
@@ -348,6 +365,7 @@ app.get('/unpair', async (req, res) => {
     }
 });
 
+// ✅ **HEALTH CHECK**
 app.get('/health', (req, res) => {
     const uptime = process.uptime();
     const hours = Math.floor(uptime / 3600);
@@ -362,6 +380,7 @@ app.get('/health', (req, res) => {
     });
 });
 
+// ✅ **BOT INFO ENDPOINT** (list all active sessions)
 app.get('/botinfo', (req, res) => {
     const sessionsInfo = [];
     for (let [phone, data] of activeSessions.entries()) {
@@ -379,6 +398,7 @@ app.get('/botinfo', (req, res) => {
     });
 });
 
+// ✅ **START SERVER**
 app.listen(PORT, () => {
     console.log(fancy(`🌐 Web Interface: http://localhost:${PORT}`));
     console.log(fancy(`🔗 8-digit Pairing: http://localhost:${PORT}/pair?num=255XXXXXXXXX`));
