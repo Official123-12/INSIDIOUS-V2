@@ -1,4 +1,7 @@
-// server.js
+// ==================== index.js (Backend) ====================
+// INSIDIOUS BOT – Multi‑Session WhatsApp Bot Manager
+// Developer: STANYTZ | Version: 2.2.0
+
 require('dotenv').config();
 const express = require('express');
 const { default: makeWASocket, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys");
@@ -7,10 +10,7 @@ const mongoose = require("mongoose");
 const path = require("path");
 const fs = require('fs');
 
-// ==================== HANDLER ====================
-const handler = require('./handler'); // Your message handler
-
-// ==================== FANCY FUNCTION ====================
+// ==================== FANCY LOGGING ====================
 function fancy(text) {
     if (!text || typeof text !== 'string') return text;
     const fancyMap = {
@@ -35,7 +35,7 @@ if (!MONGODB_URI) {
     process.exit(1);
 }
 
-// Load bot config (optional)
+// Optional bot config (can be stored in DB later)
 let config = {};
 try {
     config = require('./config');
@@ -47,7 +47,8 @@ try {
         ownerNumber: [],
         botName: 'INSIDIOUS',
         workMode: 'public',
-        botImage: 'https://files.catbox.moe/f3c07u.jpg'
+        botImage: 'https://files.catbox.moe/f3c07u.jpg',
+        newsletterJid: "120363404317544295@newsletter"
     };
 }
 
@@ -62,7 +63,6 @@ const SessionSchema = new mongoose.Schema({
 });
 const Session = mongoose.model('Session', SessionSchema);
 
-// Settings model (simple key-value)
 const SettingSchema = new mongoose.Schema({
     key: { type: String, unique: true },
     value: mongoose.Schema.Types.Mixed
@@ -74,7 +74,6 @@ async function useMongoAuthState(sessionId) {
     let session = await Session.findOne({ sessionId });
 
     if (!session) {
-        // Create a new pending session
         session = new Session({
             sessionId,
             creds: null,
@@ -84,12 +83,12 @@ async function useMongoAuthState(sessionId) {
         await session.save();
     }
 
-    // Return state object expected by Baileys
     return {
         state: {
             creds: session.creds || {
                 registered: false,
                 deviceId: Math.floor(Math.random() * 10000),
+                // Minimal default – will be replaced on first save
             },
             keys: session.keys || {}
         },
@@ -137,7 +136,6 @@ async function startSocket(sessionId) {
             if (socket.user?.id) {
                 const phoneNumber = socket.user.id.split(':')[0];
                 await Session.updateOne({ sessionId }, { phoneNumber });
-                // Send welcome message with session ID and copy instructions
                 await sendWelcomeMessage(socket, sessionId, phoneNumber);
             }
         }
@@ -159,6 +157,8 @@ async function startSocket(sessionId) {
         }
     });
 
+    // Attach your message handler (imported from './handler')
+    const handler = require('./handler');
     socket.ev.on('messages.upsert', async (m) => {
         try {
             if (handler && typeof handler === 'function') {
@@ -202,7 +202,7 @@ async function stopSocket(sessionId) {
     }
 }
 
-// ==================== WELCOME MESSAGE WITH SESSION ID COPY INSTRUCTION ====================
+// ==================== WELCOME MESSAGE (with Session ID) ====================
 async function sendWelcomeMessage(socket, sessionId, phoneNumber) {
     try {
         const jid = phoneNumber + '@s.whatsapp.net';
@@ -235,10 +235,6 @@ ${sessionId}
 ❤️ Auto React: ✅
 🎉 Welcome/Goodbye: ✅
 
-🔧 *Commands:* All working
-📁 *Database:* Connected
-🚀 *Performance:* Optimal
-
 👑 *Developer:* STANYTZ
 💾 *Version:* 2.2.0 | Multi-session
 
@@ -268,9 +264,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public'))); // Serve frontend HTML
+app.use(express.static(path.join(__dirname, 'public'))); // Serve frontend
 
-// ==================== ROUTES ====================
+// ==================== API ROUTES ====================
 
 // Health check
 app.get('/health', (req, res) => {
@@ -282,7 +278,7 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Pairing endpoint – generates session ID and returns 8-digit code
+// Pair a new number – returns 8-digit code and sessionId
 app.get('/pair', async (req, res) => {
     try {
         const phoneNumber = req.query.num?.replace(/[^0-9]/g, '');
@@ -290,7 +286,7 @@ app.get('/pair', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid phone number. Must be 10-15 digits.' });
         }
 
-        // Generate unique session ID with prefix
+        // Generate unique session ID
         const sessionId = `STANY~${randomMegaId()}`;
 
         // Start a socket for this session (creates pending session in DB)
@@ -299,7 +295,7 @@ app.get('/pair', async (req, res) => {
         // Request 8-digit pairing code
         const code = await socket.requestPairingCode(phoneNumber);
 
-        // Return both code and sessionId – website will show the session ID and copy button
+        // Return both code and sessionId
         res.json({
             success: true,
             code,
@@ -313,7 +309,7 @@ app.get('/pair', async (req, res) => {
     }
 });
 
-// List active sessions
+// List all active sessions
 app.get('/sessions', async (req, res) => {
     try {
         const sessions = await Session.find({ status: 'active' })
@@ -337,10 +333,10 @@ app.delete('/sessions/:id', async (req, res) => {
     }
 });
 
-// Deploy (activate) a session – ensure socket is running
+// Deploy (activate) a session – ensures socket is running
 app.post('/deploy', async (req, res) => {
     try {
-        const { sessionId } = req.body;
+        const { sessionId, number } = req.body;
         if (!sessionId) {
             return res.status(400).json({ success: false, error: 'sessionId required' });
         }
@@ -360,7 +356,7 @@ app.post('/deploy', async (req, res) => {
     }
 });
 
-// Save settings
+// Save settings (multiple toggles)
 app.post('/settings', async (req, res) => {
     try {
         const settings = req.body;
@@ -373,7 +369,7 @@ app.post('/settings', async (req, res) => {
     }
 });
 
-// Get settings
+// Get current settings
 app.get('/settings', async (req, res) => {
     try {
         const settings = await Setting.find().lean();
@@ -385,7 +381,7 @@ app.get('/settings', async (req, res) => {
     }
 });
 
-// Serve frontend for any other route (SPA fallback)
+// Catch-all: serve frontend (for SPA routing)
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
