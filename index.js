@@ -1,4 +1,7 @@
 // ==================== index.js (INSIDIOUS BOT) ====================
+// Original style – updated with multi‑session, MongoDB, and health check fix
+// Developer: STANYTZ | Version: 2.2.1
+
 require('dotenv').config();
 const express = require('express');
 const { default: makeWASocket, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys");
@@ -6,15 +9,6 @@ const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
 const fs = require('fs');
-
-// ==================== GLOBAL ERROR HANDLERS ====================
-process.on('uncaughtException', (err) => {
-    console.error('❌ Uncaught Exception:', err.message);
-    // Keep the process alive
-});
-process.on('unhandledRejection', (err) => {
-    console.error('❌ Unhandled Rejection:', err.message);
-});
 
 // ==================== FANCY LOGGING ====================
 function fancy(text) {
@@ -37,8 +31,8 @@ function fancy(text) {
 // ==================== CONFIG ====================
 const MONGODB_URI = process.env.MONGODB_URI;
 if (!MONGODB_URI) {
-    console.error(fancy("❌ MONGODB_URI environment variable is required"));
-    process.exit(1);
+    console.error(fancy("❌ MONGODB_URI environment variable is required!"));
+    process.exit(1); // Exit because the user wants DB connected
 }
 
 // Optional bot config
@@ -79,12 +73,20 @@ const Setting = mongoose.model('Setting', SettingSchema);
 async function useMongoAuthState(sessionId) {
     let session = await Session.findOne({ sessionId });
     if (!session) {
-        session = new Session({ sessionId, creds: null, keys: null, status: 'pending' });
+        session = new Session({
+            sessionId,
+            creds: null,
+            keys: null,
+            status: 'pending'
+        });
         await session.save();
     }
     return {
         state: {
-            creds: session.creds || { registered: false, deviceId: Math.floor(Math.random() * 10000) },
+            creds: session.creds || {
+                registered: false,
+                deviceId: Math.floor(Math.random() * 10000),
+            },
             keys: session.keys || {}
         },
         saveCreds: async () => {
@@ -97,14 +99,16 @@ async function useMongoAuthState(sessionId) {
 }
 
 // ==================== SESSION MANAGER ====================
-const activeSockets = new Map();
+const activeSockets = new Map(); // sessionId -> { socket, saveCreds }
 
 async function startSocket(sessionId) {
     if (activeSockets.has(sessionId)) {
         return activeSockets.get(sessionId).socket;
     }
+
     const { state, saveCreds } = await useMongoAuthState(sessionId);
     const { version } = await fetchLatestBaileysVersion();
+
     const socket = makeWASocket({
         version,
         auth: {
@@ -120,43 +124,65 @@ async function startSocket(sessionId) {
     });
 
     socket.ev.on('creds.update', saveCreds);
+
     socket.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect } = update;
         if (connection === 'open') {
-            console.log(fancy(`✅ Socket ${sessionId} open`));
+            console.log(fancy(`✅ Socket ${sessionId} is now open`));
             if (socket.user?.id) {
                 const phoneNumber = socket.user.id.split(':')[0];
                 await Session.updateOne({ sessionId }, { phoneNumber });
                 await sendWelcomeMessage(socket, sessionId, phoneNumber);
             }
         }
+
         if (connection === 'close') {
             const statusCode = lastDisconnect?.error?.output?.statusCode;
-            if (statusCode !== DisconnectReason.loggedOut) {
+            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+            if (shouldReconnect) {
+                console.log(fancy(`🔄 Reconnecting ${sessionId} in 5 seconds...`));
                 setTimeout(() => {
                     activeSockets.delete(sessionId);
                     startSocket(sessionId);
                 }, 5000);
             } else {
+                console.log(fancy(`🚫 Session ${sessionId} logged out`));
                 await Session.updateOne({ sessionId }, { status: 'expired' });
                 activeSockets.delete(sessionId);
             }
         }
     });
 
-    // Attach handler
+    // Attach your message handler (imported from './handler')
     const handler = require('./handler');
     socket.ev.on('messages.upsert', async (m) => {
-        try { if (handler && typeof handler === 'function') await handler(socket, m); }
-        catch (err) { console.error(`Handler error ${sessionId}:`, err.message); }
+        try {
+            if (handler && typeof handler === 'function') {
+                await handler(socket, m);
+            }
+        } catch (err) {
+            console.error(`Handler error for ${sessionId}:`, err.message);
+        }
     });
+
     socket.ev.on('group-participants.update', async (update) => {
-        try { if (handler?.handleGroupUpdate) await handler.handleGroupUpdate(socket, update); }
-        catch (err) { console.error(`Group update error ${sessionId}:`, err.message); }
+        try {
+            if (handler && handler.handleGroupUpdate) {
+                await handler.handleGroupUpdate(socket, update);
+            }
+        } catch (err) {
+            console.error(`Group update error for ${sessionId}:`, err.message);
+        }
     });
+
     socket.ev.on('call', async (call) => {
-        try { if (handler?.handleCall) await handler.handleCall(socket, call); }
-        catch (err) { console.error(`Call handler error ${sessionId}:`, err.message); }
+        try {
+            if (handler && handler.handleCall) {
+                await handler.handleCall(socket, call);
+            }
+        } catch (err) {
+            console.error(`Call handler error for ${sessionId}:`, err.message);
+        }
     });
 
     activeSockets.set(sessionId, { socket, saveCreds });
@@ -172,7 +198,7 @@ async function stopSocket(sessionId) {
     }
 }
 
-// ==================== WELCOME MESSAGE ====================
+// ==================== WELCOME MESSAGE (with Session ID) ====================
 async function sendWelcomeMessage(socket, sessionId, phoneNumber) {
     try {
         const jid = phoneNumber + '@s.whatsapp.net';
@@ -187,13 +213,30 @@ async function sendWelcomeMessage(socket, sessionId, phoneNumber) {
 \`\`\`
 ${sessionId}
 \`\`\`
-📞 *Number:* ${phoneNumber}
+📞 *Your Number:* ${phoneNumber}
 
-📋 *Copy this Session ID* (tap and hold) and use it on the website to deploy.
+📋 *How to copy this Session ID:*
+• On Android/iOS: *Tap and hold* on the code above, then select *Copy*.
+• Then go to the INSIDIOUS website, paste it in the *Deploy* section and click *Deploy*.
+
+⚡ *Status:* ONLINE & ACTIVE
+
+📊 *ALL FEATURES ACTIVE:*
+🛡️ Anti View Once: ✅
+🗑️ Anti Delete: ✅
+🤖 AI Chatbot: ✅
+⚡ Auto Typing: ✅
+📼 Auto Recording: ✅
+👀 Auto Read: ✅
+❤️ Auto React: ✅
+🎉 Welcome/Goodbye: ✅
 
 👑 *Developer:* STANYTZ
-👉 ${process.env.BASE_URL || 'https://your-app.railway.app'}
+💾 *Version:* 2.2.1 | Multi-session
+
+👉 *Deploy now:* ${process.env.BASE_URL || 'https://your-app.railway.app'}
 `;
+
         await socket.sendMessage(jid, {
             image: { url: config.botImage || "https://files.catbox.moe/f3c07u.jpg" },
             caption: welcomeMsg,
@@ -201,14 +244,14 @@ ${sessionId}
                 isForwarded: true,
                 forwardingScore: 999,
                 forwardedNewsletterMessageInfo: {
-                    newsletterJid: config.newsletterJid,
-                    newsletterName: config.botName
+                    newsletterJid: config.newsletterJid || "120363404317544295@newsletter",
+                    newsletterName: config.botName || "INSIDIOUS BOT"
                 }
             }
         });
         console.log(fancy(`📨 Welcome message sent to ${phoneNumber}`));
     } catch (err) {
-        console.error(fancy(`❌ Failed to send welcome: ${err.message}`));
+        console.error(fancy(`❌ Failed to send welcome message to ${phoneNumber}:`), err.message);
     }
 }
 
@@ -217,7 +260,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'))); // Serve frontend
 
 // ==================== HEALTH CHECK (fast) ====================
 app.get('/health', (req, res) => {
@@ -230,66 +273,98 @@ app.get('/health', (req, res) => {
 });
 
 // ==================== API ROUTES ====================
+// Pair a new number – returns 8-digit code and sessionId
 app.get('/pair', async (req, res) => {
     try {
         const phoneNumber = req.query.num?.replace(/[^0-9]/g, '');
         if (!phoneNumber || phoneNumber.length < 10 || phoneNumber.length > 15) {
-            return res.status(400).json({ success: false, error: 'Invalid phone number.' });
+            return res.status(400).json({ success: false, error: 'Invalid phone number. Must be 10-15 digits.' });
         }
+
+        // Generate unique session ID
         const sessionId = `STANY~${randomMegaId()}`;
+
+        // Start a socket for this session (creates pending session in DB)
         const socket = await startSocket(sessionId);
+
+        // Request 8-digit pairing code
         const code = await socket.requestPairingCode(phoneNumber);
-        res.json({ success: true, code, sessionId });
+
+        // Return both code and sessionId
+        res.json({
+            success: true,
+            code,
+            sessionId,
+            message: 'Pairing code generated. After entering it in WhatsApp, you will receive a welcome message with your Session ID.'
+        });
+
     } catch (err) {
+        console.error('Pairing error:', err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
+// List all active sessions
 app.get('/sessions', async (req, res) => {
     try {
-        const sessions = await Session.find({ status: 'active' }).select('sessionId phoneNumber status createdAt').lean();
+        const sessions = await Session.find({ status: 'active' })
+            .select('sessionId phoneNumber status createdAt')
+            .lean();
         res.json({ success: true, sessions });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
+// Delete a session
 app.delete('/sessions/:id', async (req, res) => {
     try {
         const sessionId = req.params.id;
         await stopSocket(sessionId);
         await Session.deleteOne({ sessionId });
-        res.json({ success: true });
+        res.json({ success: true, message: 'Session deleted' });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
+// Deploy (activate) a session – ensures socket is running
 app.post('/deploy', async (req, res) => {
     try {
-        const { sessionId } = req.body;
-        if (!sessionId) return res.status(400).json({ success: false, error: 'sessionId required' });
+        const { sessionId, number } = req.body;
+        if (!sessionId) {
+            return res.status(400).json({ success: false, error: 'sessionId required' });
+        }
+
         const session = await Session.findOne({ sessionId });
-        if (!session) return res.status(404).json({ success: false, error: 'Session not found' });
-        if (!activeSockets.has(sessionId)) await startSocket(sessionId);
-        res.json({ success: true, message: 'Bot deployed' });
+        if (!session) {
+            return res.status(404).json({ success: false, error: 'Session not found' });
+        }
+
+        if (!activeSockets.has(sessionId)) {
+            await startSocket(sessionId);
+        }
+
+        res.json({ success: true, message: 'Bot deployed and active' });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
+// Save settings (multiple toggles)
 app.post('/settings', async (req, res) => {
     try {
         const settings = req.body;
         for (const [key, value] of Object.entries(settings)) {
             await Setting.updateOne({ key }, { value }, { upsert: true });
         }
-        res.json({ success: true });
+        res.json({ success: true, message: 'Settings saved' });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
+// Get current settings
 app.get('/settings', async (req, res) => {
     try {
         const settings = await Setting.find().lean();
@@ -301,11 +376,12 @@ app.get('/settings', async (req, res) => {
     }
 });
 
+// Catch-all: serve frontend (for SPA routing)
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ==================== UTILITY ====================
+// ==================== UTILITY FUNCTIONS ====================
 function randomMegaId(len = 6, numLen = 4) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let out = '';
@@ -313,21 +389,26 @@ function randomMegaId(len = 6, numLen = 4) {
     return `${out}${Math.floor(Math.random() * Math.pow(10, numLen))}`;
 }
 
+// ==================== RESTORE SESSIONS ON START ====================
 async function restoreSessions() {
     const activeSessions = await Session.find({ status: 'active' });
     console.log(fancy(`🔄 Restoring ${activeSessions.length} active sessions...`));
     for (const session of activeSessions) {
-        try { await startSocket(session.sessionId); } 
-        catch (err) { console.error(fancy(`❌ Failed to restore ${session.sessionId}:`), err.message); }
+        try {
+            await startSocket(session.sessionId);
+        } catch (err) {
+            console.error(fancy(`❌ Failed to restore session ${session.sessionId}:`), err.message);
+        }
     }
 }
 
-// ==================== START SERVER FIRST ====================
+// ==================== START SERVER & CONNECT TO MONGODB ====================
+// Start server immediately so health check passes
 const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(fancy(`🌐 Server listening on port ${PORT}`));
 });
 
-// ==================== THEN CONNECT TO MONGODB ====================
+// Then connect to MongoDB (if URI provided)
 mongoose.connect(MONGODB_URI, {
     serverSelectionTimeoutMS: 30000,
     socketTimeoutMS: 45000,
@@ -337,14 +418,16 @@ mongoose.connect(MONGODB_URI, {
     restoreSessions(); // run in background
 }).catch(err => {
     console.error(fancy("❌ MongoDB Connection FAILED:"), err.message);
-    // Keep server running even without DB
+    process.exit(1); // Exit because DB is required
 });
 
 // ==================== GRACEFUL SHUTDOWN ====================
 process.on('SIGTERM', () => {
     console.log(fancy('🛑 SIGTERM received, closing all sockets...'));
     server.close(() => {
-        for (const { socket } of activeSockets.values()) socket?.end(undefined);
+        for (const [sessionId, { socket }] of activeSockets) {
+            socket?.end(undefined);
+        }
         mongoose.connection.close();
     });
 });
