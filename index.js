@@ -4,7 +4,6 @@ const {
     useMultiFileAuthState, 
     Browsers, 
     makeCacheableSignalKeyStore, 
-    fetchLatestBaileysVersion, 
     DisconnectReason,
     BufferJSON,
     proto
@@ -12,7 +11,7 @@ const {
 const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
-const fs = require('fs').promises; // Use promises for async file ops
+const fs = require('fs');
 
 // ==================== CONFIG & HANDLER ====================
 const handler = require('./handler');
@@ -117,22 +116,130 @@ function randomMegaId(len = 6, numLen = 4) {
     return `${out}${Math.floor(Math.random() * Math.pow(10, numLen))}`;
 }
 
-// ==================== TEMPORARY PAIRING STORAGE (in-memory) ====================
-// Used to store pairing data until the user scans the code
-const tempPairings = new Map(); // key: sessionId, value: { phoneNumber, creds, expiry }
+// ==================== PAIRING ENGINE (SINGLE USER AT A TIME) ====================
 
-// Cleanup expired temp pairings every 10 minutes
-setInterval(() => {
-    const now = Date.now();
-    for (const [id, data] of tempPairings.entries()) {
-        if (now > data.expiry) {
-            tempPairings.delete(id);
-            // Also remove temp folder if any (not needed as we use in-memory only)
+let pairingSocket = null;
+let engineReady = false;
+let engineBusy = false; // Indicates if a pairing is in progress
+let currentSessionId = null;
+
+// Clean temp folder at start
+function cleanTempFolder() {
+    if (fs.existsSync('./pairing_temp')) fs.rmSync('./pairing_temp', { recursive: true, force: true });
+}
+
+async function startPairingEngine() {
+    cleanTempFolder();
+
+    const { state, saveCreds } = await useMultiFileAuthState('pairing_temp');
+
+    const conn = makeWASocket({
+        version: [2, 3000, 1033105955],
+        auth: { 
+            creds: state.creds, 
+            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) 
+        },
+        logger: pino({ level: "silent" }),
+        browser: Browsers.macOS("Safari"),
+        syncFullHistory: false, 
+        shouldSyncHistoryMessage: () => false, 
+        getMessage: async (key) => ({ conversation: "Insidious Bot" }),
+        connectTimeoutMs: 60000
+    });
+
+    pairingSocket = conn;
+    engineReady = false;
+    engineBusy = false;
+    currentSessionId = null;
+
+    conn.ev.on('creds.update', saveCreds);
+
+    conn.ev.on('connection.update', async (update) => {
+        const { connection, lastDisconnect } = update;
+
+        if (connection === 'open') {
+            engineReady = true;
+            console.log(fancy("✅ Pairing Engine Ready"));
         }
-    }
-}, 10 * 60 * 1000);
 
-// ==================== API: PAIRING (PER REQUEST SOCKET) ====================
+        if (connection === 'close') {
+            engineReady = false;
+            engineBusy = false;
+            const statusCode = lastDisconnect?.error?.output?.statusCode;
+            if (statusCode !== DisconnectReason.loggedOut) {
+                console.log(fancy("🔄 Pairing Engine closed, restarting..."));
+                startPairingEngine();
+            } else {
+                console.log(fancy("🚫 Pairing Engine logged out. Manual restart needed."));
+            }
+        }
+    });
+
+    conn.ev.on('error', (err) => {
+        console.error('❌ Pairing engine error:', err);
+        engineReady = false;
+        engineBusy = false;
+        // Attempt restart after a delay
+        setTimeout(startPairingEngine, 5000);
+    });
+}
+
+// ==================== HANDLE SUCCESSFUL LINK ====================
+
+async function handleSuccessfulLink(conn, userJid, sessionId) {
+    console.log(fancy(`✅ Link Successful for ${userJid}. Session ID: ${sessionId}`));
+
+    // Retrieve creds from the socket's authState
+    // We need to access the auth state. Unfortunately, the socket doesn't expose it directly.
+    // But we can read from the pairing_temp folder because we used useMultiFileAuthState.
+    // However, that folder contains the creds for this specific pairing. Since we're using a single engine,
+    // these creds belong to the current user. We'll read the creds from the folder.
+    let creds;
+    try {
+        const credsData = fs.readFileSync('./pairing_temp/creds.json', 'utf-8');
+        creds = JSON.parse(credsData, BufferJSON.reviver);
+    } catch (e) {
+        console.error('❌ Failed to read creds from temp folder:', e);
+        return;
+    }
+
+    // Save to MongoDB with status 'paired'
+    await Session.findOneAndUpdate(
+        { phoneNumber: userJid },
+        { 
+            sessionId, 
+            phoneNumber: userJid, 
+            creds: JSON.parse(JSON.stringify(creds, BufferJSON.replacer)), 
+            status: 'paired' 
+        },
+        { upsert: true }
+    );
+
+    // Send welcome messages
+    try {
+        const welcomeMsg = `╭─── • 🥀 • ───╮\n   INSIDIOUS BOT\n╰─── • 🥀 • ───╯\n\n✅ *Pairing Successful!*\n\n🆔 *SESSION ID:* \`${sessionId}\`\n\nCopy this ID, go to the website and paste it in the **Deploy** section to start your bot.`;
+
+        await conn.sendMessage(userJid + '@s.whatsapp.net', { 
+            image: { url: "https://raw.githubusercontent.com/Official123-12/STANYFREEBOT-/refs/heads/main/IMG_1377.jpeg" },
+            caption: welcomeMsg
+        });
+        await conn.sendMessage(userJid + '@s.whatsapp.net', { text: sessionId });
+        console.log(`📨 Welcome messages sent to ${userJid}`);
+    } catch (msgErr) {
+        console.error('❌ Failed to send welcome messages:', msgErr);
+    }
+
+    // Now restart the engine for next user
+    engineBusy = false;
+    currentSessionId = null;
+    // Close current socket and start fresh
+    conn.ev.removeAllListeners();
+    conn.terminate();
+    cleanTempFolder();
+    startPairingEngine(); // This will create a new socket with fresh creds
+}
+
+// ==================== API: PAIRING ====================
 
 app.get('/pair', async (req, res) => {
     const num = req.query.num;
@@ -140,131 +247,81 @@ app.get('/pair', async (req, res) => {
         return res.status(400).json({ success: false, error: "Invalid number. Use format: 2557XXXXXXXX" });
     }
 
-    const sessionId = randomMegaId();
-    console.log(`🔑 Generating pairing for ${num} | Session: ${sessionId}`);
+    if (!engineReady) {
+        return res.status(503).json({ success: false, error: "Pairing engine is starting, please wait." });
+    }
 
-    let sock;
-    let responded = false;
+    if (engineBusy) {
+        return res.status(429).json({ success: false, error: "Another pairing is in progress. Try again later." });
+    }
+
+    const sessionId = randomMegaId();
+    console.log(`🔑 Pairing request for ${num} | Session: ${sessionId}`);
+
+    engineBusy = true;
+    currentSessionId = sessionId;
 
     try {
-        // Create a temporary auth folder for this session
-        const authDir = path.join(__dirname, 'temp_auth', sessionId);
-        await fs.mkdir(authDir, { recursive: true });
-        const { state, saveCreds } = await useMultiFileAuthState(authDir);
-
-        const version = [2, 3000, 1033105955]; // Stable version
-        sock = makeWASocket({
-            version,
-            auth: {
-                creds: state.creds,
-                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }))
-            },
-            logger: pino({ level: "silent" }),
-            browser: Browsers.macOS("Safari"),
-            syncFullHistory: false,
-            shouldSyncHistoryMessage: () => false,
-            getMessage: async (key) => ({ conversation: "Insidious Bot" }),
-            connectTimeoutMs: 60000
-        });
-
-        sock.ev.on('creds.update', saveCreds);
-
-        // Request pairing code
-        const code = await sock.requestPairingCode(num);
+        const code = await pairingSocket.requestPairingCode(num);
         console.log(`📱 Pairing code for ${num}: ${code}`);
 
-        // Send code to client immediately
+        // Send code immediately
         res.json({ success: true, code, sessionId });
-        responded = true;
 
-        // Set expiry (30 minutes)
-        tempPairings.set(sessionId, { phoneNumber: num, expiry: Date.now() + 30 * 60 * 1000 });
-
-        // Handle connection update
-        sock.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect } = update;
-
+        // Set up one-time listener for successful link
+        const connectionHandler = async (update) => {
+            const { connection } = update;
             if (connection === 'open') {
-                console.log(`✅ ${num} successfully linked device. Saving to DB...`);
-
-                // Save credentials to MongoDB
-                const credsForDb = JSON.parse(JSON.stringify(state.creds, BufferJSON.replacer));
-                await Session.findOneAndUpdate(
-                    { phoneNumber: num },
-                    { sessionId, phoneNumber: num, creds: credsForDb, status: 'paired' },
-                    { upsert: true }
-                );
-
-                // Send welcome messages
-                try {
-                    const welcomeMsg = `╭─── • 🥀 • ───╮\n   INSIDIOUS BOT\n╰─── • 🥀 • ───╯\n\n✅ *Pairing Successful!*\n\n🆔 *SESSION ID:* \`${sessionId}\`\n\nCopy this ID, go to the website and paste it in the **Deploy** section to start your bot.`;
-
-                    await sock.sendMessage(`${num}@s.whatsapp.net`, {
-                        image: { url: "https://raw.githubusercontent.com/Official123-12/STANYFREEBOT-/refs/heads/main/IMG_1377.jpeg" },
-                        caption: welcomeMsg
-                    });
-                    await sock.sendMessage(`${num}@s.whatsapp.net`, { text: sessionId });
-                    console.log(`📨 Welcome messages sent to ${num}`);
-                } catch (msgErr) {
-                    console.error('❌ Failed to send welcome messages:', msgErr);
-                }
-
-                // Clean up: close socket and remove temp folder
-                sock?.end();
-                await fs.rm(authDir, { recursive: true, force: true }).catch(() => {});
-                tempPairings.delete(sessionId);
-                console.log(`🔌 Pairing socket closed for ${num}`);
+                pairingSocket.ev.off('connection.update', connectionHandler);
+                await handleSuccessfulLink(pairingSocket, num, sessionId);
             }
+        };
+        pairingSocket.ev.on('connection.update', connectionHandler);
 
-            if (connection === 'close') {
-                const statusCode = lastDisconnect?.error?.output?.statusCode;
-                if (statusCode !== DisconnectReason.loggedOut) {
-                    // Unexpected close, but we don't need to restart anything
-                    console.log(`⚠️ Pairing socket closed unexpectedly for ${num}: ${statusCode}`);
-                }
-                // Clean up
-                sock?.end();
-                await fs.rm(authDir, { recursive: true, force: true }).catch(() => {});
-                tempPairings.delete(sessionId);
+        // Optional: timeout to release engine if user never scans
+        setTimeout(() => {
+            if (engineBusy && currentSessionId === sessionId) {
+                console.log(`⏰ Pairing timeout for ${num}`);
+                engineBusy = false;
+                currentSessionId = null;
+                // Restart engine to clear any half-open state
+                pairingSocket.ev.removeAllListeners();
+                pairingSocket.terminate();
+                cleanTempFolder();
+                startPairingEngine();
             }
-        });
-
-        sock.ev.on('error', (err) => {
-            console.error(`❌ Socket error for ${num}:`, err);
-            sock?.end();
-            fs.rm(authDir, { recursive: true, force: true }).catch(() => {});
-            tempPairings.delete(sessionId);
-            if (!responded) {
-                res.status(500).json({ success: false, error: "Pairing failed due to socket error." });
-                responded = true;
-            }
-        });
+        }, 90000);
 
     } catch (err) {
         console.error('❌ Pairing error:', err);
-        sock?.end();
-        if (!responded) {
-            res.status(500).json({ success: false, error: err.message || "Server error during pairing." });
+        engineBusy = false;
+        currentSessionId = null;
+        // Restart engine on error
+        pairingSocket.ev.removeAllListeners();
+        pairingSocket.terminate();
+        cleanTempFolder();
+        startPairingEngine();
+        if (!res.headersSent) {
+            res.status(500).json({ success: false, error: err.message || "Pairing failed." });
         }
     }
 });
 
-// ==================== API: DEPLOY ====================
+// ==================== DEPLOYMENT SYSTEM ====================
 
 const activeBots = new Map();
 
 async function activateBot(sessionId, phoneNumber) {
     if (activeBots.has(sessionId)) {
-        try { activeBots.get(sessionId).end(); } catch (e) {}
+        try { activeBots.get(sessionId).terminate(); } catch (e) {}
         activeBots.delete(sessionId);
     }
 
     try {
         const { state, saveCreds } = await useMongoAuthState(sessionId);
 
-        const version = [2, 3000, 1033105955];
         const conn = makeWASocket({
-            version,
+            version: [2, 3000, 1033105955],
             auth: {
                 creds: state.creds,
                 keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }))
@@ -313,13 +370,12 @@ async function activateBot(sessionId, phoneNumber) {
 app.post('/deploy', async (req, res) => {
     const { sessionId, number } = req.body;
     if (!sessionId || !number) {
-        return res.status(400).json({ success: false, error: "Session ID and phone number are required." });
+        return res.status(400).json({ success: false, error: "Session ID and phone number required." });
     }
 
-    // Verify session exists and is paired (not yet active)
     const session = await Session.findOne({ sessionId, phoneNumber: number, status: 'paired' });
     if (!session) {
-        return res.status(404).json({ success: false, error: "Session not found or already deployed. Please pair again." });
+        return res.status(404).json({ success: false, error: "Session not found or already deployed." });
     }
 
     const result = await activateBot(sessionId, number);
@@ -330,7 +386,7 @@ app.post('/deploy', async (req, res) => {
     }
 });
 
-// ==================== API: SESSIONS ====================
+// ==================== SESSIONS API ====================
 
 app.get('/sessions', async (req, res) => {
     try {
@@ -341,17 +397,13 @@ app.get('/sessions', async (req, res) => {
     }
 });
 
-// ==================== API: DELETE SESSION ====================
-
 app.delete('/sessions/:id', async (req, res) => {
     const sessionId = req.params.id;
     try {
-        // Remove from DB
         await Session.deleteOne({ sessionId });
         await AuthKey.deleteMany({ sessionId });
-        // Stop bot if running
         if (activeBots.has(sessionId)) {
-            activeBots.get(sessionId).end();
+            activeBots.get(sessionId).terminate();
             activeBots.delete(sessionId);
         }
         res.json({ success: true });
@@ -360,30 +412,29 @@ app.delete('/sessions/:id', async (req, res) => {
     }
 });
 
-// ==================== API: SETTINGS ====================
+// ==================== SETTINGS (placeholder) ====================
 
-app.post('/settings', (req, res) => {
-    // Placeholder – implement if needed
-    res.json({ success: true });
-});
+app.post('/settings', (req, res) => res.json({ success: true }));
 
-// ==================== HEALTH CHECK ====================
+// ==================== HEALTH ====================
 
 app.get('/health', (req, res) => {
     res.json({
         status: 'healthy',
         activeBots: activeBots.size,
+        engineReady,
+        engineBusy,
         uptime: process.uptime()
     });
 });
 
-// ==================== STATIC FILES & FALLBACK ====================
+// ==================== STATIC ====================
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// ==================== START SERVER ====================
+// ==================== START ====================
 
-const MONGODB_URI = process.env.MONGODB_URI; // No fallback – must be set in environment
+const MONGODB_URI = process.env.MONGODB_URI; // Must be set in environment
 if (!MONGODB_URI) {
     console.error('❌ MONGODB_URI environment variable is required!');
     process.exit(1);
@@ -392,10 +443,10 @@ if (!MONGODB_URI) {
 mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
     .then(async () => {
         console.log(fancy("🟢 MongoDB Connected"));
-        // Restore any previously active bots (those with status 'active')
+        startPairingEngine();
+        // Restore active bots
         const activeSessions = await Session.find({ status: 'active' });
         for (const sess of activeSessions) {
-            console.log(`♻️ Restoring bot ${sess.sessionId}...`);
             activateBot(sess.sessionId, sess.phoneNumber).catch(err => console.error('Restore error:', err));
         }
         console.log(fancy("🚀 INSIDIOUS BOT Station Ready"));
