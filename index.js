@@ -41,7 +41,7 @@ const authKeySchema = new mongoose.Schema({
 authKeySchema.index({ sessionId: 1, keyId: 1 }, { unique: true });
 const AuthKey = mongoose.model('AuthKey', authKeySchema);
 
-// ==================== ENTERPRISE MONGO AUTH STATE ====================
+// ==================== MONGO AUTH STATE LOGIC ====================
 
 const useMongoAuthState = async (sessionId) => {
     const writeData = async (data, keyId) => {
@@ -66,7 +66,7 @@ const useMongoAuthState = async (sessionId) => {
     };
 
     const sessionRecord = await Session.findOne({ sessionId });
-    if (!sessionRecord) throw new Error("Session not found");
+    if (!sessionRecord) throw new Error("Session not found in DB");
 
     let creds = JSON.parse(JSON.stringify(sessionRecord.creds), BufferJSON.reviver);
 
@@ -117,25 +117,28 @@ function randomMegaId(len = 6, numLen = 4) {
     return `${out}${Math.floor(Math.random() * Math.pow(10, numLen))}`;
 }
 
-// ==================== PAIRING ENGINE (STATION) ====================
+// ==================== PAIRING STATION (FIXED LOADING) ====================
 
 let pairingSocket = null;
 
 async function startPairingEngine() {
+    // Safisha folder la muda kila mwanzo
     if (fs.existsSync('./pairing_temp')) fs.rmSync('./pairing_temp', { recursive: true, force: true });
 
     const { state, saveCreds } = await useMultiFileAuthState('pairing_temp');
 
     const conn = makeWASocket({
-        version: [2, 3000, 1033105955], // FIX: Connection Closed
+        version: [2, 3000, 1033105955],
         auth: { 
             creds: state.creds, 
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) 
         },
         logger: pino({ level: "silent" }),
         browser: Browsers.macOS("Safari"),
-        syncFullHistory: false, // 🚀 FIX: Long Loading (No History Sync)
-        shouldSyncHistoryMessage: () => false, // 🚀 FIX: Long Loading
+        // 🚀 KIBOKO YA LOADING MUDA MREFU:
+        syncFullHistory: false, 
+        shouldSyncHistoryMessage: () => false, 
+        getMessage: async (key) => ({ conversation: "Insidious Bot" }),
         connectTimeoutMs: 60000
     });
 
@@ -150,7 +153,9 @@ async function startPairingEngine() {
             const userJid = conn.user.id.split(':')[0];
             const sessionId = randomMegaId();
 
-            // Save to Mongo
+            console.log(fancy(`✅ Link Successful for ${userJid}. Saving...`));
+
+            // Hifadhi credentials kwenye MongoDB papo hapo
             await Session.findOneAndUpdate(
                 { phoneNumber: userJid },
                 { 
@@ -162,7 +167,8 @@ async function startPairingEngine() {
                 { upsert: true }
             );
 
-            const welcomeMsg = `╭─── • 🥀 • ───╮\n   INSIDIOUS BOT\n╰─── • 🥀 • ───╯\n\n✅ *Pairing Successful!*\n\n🆔 *SESSION ID:* \`${sessionId}\`\n\nCopy ID hii kisha nenda kwenye website kuanzisha bot yako sasa.`;
+            // Tuma Session ID kwa mtumiaji
+            const welcomeMsg = `╭─── • 🥀 • ───╮\n   INSIDIOUS BOT\n╰─── • 🥀 • ───╯\n\n✅ *Pairing Successful!*\n\n🆔 *SESSION ID:* \`${sessionId}\`\n\nCopy kodi hiyo, rudi kwenye website kisha i-paste kwenye sehemu ya **Deploy** kuanzisha bot yako sasa.`;
             
             await conn.sendMessage(userJid + '@s.whatsapp.net', { 
                 image: { url: "https://raw.githubusercontent.com/Official123-12/STANYFREEBOT-/refs/heads/main/IMG_1377.jpeg" },
@@ -170,23 +176,26 @@ async function startPairingEngine() {
             });
             await conn.sendMessage(userJid + '@s.whatsapp.net', { text: sessionId });
 
-            // DISCONNECT ONLY (Dont logout to keep link)
+            // ✅ FUNGA SOCKET PAPO HAPO: Bot isikae online hapa
             setTimeout(() => {
                 conn.ev.removeAllListeners();
-                conn.terminate();
+                conn.terminate(); // Tunakata mawasiliano tu, hatufanyi 'logout'
                 if (fs.existsSync('./pairing_temp')) fs.rmSync('./pairing_temp', { recursive: true, force: true });
-                startPairingEngine(); 
+                console.log(fancy("🔒 Pairing Engine Disconnected. Waiting for User Deployment."));
+                startPairingEngine(); // Restart kwa ajili ya user mwingine
             }, 5000);
         }
 
         if (connection === 'close') {
             const code = lastDisconnect?.error?.output?.statusCode;
-            if (code !== DisconnectReason.loggedOut && connection !== 'open') startPairingEngine();
+            if (code !== DisconnectReason.loggedOut && connection !== 'open') {
+                startPairingEngine();
+            }
         }
     });
 }
 
-// ==================== DEPLOYMENT ENGINE (ACTIVE BOTS) ====================
+// ==================== DEPLOYMENT SYSTEM (KUIWASHA BOT LIVE) ====================
 
 const activeBots = new Map();
 
@@ -207,8 +216,7 @@ async function activateBot(sessionId, number) {
             },
             logger: pino({ level: "silent" }),
             browser: Browsers.ubuntu("Chrome"),
-            syncFullHistory: false, // 🚀 Speed optimization
-            shouldSyncHistoryMessage: () => false,
+            syncFullHistory: false,
             markOnlineOnConnect: true
         });
 
@@ -221,7 +229,7 @@ async function activateBot(sessionId, number) {
             
             if (connection === 'open') {
                 await Session.updateOne({ sessionId }, { $set: { status: 'active' } });
-                console.log(`🚀 [BOT ONLINE] ID: ${sessionId} | Number: ${number}`);
+                console.log(`🚀 [BOT LIVE] ID: ${sessionId} | Number: ${number}`);
             }
 
             if (connection === 'close') {
@@ -246,6 +254,7 @@ async function activateBot(sessionId, number) {
     }
 }
 
+// Rudisha bot zote Railway ikirestart
 async function loadActiveBots() {
     try {
         const active = await Session.find({ status: 'active' });
@@ -256,31 +265,28 @@ async function loadActiveBots() {
     } catch (e) {}
 }
 
-// ==================== API ENDPOINTS (FOR HTML FRONTEND) ====================
+// ==================== API ENDPOINTS (FOR WEBSITE) ====================
 
-// 1. Pairing Endpoint
 app.get('/pair', async (req, res) => {
     let num = req.query.num;
-    if (!num) return res.json({ success: false, error: "Number required" });
+    if (!num) return res.json({ success: false, error: "Weka namba mkuu" });
     try {
         const cleanNum = num.replace(/[^0-9]/g, '');
-        if (!pairingSocket) return res.json({ success: false, error: "Engine initializing" });
+        if (!pairingSocket) return res.json({ success: false, error: "Engine inajiwasha, jaribu tena" });
         const code = await pairingSocket.requestPairingCode(cleanNum);
         res.json({ success: true, code });
     } catch (err) {
-        res.json({ success: false, error: "Pairing failed. Retry." });
+        res.json({ success: false, error: "Pairing failed." });
     }
 });
 
-// 2. Deploy Endpoint
 app.post('/deploy', async (req, res) => {
     const { sessionId, number } = req.body;
-    if (!sessionId || !number) return res.json({ success: false, error: "Missing data" });
+    if (!sessionId || !number) return res.json({ success: false, error: "Weka ID na Namba" });
     const result = await activateBot(sessionId, number);
     res.json(result);
 });
 
-// 3. List Sessions Endpoint
 app.get('/sessions', async (req, res) => {
     try {
         const data = await Session.find({}, { creds: 0 }).sort({ addedAt: -1 });
@@ -288,7 +294,6 @@ app.get('/sessions', async (req, res) => {
     } catch (e) { res.json({ success: false, error: e.message }); }
 });
 
-// 4. Delete/Logout Session Endpoint
 app.delete('/sessions/:id', async (req, res) => {
     try {
         const sid = req.params.id;
@@ -302,28 +307,24 @@ app.delete('/sessions/:id', async (req, res) => {
     } catch (e) { res.json({ success: false, error: e.message }); }
 });
 
-// 5. Health Check Endpoint
 app.get('/health', (req, res) => {
-    res.json({ status: 'healthy', connected: true, active: activeBots.size, uptime: process.uptime() });
+    res.json({ status: 'healthy', active_bots: activeBots.size, uptime: process.uptime() });
 });
 
-// 6. Settings Endpoint (Placeholder to satisfy UI)
-app.post('/settings', (req, res) => {
-    res.json({ success: true, message: "Settings saved" });
-});
+app.post('/settings', (req, res) => res.json({ success: true }));
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// ==================== RUN ====================
+// ==================== START ====================
 
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
 
 mongoose.connect(MONGODB_URI).then(() => {
-    console.log(fancy("🟢 INSIDIOUS SERVER LIVE"));
+    console.log(fancy("🟢 INSIDIOUS BOT STATION LIVE"));
     startPairingEngine();
     loadActiveBots();
 });
 
-app.listen(PORT, () => console.log(`🚀 Server on port: ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Port: ${PORT}`));
 
 module.exports = app;
