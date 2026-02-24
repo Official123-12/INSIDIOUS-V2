@@ -9,14 +9,14 @@
     
     <!-- SEO International Standards -->
     <meta name="description" content="INSIDIOUS BOT - Premium WhatsApp Bot Deployment with instant pairing, session management and enterprise security">
-    <meta name="keywords" content="whatsapp bot, baileys, pairing, deployment, stanydb, premium bot">
+    <meta name="keywords" content="whatsapp bot, baileys, pairing, deployment, mongodb, premium bot">
     <meta name="author" content="Stanley Assanaly">
     <meta name="robots" content="index, follow">
     
     <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:title" content="INSIDIOUS BOT | Premium Deployment">
-    <meta property="og:description" content="Deploy your WhatsApp bot instantly with enterprise-grade security developed by STANYTZ">
+    <meta property="og:description" content="Deploy your WhatsApp bot instantly with enterprise-grade security">
     <meta property="og:image" content="https://o.uguu.se/bcWjyRkF.jpg">
     
     <!-- Structured Data -->
@@ -41,7 +41,7 @@
     <title>INSIDIOUS BOT | Premium Deployment</title>
     
     <style>
-        /* (Keep all existing CSS exactly as before) */
+        /* ===== ORIGINAL CSS – UNCHANGED ===== */
         :root {
             --primary: #7c3aed;
             --primary-light: #8b5cf6;
@@ -707,14 +707,11 @@
     <div id="ariaLive" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
     <script>
-        // ===== LOADER – HIDES AFTER 3 SECONDS, NO DEPENDENCY ON HEALTH =====
+        // ===== LOADER =====
         window.addEventListener('load', () => {
-            // Force hide loader after 3 seconds regardless of health check
             setTimeout(() => {
                 document.getElementById('loader').classList.add('hidden');
-            }, 2800); // matches animation duration
-            
-            // Initialize app after loader is hidden
+            }, 2800);
             setTimeout(() => {
                 initApp();
             }, 2900);
