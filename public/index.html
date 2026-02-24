@@ -82,7 +82,7 @@
             position: relative;
         }
 
-        /* Premium Animated Background – sasa inatumia image yenye blur */
+        /* Premium Animated Background – blur imepunguzwa */
         .bg-premium {
             position: fixed; inset: 0; z-index: -2; overflow: hidden; pointer-events: none;
         }
@@ -91,12 +91,12 @@
             background-image: url('https://o.uguu.se/bcWjyRkF.jpg');
             background-size: cover;
             background-position: center;
-            filter: blur(8px) brightness(0.4);
-            transform: scale(1.1);
+            filter: blur(3px) brightness(0.6); /* blur ndogo, mwanga zaidi */
+            transform: scale(1.05);
         }
         .bg-overlay {
             position: absolute; inset: 0;
-            background: radial-gradient(ellipse at 50% 50%, transparent 0%, rgba(2,6,23,0.7) 100%);
+            background: radial-gradient(ellipse at 50% 50%, transparent 0%, rgba(2,6,23,0.6) 100%);
         }
 
         /* Loader */
@@ -816,6 +816,10 @@
         }
 
         // ===== LOCAL STORAGE FOR USER SESSIONS =====
+        // Kwa nini tunatumia localStorage?
+        // Database ina sessions zote, lakini hatuna mfumo wa login.
+        // LocalStorage inakumbuka ni session zipi zilizopatikana kwenye browser hii.
+        // Hii inasaidia kila mtumiaji kuona sessions zake tu.
         function getUserSessionIds() {
             const stored = localStorage.getItem('user_sessions');
             return stored ? JSON.parse(stored) : [];
