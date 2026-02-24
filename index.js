@@ -12,7 +12,7 @@ const {
 const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
-const fs = require('fs');
+const fs = require('fs').promises; // Use promises for async file ops
 
 // ==================== CONFIG & HANDLER ====================
 const handler = require('./handler');
@@ -28,7 +28,7 @@ const sessionSchema = new mongoose.Schema({
     sessionId: { type: String, required: true, unique: true, index: true },
     phoneNumber: { type: String, required: true },
     creds: { type: Object, required: true },
-    status: { type: String, default: 'active', index: true },
+    status: { type: String, default: 'paired', enum: ['paired', 'active', 'inactive'], index: true },
     addedAt: { type: Date, default: Date.now }
 });
 const Session = mongoose.model('UserSession', sessionSchema);
@@ -117,99 +117,154 @@ function randomMegaId(len = 6, numLen = 4) {
     return `${out}${Math.floor(Math.random() * Math.pow(10, numLen))}`;
 }
 
-// ==================== PAIRING STATION (FIXED LOADING) ====================
+// ==================== TEMPORARY PAIRING STORAGE (in-memory) ====================
+// Used to store pairing data until the user scans the code
+const tempPairings = new Map(); // key: sessionId, value: { phoneNumber, creds, expiry }
 
-let pairingSocket = null;
-
-async function startPairingEngine() {
-    // Safisha folder la muda kila mwanzo
-    if (fs.existsSync('./pairing_temp')) fs.rmSync('./pairing_temp', { recursive: true, force: true });
-
-    const { state, saveCreds } = await useMultiFileAuthState('pairing_temp');
-
-    const conn = makeWASocket({
-        version: [2, 3000, 1033105955],
-        auth: { 
-            creds: state.creds, 
-            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) 
-        },
-        logger: pino({ level: "silent" }),
-        browser: Browsers.macOS("Safari"),
-        // 🚀 KIBOKO YA LOADING MUDA MREFU:
-        syncFullHistory: false, 
-        shouldSyncHistoryMessage: () => false, 
-        getMessage: async (key) => ({ conversation: "Insidious Bot" }),
-        connectTimeoutMs: 60000
-    });
-
-    pairingSocket = conn;
-
-    conn.ev.on('creds.update', saveCreds);
-
-    conn.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect } = update;
-
-        if (connection === 'open') {
-            const userJid = conn.user.id.split(':')[0];
-            const sessionId = randomMegaId();
-
-            console.log(fancy(`✅ Link Successful for ${userJid}. Saving...`));
-
-            // Hifadhi credentials kwenye MongoDB papo hapo
-            await Session.findOneAndUpdate(
-                { phoneNumber: userJid },
-                { 
-                    sessionId, 
-                    phoneNumber: userJid, 
-                    creds: JSON.parse(JSON.stringify(state.creds, BufferJSON.replacer)), 
-                    status: 'active' 
-                },
-                { upsert: true }
-            );
-
-            // Tuma Session ID kwa mtumiaji
-            const welcomeMsg = `╭─── • 🥀 • ───╮\n   INSIDIOUS BOT\n╰─── • 🥀 • ───╯\n\n✅ *Pairing Successful!*\n\n🆔 *SESSION ID:* \`${sessionId}\`\n\nCopy kodi hiyo, rudi kwenye website kisha i-paste kwenye sehemu ya **Deploy** kuanzisha bot yako sasa.`;
-            
-            await conn.sendMessage(userJid + '@s.whatsapp.net', { 
-                image: { url: "https://raw.githubusercontent.com/Official123-12/STANYFREEBOT-/refs/heads/main/IMG_1377.jpeg" },
-                caption: welcomeMsg
-            });
-            await conn.sendMessage(userJid + '@s.whatsapp.net', { text: sessionId });
-
-            // ✅ FUNGA SOCKET PAPO HAPO: Bot isikae online hapa
-            setTimeout(() => {
-                conn.ev.removeAllListeners();
-                conn.terminate(); // Tunakata mawasiliano tu, hatufanyi 'logout'
-                if (fs.existsSync('./pairing_temp')) fs.rmSync('./pairing_temp', { recursive: true, force: true });
-                console.log(fancy("🔒 Pairing Engine Disconnected. Waiting for User Deployment."));
-                startPairingEngine(); // Restart kwa ajili ya user mwingine
-            }, 5000);
+// Cleanup expired temp pairings every 10 minutes
+setInterval(() => {
+    const now = Date.now();
+    for (const [id, data] of tempPairings.entries()) {
+        if (now > data.expiry) {
+            tempPairings.delete(id);
+            // Also remove temp folder if any (not needed as we use in-memory only)
         }
+    }
+}, 10 * 60 * 1000);
 
-        if (connection === 'close') {
-            const code = lastDisconnect?.error?.output?.statusCode;
-            if (code !== DisconnectReason.loggedOut && connection !== 'open') {
-                startPairingEngine();
+// ==================== API: PAIRING (PER REQUEST SOCKET) ====================
+
+app.get('/pair', async (req, res) => {
+    const num = req.query.num;
+    if (!num || !/^[0-9]{10,15}$/.test(num)) {
+        return res.status(400).json({ success: false, error: "Invalid number. Use format: 2557XXXXXXXX" });
+    }
+
+    const sessionId = randomMegaId();
+    console.log(`🔑 Generating pairing for ${num} | Session: ${sessionId}`);
+
+    let sock;
+    let responded = false;
+
+    try {
+        // Create a temporary auth folder for this session
+        const authDir = path.join(__dirname, 'temp_auth', sessionId);
+        await fs.mkdir(authDir, { recursive: true });
+        const { state, saveCreds } = await useMultiFileAuthState(authDir);
+
+        const version = [2, 3000, 1033105955]; // Stable version
+        sock = makeWASocket({
+            version,
+            auth: {
+                creds: state.creds,
+                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }))
+            },
+            logger: pino({ level: "silent" }),
+            browser: Browsers.macOS("Safari"),
+            syncFullHistory: false,
+            shouldSyncHistoryMessage: () => false,
+            getMessage: async (key) => ({ conversation: "Insidious Bot" }),
+            connectTimeoutMs: 60000
+        });
+
+        sock.ev.on('creds.update', saveCreds);
+
+        // Request pairing code
+        const code = await sock.requestPairingCode(num);
+        console.log(`📱 Pairing code for ${num}: ${code}`);
+
+        // Send code to client immediately
+        res.json({ success: true, code, sessionId });
+        responded = true;
+
+        // Set expiry (30 minutes)
+        tempPairings.set(sessionId, { phoneNumber: num, expiry: Date.now() + 30 * 60 * 1000 });
+
+        // Handle connection update
+        sock.ev.on('connection.update', async (update) => {
+            const { connection, lastDisconnect } = update;
+
+            if (connection === 'open') {
+                console.log(`✅ ${num} successfully linked device. Saving to DB...`);
+
+                // Save credentials to MongoDB
+                const credsForDb = JSON.parse(JSON.stringify(state.creds, BufferJSON.replacer));
+                await Session.findOneAndUpdate(
+                    { phoneNumber: num },
+                    { sessionId, phoneNumber: num, creds: credsForDb, status: 'paired' },
+                    { upsert: true }
+                );
+
+                // Send welcome messages
+                try {
+                    const welcomeMsg = `╭─── • 🥀 • ───╮\n   INSIDIOUS BOT\n╰─── • 🥀 • ───╯\n\n✅ *Pairing Successful!*\n\n🆔 *SESSION ID:* \`${sessionId}\`\n\nCopy this ID, go to the website and paste it in the **Deploy** section to start your bot.`;
+
+                    await sock.sendMessage(`${num}@s.whatsapp.net`, {
+                        image: { url: "https://raw.githubusercontent.com/Official123-12/STANYFREEBOT-/refs/heads/main/IMG_1377.jpeg" },
+                        caption: welcomeMsg
+                    });
+                    await sock.sendMessage(`${num}@s.whatsapp.net`, { text: sessionId });
+                    console.log(`📨 Welcome messages sent to ${num}`);
+                } catch (msgErr) {
+                    console.error('❌ Failed to send welcome messages:', msgErr);
+                }
+
+                // Clean up: close socket and remove temp folder
+                sock?.end();
+                await fs.rm(authDir, { recursive: true, force: true }).catch(() => {});
+                tempPairings.delete(sessionId);
+                console.log(`🔌 Pairing socket closed for ${num}`);
             }
-        }
-    });
-}
 
-// ==================== DEPLOYMENT SYSTEM (KUIWASHA BOT LIVE) ====================
+            if (connection === 'close') {
+                const statusCode = lastDisconnect?.error?.output?.statusCode;
+                if (statusCode !== DisconnectReason.loggedOut) {
+                    // Unexpected close, but we don't need to restart anything
+                    console.log(`⚠️ Pairing socket closed unexpectedly for ${num}: ${statusCode}`);
+                }
+                // Clean up
+                sock?.end();
+                await fs.rm(authDir, { recursive: true, force: true }).catch(() => {});
+                tempPairings.delete(sessionId);
+            }
+        });
+
+        sock.ev.on('error', (err) => {
+            console.error(`❌ Socket error for ${num}:`, err);
+            sock?.end();
+            fs.rm(authDir, { recursive: true, force: true }).catch(() => {});
+            tempPairings.delete(sessionId);
+            if (!responded) {
+                res.status(500).json({ success: false, error: "Pairing failed due to socket error." });
+                responded = true;
+            }
+        });
+
+    } catch (err) {
+        console.error('❌ Pairing error:', err);
+        sock?.end();
+        if (!responded) {
+            res.status(500).json({ success: false, error: err.message || "Server error during pairing." });
+        }
+    }
+});
+
+// ==================== API: DEPLOY ====================
 
 const activeBots = new Map();
 
-async function activateBot(sessionId, number) {
+async function activateBot(sessionId, phoneNumber) {
     if (activeBots.has(sessionId)) {
-        try { activeBots.get(sessionId).terminate(); } catch (e) {}
+        try { activeBots.get(sessionId).end(); } catch (e) {}
         activeBots.delete(sessionId);
     }
 
     try {
         const { state, saveCreds } = await useMongoAuthState(sessionId);
 
+        const version = [2, 3000, 1033105955];
         const conn = makeWASocket({
-            version: [2, 3000, 1033105955],
+            version,
             auth: {
                 creds: state.creds,
                 keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }))
@@ -221,22 +276,22 @@ async function activateBot(sessionId, number) {
         });
 
         activeBots.set(sessionId, conn);
+        await Session.updateOne({ sessionId }, { status: 'active' });
 
         conn.ev.on('creds.update', saveCreds);
 
         conn.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update;
-            
             if (connection === 'open') {
-                await Session.updateOne({ sessionId }, { $set: { status: 'active' } });
-                console.log(`🚀 [BOT LIVE] ID: ${sessionId} | Number: ${number}`);
+                console.log(`🚀 Bot LIVE: ${sessionId} (${phoneNumber})`);
             }
-
             if (connection === 'close') {
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
                 if (statusCode !== DisconnectReason.loggedOut) {
-                    setTimeout(() => activateBot(sessionId, number), 5000);
+                    console.log(`🔄 Reconnecting bot ${sessionId}...`);
+                    setTimeout(() => activateBot(sessionId, phoneNumber), 5000);
                 } else {
+                    console.log(`🚫 Bot ${sessionId} logged out. Removing session.`);
                     await Session.deleteOne({ sessionId });
                     await AuthKey.deleteMany({ sessionId });
                     activeBots.delete(sessionId);
@@ -245,86 +300,111 @@ async function activateBot(sessionId, number) {
         });
 
         conn.ev.on('messages.upsert', async (m) => {
-            try { await handler(conn, m); } catch (e) {}
+            try { await handler(conn, m); } catch (e) { console.error('Handler error:', e); }
         });
 
         return { success: true };
-    } catch (e) {
-        return { success: false, error: e.message };
-    }
-}
-
-// Rudisha bot zote Railway ikirestart
-async function loadActiveBots() {
-    try {
-        const active = await Session.find({ status: 'active' });
-        for (const sess of active) {
-            await new Promise(r => setTimeout(r, 2000)); 
-            activateBot(sess.sessionId, sess.phoneNumber);
-        }
-    } catch (e) {}
-}
-
-// ==================== API ENDPOINTS (FOR WEBSITE) ====================
-
-app.get('/pair', async (req, res) => {
-    let num = req.query.num;
-    if (!num) return res.json({ success: false, error: "Weka namba mkuu" });
-    try {
-        const cleanNum = num.replace(/[^0-9]/g, '');
-        if (!pairingSocket) return res.json({ success: false, error: "Engine inajiwasha, jaribu tena" });
-        const code = await pairingSocket.requestPairingCode(cleanNum);
-        res.json({ success: true, code });
     } catch (err) {
-        res.json({ success: false, error: "Pairing failed." });
+        console.error(`❌ Failed to activate bot ${sessionId}:`, err);
+        return { success: false, error: err.message };
     }
-});
+}
 
 app.post('/deploy', async (req, res) => {
     const { sessionId, number } = req.body;
-    if (!sessionId || !number) return res.json({ success: false, error: "Weka ID na Namba" });
+    if (!sessionId || !number) {
+        return res.status(400).json({ success: false, error: "Session ID and phone number are required." });
+    }
+
+    // Verify session exists and is paired (not yet active)
+    const session = await Session.findOne({ sessionId, phoneNumber: number, status: 'paired' });
+    if (!session) {
+        return res.status(404).json({ success: false, error: "Session not found or already deployed. Please pair again." });
+    }
+
     const result = await activateBot(sessionId, number);
-    res.json(result);
+    if (result.success) {
+        res.json({ success: true, message: "Bot deployed successfully!" });
+    } else {
+        res.status(500).json({ success: false, error: result.error });
+    }
 });
+
+// ==================== API: SESSIONS ====================
 
 app.get('/sessions', async (req, res) => {
     try {
-        const data = await Session.find({}, { creds: 0 }).sort({ addedAt: -1 });
-        res.json({ success: true, sessions: data });
-    } catch (e) { res.json({ success: false, error: e.message }); }
+        const sessions = await Session.find({}, { creds: 0 }).sort({ addedAt: -1 });
+        res.json({ success: true, sessions });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
+
+// ==================== API: DELETE SESSION ====================
 
 app.delete('/sessions/:id', async (req, res) => {
+    const sessionId = req.params.id;
     try {
-        const sid = req.params.id;
-        await Session.deleteOne({ sessionId: sid });
-        await AuthKey.deleteMany({ sessionId: sid });
-        if (activeBots.has(sid)) {
-            activeBots.get(sid).terminate();
-            activeBots.delete(sid);
+        // Remove from DB
+        await Session.deleteOne({ sessionId });
+        await AuthKey.deleteMany({ sessionId });
+        // Stop bot if running
+        if (activeBots.has(sessionId)) {
+            activeBots.get(sessionId).end();
+            activeBots.delete(sessionId);
         }
         res.json({ success: true });
-    } catch (e) { res.json({ success: false, error: e.message }); }
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
+
+// ==================== API: SETTINGS ====================
+
+app.post('/settings', (req, res) => {
+    // Placeholder – implement if needed
+    res.json({ success: true });
+});
+
+// ==================== HEALTH CHECK ====================
 
 app.get('/health', (req, res) => {
-    res.json({ status: 'healthy', active_bots: activeBots.size, uptime: process.uptime() });
+    res.json({
+        status: 'healthy',
+        activeBots: activeBots.size,
+        uptime: process.uptime()
+    });
 });
 
-app.post('/settings', (req, res) => res.json({ success: true }));
+// ==================== STATIC FILES & FALLBACK ====================
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// ==================== START ====================
+// ==================== START SERVER ====================
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
+const MONGODB_URI = process.env.MONGODB_URI; // No fallback – must be set in environment
+if (!MONGODB_URI) {
+    console.error('❌ MONGODB_URI environment variable is required!');
+    process.exit(1);
+}
 
-mongoose.connect(MONGODB_URI).then(() => {
-    console.log(fancy("🟢 INSIDIOUS BOT STATION LIVE"));
-    startPairingEngine();
-    loadActiveBots();
-});
+mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(async () => {
+        console.log(fancy("🟢 MongoDB Connected"));
+        // Restore any previously active bots (those with status 'active')
+        const activeSessions = await Session.find({ status: 'active' });
+        for (const sess of activeSessions) {
+            console.log(`♻️ Restoring bot ${sess.sessionId}...`);
+            activateBot(sess.sessionId, sess.phoneNumber).catch(err => console.error('Restore error:', err));
+        }
+        console.log(fancy("🚀 INSIDIOUS BOT Station Ready"));
+    })
+    .catch(err => {
+        console.error('❌ MongoDB connection error:', err);
+        process.exit(1);
+    });
 
-app.listen(PORT, () => console.log(`🚀 Port: ${PORT}`));
+app.listen(PORT, () => console.log(`🌐 Server running on port ${PORT}`));
 
 module.exports = app;
