@@ -21,7 +21,6 @@ const handler = require('./handler');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Enable CORS for frontend communication
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -149,7 +148,7 @@ const useMongoAuthState = async (sessionId) => {
 // ==================== UTILITIES ====================
 
 function fancy(text) {
-    const map = { a: 'ᴀ', b: 'ʙ', c: 'ᴄ', d: 'ᴅ', e: 'ᴇ', f: 'ꜰ', g: 'ɢ', h: 'ʜ', i: 'ɪ', j: 'ᴊ', k: 'ᴋ', l: 'ʟ', m: 'ᴍ', n: 'ɴ', o: 'ᴏ', p: 'ᴘ', q: 'ǫ', r: 'ʀ', s: 'ꜱ', t: 'ᴛ', u: 'ᴜ', v: 'ᴠ', w: 'ᴡ', x: 'x', y: 'ʏ', z: 'ᴢ' };
+    const map = { a: 'ᴀ', b: 'ʙ', c: 'ᴄ', d: 'ᴅ', e: 'ᴇ', f: 'ꜰ', g: 'ɢ', h: 'ʜ', i: 'ɪ', j: 'ᴊ', k: 'ᴋ', l: 'ʟ', m: 'ᴍ', n: 'ɴ', o: 'ᴏ', p: 'ᴘ', q: 'ǫ', r: 'ʀ', s: 'ꜱ', t: 'ᴛ', u:: 'ᴜ', v: 'ᴠ', w: 'ᴡ', x: 'x', y: 'ʏ', z: 'ᴢ' };
     return text.split('').map(c => map[c.toLowerCase()] || c).join('');
 }
 
@@ -163,7 +162,6 @@ function randomMegaId(len = 6, numLen = 4) {
 // ==================== PAIRING STATION (EPHEMERAL) ====================
 
 let pairingSocket = null;
-let pendingPairings = new Map(); // Store pending pairing promises
 
 async function startPairingEngine() {
     if (fs.existsSync('./pairing_temp')) fs.rmSync('./pairing_temp', { recursive: true, force: true });
@@ -225,13 +223,6 @@ async function startPairingEngine() {
                 console.error("Failed to send messages:", sendErr);
             }
 
-            // Resolve pending pairing promise if exists
-            const pending = pendingPairings.get(userJid);
-            if (pending) {
-                pending.resolve({ sessionId, phoneNumber: userJid });
-                pendingPairings.delete(userJid);
-            }
-
             setTimeout(async () => {
                 try {
                     await conn.logout();
@@ -290,7 +281,7 @@ async function activateBot(sessionId, number) {
                 keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }))
             },
             logger: pino({ level: "silent" }),
-            browser: Browsers.MacOS("Safari"),
+            browser: Browsers.ubuntu("Chrome"),
             syncFullHistory: false,
             markOnlineOnConnect: true,
             keepAliveIntervalMs: 30000,
@@ -387,40 +378,8 @@ app.get('/pair', async (req, res) => {
     try {
         const cleanNum = num.replace(/[^0-9]/g, '');
         if (!pairingSocket) return res.json({ success: false, error: "Engine initializing" });
-        
-        // Request pairing code
         const code = await pairingSocket.requestPairingCode(cleanNum);
-        
-        // Create promise that will resolve when pairing completes
-        const pairingPromise = new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                pendingPairings.delete(cleanNum);
-                reject(new Error('Pairing timeout'));
-            }, 60000);
-            
-            pendingPairings.set(cleanNum, {
-                resolve: (data) => {
-                    clearTimeout(timeout);
-                    resolve(data);
-                },
-                reject: (err) => {
-                    clearTimeout(timeout);
-                    reject(err);
-                }
-            });
-        });
-        
-        // Send code immediately
         res.json({ success: true, code });
-        
-        // Wait for pairing completion in background
-        try {
-            const result = await pairingPromise;
-            console.log('Pairing completed for', cleanNum, 'with session', result.sessionId);
-        } catch (err) {
-            console.log('Pairing failed or timeout for', cleanNum);
-        }
-        
     } catch (err) {
         res.json({ success: false, error: "Pairing failed. Retry." });
     }
@@ -455,7 +414,7 @@ app.delete('/sessions/:id', async (req, res) => {
     } catch (e) { res.json({ success: false, error: e.message }); }
 });
 
-// NEW: Settings endpoint
+// NEW: Settings endpoint (required by frontend)
 app.post('/settings', async (req, res) => {
     try {
         console.log('Settings saved:', req.body);
@@ -465,14 +424,13 @@ app.post('/settings', async (req, res) => {
     }
 });
 
-// UPDATED: Health check endpoint
+// Health check (original format)
 app.get('/health', (req, res) => {
     const mongoStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
     const activeSessions = activeBots.size;
     
     res.json({
-        status: 'healthy',
-        connected: mongoStatus === 'connected',
+        status: 'ok',
         timestamp: new Date().toISOString(),
         mongoStatus,
         activeBots: activeSessions,
