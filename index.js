@@ -1,325 +1,474 @@
-const express = require('express');
-const { 
-    default: makeWASocket, 
-    useMultiFileAuthState, 
-    Browsers, 
-    makeCacheableSignalKeyStore, 
-    fetchLatestBaileysVersion, 
-    DisconnectReason,
-    BufferJSON,
-    proto
-} = require("@whiskeysockets/baileys");
-const pino = require("pino");
-const mongoose = require("mongoose");
-const path = require("path");
-const fs = require('fs');
+// index.js - INSIDIOUS BOT Backend
+// WhatsApp Bot Deployment System
+// Fixed: Hardcoded stable version to avoid connection closed errors
 
-// ==================== CONFIG & HANDLER ====================
-const handler = require('./handler');
+require('dotenv').config();
+const express = require('express');
+const http = require('http');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
+const mongoose = require('mongoose');
+const pino = require('pino');
+const path = require('path');
+const fs = require('fs').promises;
+
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+// ==================== CONFIG ====================
+// ⚠️ IMPORTANT: Set MONGODB_URI in your environment variables!
+const MONGODB_URI = process.env.MONGODB_URI;
+if (!MONGODB_URI) {
+    console.error('❌ MONGODB_URI environment variable is required!');
+    process.exit(1);
+}
+// If you want a fallback (not recommended), use:
+// const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/';
 
-// ==================== DATABASE SCHEMAS ====================
+const TEMP_SESSION_EXPIRY = 30 * 60 * 1000; // 30 minutes
 
-const sessionSchema = new mongoose.Schema({
+// ==================== MONGODB SETUP ====================
+mongoose.connect(MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+}).then(() => console.log('✅ MongoDB Connected'))
+  .catch(err => {
+      console.error('❌ MongoDB Error:', err);
+      process.exit(1);
+  });
+
+// Bot Session Schema
+const botSessionSchema = new mongoose.Schema({
     sessionId: { type: String, required: true, unique: true, index: true },
     phoneNumber: { type: String, required: true },
-    creds: { type: Object, required: true },
-    status: { type: String, default: 'active', index: true },
-    addedAt: { type: Date, default: Date.now }
-});
-const Session = mongoose.model('UserSession', sessionSchema);
+    status: {
+        type: String,
+        enum: ['pending', 'active', 'inactive', 'deleted'],
+        default: 'pending'
+    },
+    settings: {
+        antiviewonce: { type: Boolean, default: true },
+        antidelete: { type: Boolean, default: true },
+        autoread: { type: Boolean, default: true },
+        chatbot: { type: Boolean, default: true },
+        antilink: { type: Boolean, default: true },
+        welcome: { type: Boolean, default: true }
+    },
+    deployedAt: { type: Date, default: Date.now },
+    lastActive: { type: Date },
+    messageCount: { type: Number, default: 0 }
+}, { timestamps: true });
 
-const authKeySchema = new mongoose.Schema({
-    sessionId: { type: String, required: true, index: true },
-    keyId: { type: String, required: true },
-    data: { type: Object }
-});
-authKeySchema.index({ sessionId: 1, keyId: 1 }, { unique: true });
-const AuthKey = mongoose.model('AuthKey', authKeySchema);
+const BotSession = mongoose.model('BotSession', botSessionSchema);
 
-// ==================== ENTERPRISE MONGO AUTH STATE ====================
+// ==================== TEMPORARY STORAGE ====================
+const tempSessions = new Map(); // sessionId -> { phoneNumber, createdAt, authState }
 
-const useMongoAuthState = async (sessionId) => {
-    const writeData = async (data, keyId) => {
-        try {
-            await AuthKey.updateOne(
-                { sessionId, keyId },
-                { $set: { data: JSON.parse(JSON.stringify(data, BufferJSON.replacer)) } },
-                { upsert: true }
-            );
-        } catch (e) { console.error('AuthKey Save Error:', e); }
-    };
-
-    const readData = async (keyId) => {
-        try {
-            const res = await AuthKey.findOne({ sessionId, keyId });
-            return res ? JSON.parse(JSON.stringify(res.data), BufferJSON.reviver) : null;
-        } catch (e) { return null; }
-    };
-
-    const removeData = async (keyId) => {
-        try { await AuthKey.deleteOne({ sessionId, keyId }); } catch (e) { }
-    };
-
-    const sessionRecord = await Session.findOne({ sessionId });
-    let creds = sessionRecord ? JSON.parse(JSON.stringify(sessionRecord.creds), BufferJSON.reviver) : null;
-
-    return {
-        state: {
-            creds,
-            keys: {
-                get: async (type, ids) => {
-                    const data = {};
-                    await Promise.all(ids.map(async (id) => {
-                        let value = await readData(`${type}-${id}`);
-                        if (type === 'app-state-sync-key' && value) value = proto.Message.AppStateSyncKeyData.fromObject(value);
-                        data[id] = value;
-                    }));
-                    return data;
-                },
-                set: async (data) => {
-                    for (const category in data) {
-                        for (const id in data[category]) {
-                            const value = data[category][id];
-                            const keyId = `${category}-${id}`;
-                            value ? await writeData(value, keyId) : await removeData(keyId);
-                        }
-                    }
-                }
+// Clean up expired temporary sessions every 10 minutes
+setInterval(async () => {
+    const now = Date.now();
+    for (const [id, data] of tempSessions.entries()) {
+        if (now - data.createdAt > TEMP_SESSION_EXPIRY) {
+            tempSessions.delete(id);
+            // Also delete the temporary auth folder
+            const folder = path.join(__dirname, 'auth', `temp_${id}`);
+            try {
+                await fs.rm(folder, { recursive: true, force: true });
+                console.log(`🧹 Cleaned up expired temp session: ${id}`);
+            } catch (err) {
+                // Ignore errors
             }
-        },
-        saveCreds: async () => {
-            await Session.updateOne(
-                { sessionId },
-                { $set: { creds: JSON.parse(JSON.stringify(creds, BufferJSON.replacer)) } }
-            );
         }
-    };
-};
+    }
+}, 10 * 60 * 1000);
 
-// ==================== UTILITIES ====================
-
-function fancy(text) {
-    const map = { a: 'ᴀ', b: 'ʙ', c: 'ᴄ', d: 'ᴅ', e: 'ᴇ', f: 'ꜰ', g: 'ɢ', h: 'ʜ', i: 'ɪ', j: 'ᴊ', k: 'ᴋ', l: 'ʟ', m: 'ᴍ', n: 'ɴ', o: 'ᴏ', p: 'ᴘ', q: 'ǫ', r: 'ʀ', s: 'ꜱ', t: 'ᴛ', u: 'ᴜ', v: 'ᴠ', w: 'ᴡ', x: 'x', y: 'ʏ', z: 'ᴢ' };
-    return text.split('').map(c => map[c.toLowerCase()] || c).join('');
-}
-
+// ==================== SESSION ID GENERATOR 🆔 ====================
 function randomMegaId(len = 6, numLen = 4) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let out = '';
-    for (let i = 0; i < len; i++) out += chars.charAt(Math.floor(Math.random() * chars.length));
+    for (let i = 0; i < len; i++) {
+        out += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
     return `${out}${Math.floor(Math.random() * Math.pow(10, numLen))}`;
 }
 
-// ==================== PAIRING ENGINE (FILE AUTH) ====================
+// ==================== MIDDLEWARE ====================
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
 
-let pairingSocket = null;
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    if (req.method === 'OPTIONS') return res.sendStatus(200);
+    next();
+});
 
-async function startPairingEngine() {
-    if (fs.existsSync('./pairing_temp')) fs.rmSync('./pairing_temp', { recursive: true, force: true });
+// ==================== HEALTH CHECK ====================
+app.get('/health', async (req, res) => {
+    try {
+        const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+        const activeBots = await BotSession.countDocuments({ status: 'active' });
 
-    const { state, saveCreds } = await useMultiFileAuthState('pairing_temp');
-    const { version } = await fetchLatestBaileysVersion();
+        res.json({
+            status: 'healthy',
+            timestamp: new Date().toISOString(),
+            database: dbStatus,
+            activeBots,
+            tempSessions: tempSessions.size,
+            uptime: process.uptime()
+        });
+    } catch (err) {
+        res.status(500).json({ status: 'unhealthy', error: err.message });
+    }
+});
 
-    const conn = makeWASocket({
-        version,
-        auth: { 
-            creds: state.creds, 
-            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) 
-        },
-        logger: pino({ level: "silent" }),
-        browser: Browsers.macOS("Safari"),
-        syncFullHistory: false,
-        shouldSyncHistoryMessage: () => false,
-        connectTimeoutMs: 60000
-    });
+// ==================== API: PAIRING (FIXED VERSION) ====================
+app.get('/pair', async (req, res) => {
+    const { num } = req.query;
 
-    pairingSocket = conn;
-
-    conn.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect } = update;
-
-        if (connection === 'open') {
-            const userJid = conn.user.id.split(':')[0];
-            const sessionId = randomMegaId();
-
-            // Initial migration of file-creds to MongoDB
-            await Session.findOneAndUpdate(
-                { phoneNumber: userJid },
-                { 
-                    sessionId, 
-                    phoneNumber: userJid, 
-                    creds: JSON.parse(JSON.stringify(state.creds, BufferJSON.replacer)), 
-                    status: 'active' 
-                },
-                { upsert: true }
-            );
-
-            const welcomeMsg = `╭─── • 🥀 • ───╮\n   INSIDIOUS BOT\n╰─── • 🥀 • ───╯\n\n✅ *Pairing Successful!*\n\n🆔 *SESSION ID:* \`${sessionId}\`\n\nPaste this ID on the web dashboard to deploy.`;
-            
-            await conn.sendMessage(userJid + '@s.whatsapp.net', { 
-                image: { url: "https://raw.githubusercontent.com/Official123-12/STANYFREEBOT-/refs/heads/main/IMG_1377.jpeg" },
-                caption: welcomeMsg
-            });
-            await conn.sendMessage(userJid + '@s.whatsapp.net', { text: sessionId });
-
-            setTimeout(async () => {
-                await conn.logout();
-                startPairingEngine(); 
-            }, 5000);
-        }
-
-        if (connection === 'close') {
-            const code = lastDisconnect?.error?.output?.statusCode;
-            if (code !== DisconnectReason.loggedOut) startPairingEngine();
-        }
-    });
-
-    conn.ev.on('creds.update', saveCreds);
-}
-
-// ==================== DEPLOYMENT SYSTEM (MONGO AUTH) ====================
-
-const activeBots = new Map();
-
-async function activateBot(sessionId, number) {
-    if (activeBots.has(sessionId)) {
-        try {
-            activeBots.get(sessionId).ev.removeAllListeners();
-            activeBots.get(sessionId).terminate();
-        } catch (e) {}
-        activeBots.delete(sessionId);
+    if (!num || !/^[0-9]{10,15}$/.test(num)) {
+        return res.status(400).json({
+            success: false,
+            error: 'Invalid phone number. Use format: 2557XXXXXXXX'
+        });
     }
 
-    try {
-        const { state, saveCreds } = await useMongoAuthState(sessionId);
-        const { version } = await fetchLatestBaileysVersion();
+    let sock;
+    let responded = false; // Prevent multiple responses
 
-        const conn = makeWASocket({
+    try {
+        // 🆔 Generate Session ID
+        const sessionId = randomMegaId(6, 4);
+        console.log(`🔑 Generated Session ID for ${num}: ${sessionId}`);
+
+        // 🔧 FIX: Use hardcoded stable version instead of fetching latest
+        const version = [2, 3000, 1033105955]; // Stable version to avoid disconnections
+
+        const authDir = path.join(__dirname, 'auth', `temp_${sessionId}`);
+        await fs.mkdir(authDir, { recursive: true });
+        const { state, saveCreds } = await useMultiFileAuthState(authDir);
+
+        sock = makeWASocket({
             version,
-            auth: {
-                creds: state.creds,
-                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }))
-            },
-            logger: pino({ level: "silent" }),
-            browser: Browsers.ubuntu("Chrome"),
-            syncFullHistory: false,
-            markOnlineOnConnect: true,
-            connectTimeoutMs: 60000
+            logger: pino({ level: 'silent' }),
+            printQRInTerminal: false,
+            auth: state,
+            browser: ['INSIDIOUS BOT', 'Chrome', '3.0'],
+            markOnlineOnConnect: false
         });
 
-        activeBots.set(sessionId, conn);
+        sock.ev.on('creds.update', saveCreds);
 
-        conn.ev.on('creds.update', saveCreds);
+        // Request pairing code – this is immediate
+        const code = await sock.requestPairingCode(num);
+        console.log(`📱 Pairing code for ${num}: ${code}`);
 
-        conn.ev.on('connection.update', async (update) => {
+        // ✅ Send the code to the client immediately
+        res.json({
+            success: true,
+            code,
+            sessionId,
+            message: 'Pairing code generated! Enter it in WhatsApp within 90 seconds.'
+        });
+        responded = true; // Mark as responded
+
+        // Set a timeout to close the socket if pairing doesn't complete
+        const pairingTimeout = setTimeout(() => {
+            console.log(`⏰ Pairing timeout for ${num} (session ${sessionId})`);
+            sock?.end?.();
+            // No need to respond to client again
+        }, 90000);
+
+        // Handle connection updates
+        sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update;
-            
+
             if (connection === 'open') {
-                await Session.updateOne({ sessionId }, { $set: { status: 'active' } });
-                console.log(`🚀 [BOT LIVE] ID: ${sessionId} | Number: ${number}`);
+                clearTimeout(pairingTimeout);
+                console.log(`✅ ${num} successfully linked device (session ${sessionId})`);
+
+                try {
+                    // 📩 MESSAGE 1: Welcome + Session ID
+                    const welcomeMsg = `🎉 *INSIDIOUS BOT ACTIVATED*\n\n✅ Device linked successfully!\n🆔 *Your Session ID:*\n\`${sessionId}\`\n\n🔹 *Save this ID* to deploy your bot\n🔹 Visit: https://insidious-bot.railway.app/deploy\n🔹 Enter your Session ID + Phone Number\n\n*Powered by Stanley Assanaly* 🇹🇿`;
+
+                    await sock.sendMessage(`${num}@s.whatsapp.net`, {
+                        text: welcomeMsg,
+                        contextInfo: {
+                            externalAdReply: {
+                                title: 'INSIDIOUS BOT',
+                                body: 'Premium Deployment',
+                                thumbnailUrl: 'https://raw.githubusercontent.com/Official123-12/STANYFREEBOT-/refs/heads/main/IMG_1377.jpeg',
+                                mediaType: 1,
+                                renderLargerThumbnail: true
+                            }
+                        }
+                    });
+
+                    // ⏳ Delay between messages
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+
+                    // 📩 MESSAGE 2: Session ID Only
+                    const sessionIdMsg = `🆔 *COPY YOUR SESSION ID*\n\n\`\`\`${sessionId}\`\`\`\n\n⚠️ Keep this private! Do not share with anyone.`;
+
+                    await sock.sendMessage(`${num}@s.whatsapp.net`, { text: sessionIdMsg });
+
+                    console.log(`📤 Sent 2 welcome messages to ${num}`);
+
+                } catch (msgErr) {
+                    console.error('❌ Error sending welcome messages:', msgErr);
+                }
+
+                // 🚫 CLOSE CONNECTION - Bot NOT Active Yet!
+                try {
+                    await sock.logout();
+                    console.log(`🔌 Connection closed for ${num} - awaiting deployment`);
+                } catch (closeErr) {
+                    console.error('⚠️ Error closing connection:', closeErr);
+                    sock.end?.();
+                }
+
+                // 💾 Store in temporary storage
+                tempSessions.set(sessionId, {
+                    phoneNumber: num,
+                    createdAt: Date.now(),
+                    authState: state
+                });
             }
 
             if (connection === 'close') {
+                clearTimeout(pairingTimeout);
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
-                const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-
-                if (shouldReconnect) {
-                    console.log(`🔄 [RECONNECTING] ID: ${sessionId} | Reason: ${statusCode}`);
-                    setTimeout(() => activateBot(sessionId, number), 5000);
-                } else {
-                    await Session.deleteOne({ sessionId });
-                    await AuthKey.deleteMany({ sessionId });
-                    activeBots.delete(sessionId);
-                    console.log(`🗑️ [LOGGED OUT] ID: ${sessionId}`);
-                }
+                console.log(`🔌 Connection closed for ${num} (session ${sessionId}): ${statusCode}`);
+                // No need to respond to client again
             }
         });
 
-        conn.ev.on('messages.upsert', async (m) => {
-            try { await handler(conn, m); } catch (e) { console.error('Handler Error:', e); }
+        sock.ev.on('error', (err) => {
+            clearTimeout(pairingTimeout);
+            console.error(`❌ Socket error for ${num} (session ${sessionId}):`, err);
         });
 
-        return { success: true };
-    } catch (e) {
-        console.error(`❌ [DEPLOY FAILURE] ID: ${sessionId}`, e);
-        return { success: false, error: e.message };
-    }
-}
-
-async function loadActiveBots() {
-    try {
-        const active = await Session.find({ status: 'active' });
-        console.log(`📂 [DATABASE] Restoring ${active.length} sessions...`);
-        for (const sess of active) {
-            await new Promise(resolve => setTimeout(resolve, 2000)); 
-            activateBot(sess.sessionId, sess.phoneNumber);
-        }
-    } catch (e) { console.error('LoadActiveBots Error:', e); }
-}
-
-// ==================== API ENDPOINTS ====================
-
-app.get('/pair', async (req, res) => {
-    let num = req.query.num;
-    if (!num) return res.json({ success: false, error: "Number required" });
-    try {
-        const cleanNum = num.replace(/[^0-9]/g, '');
-        if (!pairingSocket) return res.json({ success: false, error: "Engine initializing" });
-        const code = await pairingSocket.requestPairingCode(cleanNum);
-        res.json({ success: true, code });
     } catch (err) {
-        res.json({ success: false, error: "Pairing failed. Retry." });
+        console.error('❌ Pairing error:', err);
+        sock?.end?.();
+
+        if (!responded) {
+            res.status(500).json({
+                success: false,
+                error: err.message || 'Server error during pairing'
+            });
+        }
     }
 });
 
+// ==================== API: DEPLOY ====================
 app.post('/deploy', async (req, res) => {
     const { sessionId, number } = req.body;
-    if (!sessionId || !number) return res.json({ success: false, error: "Missing data" });
-    const result = await activateBot(sessionId, number);
-    res.json(result);
+
+    if (!sessionId || !number) {
+        return res.status(400).json({
+            success: false,
+            error: 'Session ID and phone number are required'
+        });
+    }
+
+    if (!/^[0-9]{10,15}$/.test(number)) {
+        return res.status(400).json({
+            success: false,
+            error: 'Invalid phone number format'
+        });
+    }
+
+    try {
+        // 🔍 Verify Session ID from temporary storage
+        const tempData = tempSessions.get(sessionId);
+
+        if (!tempData) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid or expired Session ID. Please pair again.'
+            });
+        }
+
+        if (tempData.phoneNumber !== number) {
+            return res.status(400).json({
+                success: false,
+                error: 'Phone number does not match Session ID'
+            });
+        }
+
+        console.log(`🚀 Deploying bot for ${number} with Session ID: ${sessionId}`);
+
+        // 🗄️ Save to MongoDB - Bot becomes ACTIVE here
+        const newBot = new BotSession({
+            sessionId,
+            phoneNumber: number,
+            status: 'active',
+            deployedAt: new Date(),
+            settings: {
+                antiviewonce: true,
+                antidelete: true,
+                autoread: true,
+                chatbot: true,
+                antilink: true,
+                welcome: true
+            }
+        });
+
+        await newBot.save();
+        console.log(`💾 Saved to MongoDB: ${sessionId}`);
+
+        // 🔄 Move auth files from temp to active
+        const tempAuthDir = path.join(__dirname, 'auth', `temp_${sessionId}`);
+        const activeAuthDir = path.join(__dirname, 'auth', `active_${sessionId}`);
+
+        try {
+            await fs.rename(tempAuthDir, activeAuthDir);
+            console.log(`📁 Auth files moved to active: ${sessionId}`);
+        } catch (moveErr) {
+            console.warn('⚠️ Could not move auth files:', moveErr);
+        }
+
+        // 🧹 Remove from temporary storage
+        tempSessions.delete(sessionId);
+
+        res.json({
+            success: true,
+            message: 'Bot deployed successfully!',
+            sessionId,
+            status: 'active'
+        });
+
+        console.log(`✅ Bot DEPLOYED: ${number} | ${sessionId}`);
+
+    } catch (err) {
+        console.error('❌ Deploy error:', err);
+        res.status(500).json({
+            success: false,
+            error: err.message || 'Deployment failed'
+        });
+    }
 });
 
+// ==================== API: SESSIONS ====================
 app.get('/sessions', async (req, res) => {
     try {
-        const data = await Session.find({}, { creds: 0 }).sort({ addedAt: -1 });
-        res.json({ success: true, sessions: data });
-    } catch (e) { res.json({ success: false, error: e.message }); }
+        const sessions = await BotSession.find({ status: 'active' })
+            .select('sessionId phoneNumber status deployedAt lastActive')
+            .sort({ deployedAt: -1 })
+            .limit(50);
+
+        res.json({
+            success: true,
+            sessions: sessions.map(s => ({
+                sessionId: s.sessionId,
+                phoneNumber: s.phoneNumber,
+                status: s.status,
+                deployedAt: s.deployedAt,
+                lastActive: s.lastActive
+            }))
+        });
+    } catch (err) {
+        console.error('❌ Sessions fetch error:', err);
+        res.status(500).json({ success: false, error: 'Failed to fetch sessions' });
+    }
 });
 
-app.delete('/sessions/:id', async (req, res) => {
+// ==================== API: DELETE SESSION ====================
+app.delete('/sessions/:sessionId', async (req, res) => {
+    const { sessionId } = req.params;
+
     try {
-        const sid = req.params.id;
-        await Session.deleteOne({ sessionId: sid });
-        await AuthKey.deleteMany({ sessionId: sid });
-        if (activeBots.has(sid)) {
-            activeBots.get(sid).terminate();
-            activeBots.delete(sid);
+        const result = await BotSession.findOneAndUpdate(
+            { sessionId },
+            { status: 'deleted', deletedAt: new Date() },
+            { new: true }
+        );
+
+        if (!result) {
+            return res.status(404).json({ success: false, error: 'Session not found' });
         }
-        res.json({ success: true });
-    } catch (e) { res.json({ success: false, error: e.message }); }
+
+        const authDir = path.join(__dirname, 'auth', `active_${sessionId}`);
+        try {
+            await fs.rm(authDir, { recursive: true, force: true });
+            console.log(`🗑️ Deleted auth files: ${sessionId}`);
+        } catch (err) {
+            console.warn('⚠️ Could not delete auth files:', err);
+        }
+
+        // Also remove from temp if somehow still there
+        tempSessions.delete(sessionId);
+
+        res.json({ success: true, message: 'Session deleted successfully' });
+        console.log(`🗑️ Session deleted: ${sessionId}`);
+
+    } catch (err) {
+        console.error('❌ Delete error:', err);
+        res.status(500).json({ success: false, error: 'Failed to delete session' });
+    }
 });
 
-app.get('/health', (req, res) => {
-    res.json({ status: 'healthy', active: activeBots.size, uptime: process.uptime() });
+// ==================== API: SETTINGS ====================
+app.post('/settings', async (req, res) => {
+    const { sessionId, settings } = req.body;
+
+    if (!sessionId || !settings) {
+        return res.status(400).json({
+            success: false,
+            error: 'Session ID and settings required'
+        });
+    }
+
+    try {
+        const result = await BotSession.findOneAndUpdate(
+            { sessionId, status: 'active' },
+            { $set: { settings, updatedAt: new Date() } },
+            { new: true, runValidators: true }
+        );
+
+        if (!result) {
+            return res.status(404).json({
+                success: false,
+                error: 'Active session not found'
+            });
+        }
+
+        res.json({ success: true, message: 'Settings saved', settings: result.settings });
+        console.log(`⚙️ Settings updated: ${sessionId}`);
+
+    } catch (err) {
+        console.error('❌ Settings error:', err);
+        res.status(500).json({ success: false, error: 'Failed to save settings' });
+    }
 });
 
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+// ==================== SPA FALLBACK ====================
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ==================== ERROR HANDLER ====================
+app.use((err, req, res, next) => {
+    console.error('💥 Unhandled error:', err);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+});
 
 // ==================== START SERVER ====================
-
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
-
-mongoose.connect(MONGODB_URI).then(() => {
-    console.log(fancy("🟢 INSIDIOUS BOT SERVER LIVE"));
-    startPairingEngine();
-    loadActiveBots();
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 INSIDIOUS BOT Server running on port ${PORT}`);
+    console.log(`🌐 Frontend: http://localhost:${PORT}`);
+    console.log(`🔗 API: http://localhost:${PORT}/health`);
 });
 
-app.listen(PORT, () => console.log(`🚀 Port: ${PORT}`));
-
-module.exports = app;
+// Graceful shutdown
+process.on('SIGINT', async () => {
+    console.log('\n🛑 Shutting down...');
+    await mongoose.connection.close();
+    server.close(() => {
+        console.log('✅ Server closed');
+        process.exit(0);
+    });
+});
