@@ -13,11 +13,18 @@
     <meta name="author" content="Stanley Assanaly">
     <meta name="robots" content="index, follow">
     
-    <!-- Open Graph -->
+    <!-- Open Graph / Link Preview -->
     <meta property="og:type" content="website">
     <meta property="og:title" content="INSIDIOUS BOT | Premium Deployment">
     <meta property="og:description" content="Deploy your WhatsApp bot instantly with enterprise-grade security">
     <meta property="og:image" content="https://o.uguu.se/bcWjyRkF.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:url" content="https://insidious-bot.railway.app">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://o.uguu.se/bcWjyRkF.jpg">
     
     <!-- Structured Data -->
     <script type="application/ld+json">
@@ -82,7 +89,7 @@
             position: relative;
         }
 
-        /* Premium Animated Background – image inaonekana vizuri */
+        /* Premium Animated Background – IMAGE WAZI KABISA */
         .bg-premium {
             position: fixed; inset: 0; z-index: -2; overflow: hidden; pointer-events: none;
         }
@@ -92,15 +99,14 @@
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-            filter: blur(2px) brightness(0.7); /* blur kidogo, mwanga wa kutosha */
-            transform: scale(1.02);
+            /* BLUR IMEONDOSHWA – picha iko wazi */
         }
         .bg-overlay {
             position: absolute; inset: 0;
             background: radial-gradient(ellipse at 50% 50%, transparent 0%, rgba(2,6,23,0.5) 100%);
         }
 
-        /* Loader */
+        /* Loader – IMAGE SAFI KABISA */
         #loader {
             position: fixed; inset: 0; background: var(--deepest);
             display: flex; flex-direction: column; justify-content: center; align-items: center;
@@ -113,19 +119,8 @@
             background-size: cover;
             background-position: center;
             margin-bottom: 1.5rem;
-            box-shadow: var(--glow-primary);
-            animation: pulse 2.5s ease-in-out infinite;
-            position: relative;
-            border: 2px solid rgba(255,255,255,0.2);
+            /* EFFECTS ZOTE ZIMEONDOSHWA – picha safi */
         }
-        .loader-logo::after {
-            content: ''; position: absolute; inset: -4px; border-radius: 28px;
-            background: linear-gradient(45deg, var(--primary), var(--secondary), var(--accent), var(--primary));
-            background-size: 300% 300%; animation: gradientShift 4s ease infinite;
-            z-index: -1; filter: blur(10px); opacity: 0.7;
-        }
-        @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
-        @keyframes gradientShift { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
         .loader-title {
             font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em;
             background: linear-gradient(135deg, var(--text-primary), var(--primary-light));
@@ -156,7 +151,7 @@
             background-image: url('https://o.uguu.se/bcWjyRkF.jpg');
             background-size: cover;
             background-position: center;
-            flex-shrink: 0; box-shadow: var(--glow-primary);
+            flex-shrink: 0;
             cursor: pointer; transition: transform var(--transition);
             border: 1px solid rgba(255,255,255,0.2);
         }
@@ -460,13 +455,13 @@
     </style>
 </head>
 <body>
-    <!-- Background – image inaonekana vizuri -->
+    <!-- Background – IMAGE IKO WAZI KABISA (blur imeondoka) -->
     <div class="bg-premium" aria-hidden="true">
         <div class="bg-image"></div>
         <div class="bg-overlay"></div>
     </div>
 
-    <!-- Loader -->
+    <!-- Loader – IMAGE SAFI (hakuna effects) -->
     <div id="loader" role="status" aria-live="polite">
         <div class="loader-logo"></div>
         <div class="loader-title">INSIDIOUS BOT</div>
@@ -701,7 +696,7 @@
         <i class="fas fa-bolt"></i><span>POWERED BY RAILWAY</span>
     </div>
 
-    <!-- Footer (MongoDB mention removed) -->
+    <!-- Footer -->
     <footer role="contentinfo">
         <p><strong>INSIDIOUS BOT v3.0</strong> | <time datetime="2025">2025</time> Stanley Assanaly<br>
         <a href="https://wa.me/255787069580" target="_blank" rel="noopener"><i class="fas fa-user" aria-hidden="true"></i> Contact</a> <i class="fas fa-circle" style="font-size:6px;margin:0 4px"></i>
