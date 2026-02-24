@@ -82,7 +82,7 @@
             position: relative;
         }
 
-        /* Premium Animated Background – blur imepunguzwa */
+        /* Premium Animated Background – image inaonekana vizuri */
         .bg-premium {
             position: fixed; inset: 0; z-index: -2; overflow: hidden; pointer-events: none;
         }
@@ -91,12 +91,13 @@
             background-image: url('https://o.uguu.se/bcWjyRkF.jpg');
             background-size: cover;
             background-position: center;
-            filter: blur(3px) brightness(0.6); /* blur ndogo, mwanga zaidi */
-            transform: scale(1.05);
+            background-repeat: no-repeat;
+            filter: blur(2px) brightness(0.7); /* blur kidogo, mwanga wa kutosha */
+            transform: scale(1.02);
         }
         .bg-overlay {
             position: absolute; inset: 0;
-            background: radial-gradient(ellipse at 50% 50%, transparent 0%, rgba(2,6,23,0.6) 100%);
+            background: radial-gradient(ellipse at 50% 50%, transparent 0%, rgba(2,6,23,0.5) 100%);
         }
 
         /* Loader */
@@ -459,7 +460,7 @@
     </style>
 </head>
 <body>
-    <!-- Background -->
+    <!-- Background – image inaonekana vizuri -->
     <div class="bg-premium" aria-hidden="true">
         <div class="bg-image"></div>
         <div class="bg-overlay"></div>
@@ -816,10 +817,6 @@
         }
 
         // ===== LOCAL STORAGE FOR USER SESSIONS =====
-        // Kwa nini tunatumia localStorage?
-        // Database ina sessions zote, lakini hatuna mfumo wa login.
-        // LocalStorage inakumbuka ni session zipi zilizopatikana kwenye browser hii.
-        // Hii inasaidia kila mtumiaji kuona sessions zake tu.
         function getUserSessionIds() {
             const stored = localStorage.getItem('user_sessions');
             return stored ? JSON.parse(stored) : [];
@@ -873,10 +870,8 @@
                     if (data.sessionId) {
                         sessionIdEl.innerHTML = `<code>${data.sessionId}</code>`;
                         sessionInfo.style.display = 'block';
-                        // Save session ID to localStorage
                         addUserSessionId(data.sessionId);
                         showToast('Pairing successful! Session ID ready.', 'success');
-                        // Clear the input for next pairing
                         document.getElementById('pairNumber').value = '';
                     }
                 } else {
@@ -932,7 +927,6 @@
                         </small></span>`;
                     showToast('Bot deployed successfully', 'success');
                     refreshSessions();
-                    // After successful deploy, return to dashboard
                     setTimeout(() => showSection('dashboard'), 1500);
                 } else {
                     msgEl.textContent = data.error || 'Deployment failed';
@@ -962,7 +956,6 @@
                 const data = await res.json();
                 if (data.success && data.sessions?.length) {
                     const userSessions = getUserSessionIds();
-                    // Filter only sessions that belong to this user
                     const mySessions = data.sessions.filter(s => userSessions.includes(s.sessionId));
                     
                     if (mySessions.length === 0) {
@@ -1006,7 +999,6 @@
                 const res = await fetchWithTimeout(`/sessions/${id}`, { method: 'DELETE' }, 5000);
                 const data = await res.json();
                 if (data.success) { 
-                    // Remove from localStorage
                     removeUserSessionId(id);
                     showToast(`Session ${id} deleted`, 'warning'); 
                     loadSessions(); 
@@ -1041,7 +1033,7 @@
             }, 5000).then(r=>r.json()).then(d=>{
                 if(d.success) {
                     showToast('Settings saved', 'success');
-                    showSection('dashboard'); // Return to home after saving
+                    showSection('dashboard');
                 } else {
                     showToast(d.error || 'Save failed', 'error');
                 }
@@ -1081,17 +1073,14 @@
             checkHealth();
             setInterval(checkHealth, 30000);
             
-            // Form focus effects
             document.querySelectorAll('.form-control').forEach(input => {
                 input.addEventListener('focus', function() { this.parentElement.style.transform='scale(1.01)'; this.parentElement.style.transition='transform 0.2s'; });
                 input.addEventListener('blur', function() { this.parentElement.style.transform='scale(1)'; });
             });
 
-            // Console info (no simulation messages)
             console.log('%cINSIDIOUS BOT v3.0', 'color:#7c3aed;font-weight:bold;font-size:13px');
         }
 
-        // Keyboard shortcuts
         document.addEventListener('keydown', e => {
             if (e.ctrlKey || e.metaKey) {
                 switch(e.key.toLowerCase()) {
@@ -1105,7 +1094,6 @@
             if (e.key === 'Escape') { const active = document.querySelector('.section.active'); if (active?.id !== 'dashboard') showSection('dashboard'); }
         });
 
-        // Handle back button
         window.addEventListener('popstate', () => {
             const hash = location.hash.replace('#','');
             showSection(hash || 'dashboard');
