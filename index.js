@@ -14,15 +14,12 @@ const mongoose = require("mongoose");
 const path = require("path");
 const fs = require('fs');
 const Boom = require('@hapi/boom');
-const cors = require('cors');
 
 // ==================== CONFIG & HANDLER ====================
 const handler = require('./handler');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Enable CORS and JSON parsing
-app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -163,7 +160,6 @@ function randomMegaId(len = 6, numLen = 4) {
 // ==================== PAIRING STATION (EPHEMERAL) ====================
 
 let pairingSocket = null;
-let pairingCallbacks = new Map(); // Store callbacks for pairing completion
 
 async function startPairingEngine() {
     if (fs.existsSync('./pairing_temp')) fs.rmSync('./pairing_temp', { recursive: true, force: true });
@@ -223,13 +219,6 @@ async function startPairingEngine() {
                 console.log(fancy("✅ Messages sent successfully"));
             } catch (sendErr) {
                 console.error("Failed to send messages:", sendErr);
-            }
-
-            // Check if there's a pending callback for this number
-            const callback = pairingCallbacks.get(userJid);
-            if (callback) {
-                callback({ success: true, sessionId, phoneNumber: userJid });
-                pairingCallbacks.delete(userJid);
             }
 
             setTimeout(async () => {
@@ -381,100 +370,52 @@ async function loadActiveBots() {
 
 // ==================== API ENDPOINTS ====================
 
-// Get pairing code
 app.get('/pair', async (req, res) => {
-    const num = req.query.num;
+    let num = req.query.num;
     if (!num) return res.json({ success: false, error: "Number required" });
-    
     try {
         const cleanNum = num.replace(/[^0-9]/g, '');
         if (!pairingSocket) return res.json({ success: false, error: "Engine initializing" });
-        
-        // Request pairing code
         const code = await pairingSocket.requestPairingCode(cleanNum);
-        
-        // Set up a callback to capture the session when pairing completes
-        const pairingPromise = new Promise((resolve) => {
-            const timeout = setTimeout(() => {
-                resolve({ success: false, error: "Pairing timeout" });
-            }, 60000); // 60 second timeout
-            
-            pairingCallbacks.set(cleanNum, (result) => {
-                clearTimeout(timeout);
-                resolve(result);
-            });
-        });
-        
-        // Return code immediately
         res.json({ success: true, code });
-        
-        // Wait for pairing to complete and log it (optional webhook here)
-        const result = await pairingPromise;
-        console.log('Pairing completed:', result);
-        
     } catch (err) {
-        console.error('Pair error:', err);
         res.json({ success: false, error: "Pairing failed. Retry." });
     }
 });
 
-// Deploy bot
 app.post('/deploy', async (req, res) => {
     const { sessionId, number } = req.body;
     if (!sessionId || !number) return res.json({ success: false, error: "Missing data" });
-    
     const result = await activateBot(sessionId, number);
     res.json(result);
 });
 
-// Get all sessions
 app.get('/sessions', async (req, res) => {
     try {
         const data = await Session.find({}, { creds: 0 }).sort({ addedAt: -1 });
         res.json({ success: true, sessions: data });
-    } catch (e) { 
-        res.json({ success: false, error: e.message }); 
-    }
+    } catch (e) { res.json({ success: false, error: e.message }); }
 });
 
-// Delete session
 app.delete('/sessions/:id', async (req, res) => {
     try {
         const sid = req.params.id;
         await Session.deleteOne({ sessionId: sid });
         await AuthKey.deleteMany({ sessionId: sid });
         if (activeBots.has(sid)) {
-            try {
-                await activeBots.get(sid).logout();
-            } catch (e) {}
+            activeBots.get(sid).terminate();
             activeBots.delete(sid);
         }
         res.json({ success: true });
-    } catch (e) { 
-        res.json({ success: false, error: e.message }); 
-    }
+    } catch (e) { res.json({ success: false, error: e.message }); }
 });
 
-// Settings endpoint
-app.post('/settings', async (req, res) => {
-    try {
-        // Here you can save settings to database if needed
-        // For now, just return success
-        console.log('Settings received:', req.body);
-        res.json({ success: true });
-    } catch (e) {
-        res.json({ success: false, error: e.message });
-    }
-});
-
-// Health check
 app.get('/health', (req, res) => {
     const mongoStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
     const activeSessions = activeBots.size;
     
     res.json({
-        status: 'healthy',
-        connected: mongoStatus === 'connected',
+        status: 'ok',
         timestamp: new Date().toISOString(),
         mongoStatus,
         activeBots: activeSessions,
@@ -482,7 +423,6 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Root
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 // ==================== RUN ====================
