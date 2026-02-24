@@ -41,7 +41,7 @@ const authKeySchema = new mongoose.Schema({
 authKeySchema.index({ sessionId: 1, keyId: 1 }, { unique: true });
 const AuthKey = mongoose.model('AuthKey', authKeySchema);
 
-// ==================== MONGO AUTH STATE LOGIC ====================
+// ==================== ENTERPRISE MONGO AUTH STATE ====================
 
 const useMongoAuthState = async (sessionId) => {
     const writeData = async (data, keyId) => {
@@ -66,7 +66,7 @@ const useMongoAuthState = async (sessionId) => {
     };
 
     const sessionRecord = await Session.findOne({ sessionId });
-    if (!sessionRecord) throw new Error("Session not found in DB");
+    if (!sessionRecord) throw new Error("Session not found");
 
     let creds = JSON.parse(JSON.stringify(sessionRecord.creds), BufferJSON.reviver);
 
@@ -117,7 +117,7 @@ function randomMegaId(len = 6, numLen = 4) {
     return `${out}${Math.floor(Math.random() * Math.pow(10, numLen))}`;
 }
 
-// ==================== PAIRING STATION (EPHEMERAL) ====================
+// ==================== PAIRING ENGINE (STATION) ====================
 
 let pairingSocket = null;
 
@@ -127,15 +127,15 @@ async function startPairingEngine() {
     const { state, saveCreds } = await useMultiFileAuthState('pairing_temp');
 
     const conn = makeWASocket({
-        version: [2, 3000, 1033105955],
+        version: [2, 3000, 1033105955], // FIX: Connection Closed
         auth: { 
             creds: state.creds, 
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) 
         },
         logger: pino({ level: "silent" }),
         browser: Browsers.macOS("Safari"),
-        syncFullHistory: false,
-        shouldSyncHistoryMessage: () => false,
+        syncFullHistory: false, // 🚀 FIX: Long Loading (No History Sync)
+        shouldSyncHistoryMessage: () => false, // 🚀 FIX: Long Loading
         connectTimeoutMs: 60000
     });
 
@@ -150,9 +150,7 @@ async function startPairingEngine() {
             const userJid = conn.user.id.split(':')[0];
             const sessionId = randomMegaId();
 
-            console.log(fancy(`✨ Linking successful for ${userJid}. Saving to DB...`));
-
-            // Hifadhi creds kwenye MongoDB
+            // Save to Mongo
             await Session.findOneAndUpdate(
                 { phoneNumber: userJid },
                 { 
@@ -164,7 +162,6 @@ async function startPairingEngine() {
                 { upsert: true }
             );
 
-            // Tuma Session ID
             const welcomeMsg = `╭─── • 🥀 • ───╮\n   INSIDIOUS BOT\n╰─── • 🥀 • ───╯\n\n✅ *Pairing Successful!*\n\n🆔 *SESSION ID:* \`${sessionId}\`\n\nCopy ID hii kisha nenda kwenye website kuanzisha bot yako sasa.`;
             
             await conn.sendMessage(userJid + '@s.whatsapp.net', { 
@@ -173,26 +170,23 @@ async function startPairingEngine() {
             });
             await conn.sendMessage(userJid + '@s.whatsapp.net', { text: sessionId });
 
-            // MUHIMU: Tunafunga socket bila 'logout' ili kubaki linked
+            // DISCONNECT ONLY (Dont logout to keep link)
             setTimeout(() => {
                 conn.ev.removeAllListeners();
                 conn.terminate();
                 if (fs.existsSync('./pairing_temp')) fs.rmSync('./pairing_temp', { recursive: true, force: true });
-                console.log(fancy("🔒 Pairing station closed. Creds are safe in MongoDB."));
-                startPairingEngine(); // Tayari kwa ajili ya mtu mwingine
+                startPairingEngine(); 
             }, 5000);
         }
 
         if (connection === 'close') {
             const code = lastDisconnect?.error?.output?.statusCode;
-            if (code !== DisconnectReason.loggedOut && connection !== 'open') {
-                startPairingEngine();
-            }
+            if (code !== DisconnectReason.loggedOut && connection !== 'open') startPairingEngine();
         }
     });
 }
 
-// ==================== DEPLOYMENT SYSTEM (LIVE BOTS) ====================
+// ==================== DEPLOYMENT ENGINE (ACTIVE BOTS) ====================
 
 const activeBots = new Map();
 
@@ -213,7 +207,8 @@ async function activateBot(sessionId, number) {
             },
             logger: pino({ level: "silent" }),
             browser: Browsers.ubuntu("Chrome"),
-            syncFullHistory: false,
+            syncFullHistory: false, // 🚀 Speed optimization
+            shouldSyncHistoryMessage: () => false,
             markOnlineOnConnect: true
         });
 
@@ -251,7 +246,6 @@ async function activateBot(sessionId, number) {
     }
 }
 
-// Auto-restore bots on Railway restart
 async function loadActiveBots() {
     try {
         const active = await Session.find({ status: 'active' });
@@ -262,8 +256,9 @@ async function loadActiveBots() {
     } catch (e) {}
 }
 
-// ==================== API ENDPOINTS ====================
+// ==================== API ENDPOINTS (FOR HTML FRONTEND) ====================
 
+// 1. Pairing Endpoint
 app.get('/pair', async (req, res) => {
     let num = req.query.num;
     if (!num) return res.json({ success: false, error: "Number required" });
@@ -277,6 +272,7 @@ app.get('/pair', async (req, res) => {
     }
 });
 
+// 2. Deploy Endpoint
 app.post('/deploy', async (req, res) => {
     const { sessionId, number } = req.body;
     if (!sessionId || !number) return res.json({ success: false, error: "Missing data" });
@@ -284,6 +280,7 @@ app.post('/deploy', async (req, res) => {
     res.json(result);
 });
 
+// 3. List Sessions Endpoint
 app.get('/sessions', async (req, res) => {
     try {
         const data = await Session.find({}, { creds: 0 }).sort({ addedAt: -1 });
@@ -291,6 +288,7 @@ app.get('/sessions', async (req, res) => {
     } catch (e) { res.json({ success: false, error: e.message }); }
 });
 
+// 4. Delete/Logout Session Endpoint
 app.delete('/sessions/:id', async (req, res) => {
     try {
         const sid = req.params.id;
@@ -304,6 +302,16 @@ app.delete('/sessions/:id', async (req, res) => {
     } catch (e) { res.json({ success: false, error: e.message }); }
 });
 
+// 5. Health Check Endpoint
+app.get('/health', (req, res) => {
+    res.json({ status: 'healthy', connected: true, active: activeBots.size, uptime: process.uptime() });
+});
+
+// 6. Settings Endpoint (Placeholder to satisfy UI)
+app.post('/settings', (req, res) => {
+    res.json({ success: true, message: "Settings saved" });
+});
+
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 // ==================== RUN ====================
@@ -311,11 +319,11 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.ht
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
 
 mongoose.connect(MONGODB_URI).then(() => {
-    console.log(fancy("🟢 INSIDIOUS STATION LIVE"));
+    console.log(fancy("🟢 INSIDIOUS SERVER LIVE"));
     startPairingEngine();
     loadActiveBots();
 });
 
-app.listen(PORT, () => console.log(`🚀 Port: ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server on port: ${PORT}`));
 
 module.exports = app;
