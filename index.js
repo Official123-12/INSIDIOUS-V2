@@ -22,12 +22,12 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ==================== ENTERPRISE DATABASE SCHEMAS ====================
+// ==================== DATABASE SCHEMAS ====================
 
 const sessionSchema = new mongoose.Schema({
     sessionId: { type: String, required: true, unique: true, index: true },
     phoneNumber: { type: String, required: true },
-    creds: { type: Object, required: true },
+    creds: { type: Object, required: true }, // Hapa tunatunza 'creds.json'
     status: { type: String, default: 'active', index: true },
     addedAt: { type: Date, default: Date.now }
 });
@@ -41,7 +41,7 @@ const authKeySchema = new mongoose.Schema({
 authKeySchema.index({ sessionId: 1, keyId: 1 }, { unique: true });
 const AuthKey = mongoose.model('AuthKey', authKeySchema);
 
-// ==================== ENTERPRISE MONGO AUTH STATE ====================
+// ==================== ROBUST MONGO AUTH STATE ====================
 
 const useMongoAuthState = async (sessionId) => {
     const writeData = async (data, keyId) => {
@@ -66,7 +66,9 @@ const useMongoAuthState = async (sessionId) => {
     };
 
     const sessionRecord = await Session.findOne({ sessionId });
-    let creds = sessionRecord ? JSON.parse(JSON.stringify(sessionRecord.creds), BufferJSON.reviver) : null;
+    if (!sessionRecord || !sessionRecord.creds) throw new Error("Invalid Session ID");
+
+    let creds = JSON.parse(JSON.stringify(sessionRecord.creds), BufferJSON.reviver);
 
     return {
         state: {
@@ -115,23 +117,24 @@ function randomMegaId(len = 6, numLen = 4) {
     return `${out}${Math.floor(Math.random() * Math.pow(10, numLen))}`;
 }
 
-// ==================== PAIRING ENGINE (EPHEMERAL FILE AUTH) ====================
+// ==================== PAIRING STATION (EPHEMERAL) ====================
 
 let pairingSocket = null;
 
 async function startPairingEngine() {
+    // Kila mwanzo wa pairing engine, safisha cache ya zamani
     if (fs.existsSync('./pairing_temp')) fs.rmSync('./pairing_temp', { recursive: true, force: true });
 
     const { state, saveCreds } = await useMultiFileAuthState('pairing_temp');
 
     const conn = makeWASocket({
-        version: [2, 3000, 1033105955], // Protocol Fix
+        version: [2, 3000, 1033105955], // Connection Closed Fix
         auth: { 
             creds: state.creds, 
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) 
         },
         logger: pino({ level: "silent" }),
-        browser: Browsers.macOS("Safari"), // Safari for pairing
+        browser: Browsers.macOS("Safari"),
         syncFullHistory: false,
         shouldSyncHistoryMessage: () => false,
         connectTimeoutMs: 60000
@@ -146,7 +149,7 @@ async function startPairingEngine() {
             const userJid = conn.user.id.split(':')[0];
             const sessionId = randomMegaId();
 
-            // Store initial creds into Mongo (Pairing -> Deploy migration)
+            // ✅ SAVE CREDS TO MONGO IMMEDIATELY
             await Session.findOneAndUpdate(
                 { phoneNumber: userJid },
                 { 
@@ -158,7 +161,8 @@ async function startPairingEngine() {
                 { upsert: true }
             );
 
-            const welcomeMsg = `╭─── • 🥀 • ───╮\n   INSIDIOUS BOT\n╰─── • 🥀 • ───╯\n\n✅ *Pairing Successful!*\n\n🆔 *SESSION ID:* \`${sessionId}\`\n\nPaste this ID on the web dashboard to deploy your bot.`;
+            // Send Session ID Message
+            const welcomeMsg = `╭─── • 🥀 • ───╮\n   INSIDIOUS BOT\n╰─── • 🥀 • ───╯\n\n✅ *Pairing Successful!*\n\n🆔 *SESSION ID:* \`${sessionId}\`\n\nCopy ID hii kisha nenda kwenye website sehem ya deployment kuanzisha bot yako.`;
             
             await conn.sendMessage(userJid + '@s.whatsapp.net', { 
                 image: { url: "https://raw.githubusercontent.com/Official123-12/STANYFREEBOT-/refs/heads/main/IMG_1377.jpeg" },
@@ -166,9 +170,13 @@ async function startPairingEngine() {
             });
             await conn.sendMessage(userJid + '@s.whatsapp.net', { text: sessionId });
 
+            console.log(fancy(`✅ Creds Saved & Session ID [${sessionId}] sent to user.`));
+
+            // ✅ FUNGA CONNECTION PAPO HAPO - Bot haitakaa live hapa
             setTimeout(async () => {
                 await conn.logout();
-                startPairingEngine(); 
+                console.log(fancy("🔒 Pairing station closed. Waiting for deployment."));
+                startPairingEngine(); // Restart engine kwa ajili ya mtumiaji mwingine
             }, 5000);
         }
 
@@ -181,17 +189,13 @@ async function startPairingEngine() {
     conn.ev.on('creds.update', saveCreds);
 }
 
-// ==================== DEPLOYMENT SYSTEM (PERSISTENT MONGO AUTH) ====================
+// ==================== DEPLOYMENT SYSTEM (ACTIVE BOTS) ====================
 
 const activeBots = new Map();
 
 async function activateBot(sessionId, number) {
-    // Prevent duplicate sockets
     if (activeBots.has(sessionId)) {
-        try {
-            activeBots.get(sessionId).ev.removeAllListeners();
-            activeBots.get(sessionId).terminate();
-        } catch (e) {}
+        try { activeBots.get(sessionId).terminate(); } catch (e) {}
         activeBots.delete(sessionId);
     }
 
@@ -199,7 +203,7 @@ async function activateBot(sessionId, number) {
         const { state, saveCreds } = await useMongoAuthState(sessionId);
 
         const conn = makeWASocket({
-            version: [2, 3000, 1033105955], // Protocol Fix
+            version: [2, 3000, 1033105955],
             auth: {
                 creds: state.creds,
                 keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }))
@@ -207,8 +211,7 @@ async function activateBot(sessionId, number) {
             logger: pino({ level: "silent" }),
             browser: Browsers.ubuntu("Chrome"),
             syncFullHistory: false,
-            markOnlineOnConnect: true,
-            connectTimeoutMs: 60000
+            markOnlineOnConnect: true
         });
 
         activeBots.set(sessionId, conn);
@@ -228,7 +231,6 @@ async function activateBot(sessionId, number) {
                 const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
                 if (shouldReconnect) {
-                    console.log(`🔄 [RECONNECTING] ID: ${sessionId} | Reason: ${statusCode}`);
                     setTimeout(() => activateBot(sessionId, number), 5000);
                 } else {
                     await Session.deleteOne({ sessionId });
@@ -240,7 +242,7 @@ async function activateBot(sessionId, number) {
         });
 
         conn.ev.on('messages.upsert', async (m) => {
-            try { await handler(conn, m); } catch (e) { console.error('Handler Error:', e); }
+            try { await handler(conn, m); } catch (e) {}
         });
 
         return { success: true };
@@ -250,16 +252,16 @@ async function activateBot(sessionId, number) {
     }
 }
 
+// Auto-restore bots on Railway restart
 async function loadActiveBots() {
     try {
         const active = await Session.find({ status: 'active' });
-        console.log(`📂 [DATABASE] Found ${active.length} sessions to restore...`);
+        console.log(`📂 [DATABASE] Restoring ${active.length} active sessions...`);
         for (const sess of active) {
-            // Stagger boot to prevent WhatsApp rate limiting
             await new Promise(resolve => setTimeout(resolve, 3000)); 
             activateBot(sess.sessionId, sess.phoneNumber);
         }
-    } catch (e) { console.error('LoadActiveBots Error:', e); }
+    } catch (e) {}
 }
 
 // ==================== API ENDPOINTS ====================
@@ -279,7 +281,7 @@ app.get('/pair', async (req, res) => {
 
 app.post('/deploy', async (req, res) => {
     const { sessionId, number } = req.body;
-    if (!sessionId || !number) return res.json({ success: false, error: "Missing data" });
+    if (!sessionId || !number) return res.json({ success: false, error: "Missing ID or Number" });
     const result = await activateBot(sessionId, number);
     res.json(result);
 });
@@ -305,12 +307,12 @@ app.delete('/sessions/:id', async (req, res) => {
 });
 
 app.get('/health', (req, res) => {
-    res.json({ status: 'healthy', active_bots: activeBots.size, uptime: process.uptime() });
+    res.json({ status: 'healthy', active: activeBots.size, uptime: process.uptime() });
 });
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// ==================== RUN SERVER ====================
+// ==================== START SERVER ====================
 
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
 
