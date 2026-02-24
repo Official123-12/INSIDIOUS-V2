@@ -290,7 +290,7 @@ async function activateBot(sessionId, number) {
                 keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }))
             },
             logger: pino({ level: "silent" }),
-            browser: Browsers.ubuntu("Chrome"),
+            browser: Browsers.MacOS("Safari"),
             syncFullHistory: false,
             markOnlineOnConnect: true,
             keepAliveIntervalMs: 30000,
