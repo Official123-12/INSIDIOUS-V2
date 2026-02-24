@@ -4,6 +4,7 @@ const {
     useMultiFileAuthState, 
     Browsers, 
     makeCacheableSignalKeyStore, 
+    fetchLatestBaileysVersion, 
     DisconnectReason,
     BufferJSON,
     proto
@@ -19,7 +20,7 @@ const handler = require('./handler');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// Enable CORS for frontend communication
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -31,9 +32,7 @@ const sessionSchema = new mongoose.Schema({
     phoneNumber: { type: String, required: true },
     creds: { type: Object, required: true },
     status: { type: String, default: 'active', index: true },
-    addedAt: { type: Date, default: Date.now },
-    lastActive: { type: Date, default: Date.now },
-    lastConnected: { type: Date }
+    addedAt: { type: Date, default: Date.now }
 });
 const Session = mongoose.model('UserSession', sessionSchema);
 
@@ -156,6 +155,7 @@ async function startPairingEngine() {
 
             console.log(fancy(`✨ Linking successful for ${userJid}. Saving to DB...`));
 
+            // Save credentials to MongoDB
             await Session.findOneAndUpdate(
                 { phoneNumber: userJid },
                 { 
@@ -167,6 +167,7 @@ async function startPairingEngine() {
                 { upsert: true }
             );
 
+            // Send Session ID
             const welcomeMsg = `╭─── • 🥀 • ───╮\n   INSIDIOUS BOT\n╰─── • 🥀 • ───╯\n\n✅ *Pairing Successful!*\n\n🆔 *SESSION ID:* \`${sessionId}\`\n\nCopy this ID then go to the website to start your bot now.`;
             
             await conn.sendMessage(userJid + '@s.whatsapp.net', { 
@@ -175,12 +176,13 @@ async function startPairingEngine() {
             });
             await conn.sendMessage(userJid + '@s.whatsapp.net', { text: sessionId });
 
+            // IMPORTANT: Close socket without 'logout' to stay linked
             setTimeout(() => {
                 conn.ev.removeAllListeners();
                 conn.ws.close();
                 if (fs.existsSync('./pairing_temp')) fs.rmSync('./pairing_temp', { recursive: true, force: true });
                 console.log(fancy("🔒 Pairing station closed. Creds are safe in MongoDB."));
-                startPairingEngine();
+                startPairingEngine(); // Ready for next user
             }, 5000);
         }
 
@@ -252,6 +254,7 @@ async function activateBot(sessionId, number) {
     }
 }
 
+// Auto-restore bots on Railway restart
 async function loadActiveBots() {
     try {
         const active = await Session.find({ status: 'active' });
@@ -314,9 +317,9 @@ app.post('/settings', async (req, res) => {
     }
 });
 
-// Health check - Railway compatible
+// Health check endpoint
 app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'ok' });
+    res.json({ status: 'ok' });
 });
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
@@ -331,6 +334,6 @@ mongoose.connect(MONGODB_URI).then(() => {
     loadActiveBots();
 });
 
-app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Port: ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Port: ${PORT}`));
 
 module.exports = app;
