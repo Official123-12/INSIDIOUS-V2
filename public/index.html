@@ -9,7 +9,7 @@
     
     <!-- SEO International Standards -->
     <meta name="description" content="INSIDIOUS BOT - Premium WhatsApp Bot Deployment with instant pairing, session management and enterprise security">
-    <meta name="keywords" content="whatsapp bot, baileys, pairing, deployment, mongodb, premium bot">
+    <meta name="keywords" content="whatsapp bot, baileys, pairing, deployment, premium bot">
     <meta name="author" content="Stanley Assanaly">
     <meta name="robots" content="index, follow">
     
@@ -41,7 +41,6 @@
     <title>INSIDIOUS BOT | Premium Deployment</title>
     
     <style>
-        /* ===== ORIGINAL CSS – UNCHANGED ===== */
         :root {
             --primary: #7c3aed;
             --primary-light: #8b5cf6;
@@ -83,25 +82,22 @@
             position: relative;
         }
 
-        /* Premium Animated Background */
+        /* Premium Animated Background – sasa inatumia image yenye blur */
         .bg-premium {
             position: fixed; inset: 0; z-index: -2; overflow: hidden; pointer-events: none;
         }
-        .bg-gradient {
+        .bg-image {
             position: absolute; inset: 0;
-            background: 
-                radial-gradient(ellipse at 15% 15%, rgba(124,58,237,0.12) 0%, transparent 55%),
-                radial-gradient(ellipse at 85% 85%, rgba(236,72,153,0.1) 0%, transparent 55%),
-                radial-gradient(ellipse at 50% 50%, rgba(6,182,212,0.06) 0%, transparent 70%),
-                linear-gradient(135deg, rgba(2,6,23,0.96) 0%, rgba(15,23,42,0.94) 50%, rgba(26,26,46,0.92) 100%);
+            background-image: url('https://o.uguu.se/bcWjyRkF.jpg');
+            background-size: cover;
+            background-position: center;
+            filter: blur(8px) brightness(0.4);
+            transform: scale(1.1);
         }
-        .bg-orb {
-            position: absolute; width: 500px; height: 500px; border-radius: 50%;
-            filter: blur(90px); opacity: 0.2; animation: float 22s ease-in-out infinite;
+        .bg-overlay {
+            position: absolute; inset: 0;
+            background: radial-gradient(ellipse at 50% 50%, transparent 0%, rgba(2,6,23,0.7) 100%);
         }
-        .bg-orb.one { top: -150px; left: -100px; background: linear-gradient(135deg, var(--primary), var(--secondary)); }
-        .bg-orb.two { bottom: -100px; right: -50px; background: linear-gradient(135deg, var(--accent), var(--primary)); animation-delay: -8s; }
-        @keyframes float { 0%,100%{transform:translate(0,0)} 33%{transform:translate(25px,-15px)} 66%{transform:translate(-15px,20px)} }
 
         /* Loader */
         #loader {
@@ -112,12 +108,14 @@
         #loader.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
         .loader-logo {
             width: 80px; height: 80px; border-radius: 24px;
-            background: linear-gradient(135deg, var(--primary), var(--secondary), var(--accent));
-            display: flex; align-items: center; justify-content: center;
-            font-size: 2rem; margin-bottom: 1.5rem;
+            background-image: url('https://o.uguu.se/bcWjyRkF.jpg');
+            background-size: cover;
+            background-position: center;
+            margin-bottom: 1.5rem;
             box-shadow: var(--glow-primary);
             animation: pulse 2.5s ease-in-out infinite;
             position: relative;
+            border: 2px solid rgba(255,255,255,0.2);
         }
         .loader-logo::after {
             content: ''; position: absolute; inset: -4px; border-radius: 28px;
@@ -154,10 +152,12 @@
         .header-left { display: flex; align-items: center; gap: 1rem; flex: 1; min-width: 0; }
         .header-logo {
             width: 48px; height: 48px; border-radius: 16px;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.3rem; flex-shrink: 0; box-shadow: var(--glow-primary);
+            background-image: url('https://o.uguu.se/bcWjyRkF.jpg');
+            background-size: cover;
+            background-position: center;
+            flex-shrink: 0; box-shadow: var(--glow-primary);
             cursor: pointer; transition: transform var(--transition);
+            border: 1px solid rgba(255,255,255,0.2);
         }
         .header-logo:hover { transform: scale(1.05); }
         .header-title {
@@ -440,7 +440,7 @@
         /* Responsive */
         @media (max-width: 768px) {
             .top-header { padding: 0.85rem 1rem; }
-            .header-logo { width: 44px; height: 44px; font-size: 1.2rem; }
+            .header-logo { width: 44px; height: 44px; }
             .header-title { font-size: 0.95rem; }
             .nav-controls { top: 64px; padding: 0.45rem 0.55rem; }
             .nav-btn { padding: 0.5rem 0.7rem; font-size: 0.68rem; min-width: 64px; }
@@ -461,14 +461,13 @@
 <body>
     <!-- Background -->
     <div class="bg-premium" aria-hidden="true">
-        <div class="bg-gradient"></div>
-        <div class="bg-orb one"></div>
-        <div class="bg-orb two"></div>
+        <div class="bg-image"></div>
+        <div class="bg-overlay"></div>
     </div>
 
     <!-- Loader -->
     <div id="loader" role="status" aria-live="polite">
-        <div class="loader-logo"><i class="fas fa-key" aria-hidden="true"></i></div>
+        <div class="loader-logo"></div>
         <div class="loader-title">INSIDIOUS BOT</div>
         <div class="loader-progress"><div class="loader-progress-bar"></div></div>
         <div class="loader-status"><i class="fas fa-lock" aria-hidden="true"></i> Secure connection <i class="fas fa-shield-alt" aria-hidden="true"></i> v3.0</div>
@@ -477,9 +476,7 @@
     <!-- Header -->
     <header class="top-header" role="banner">
         <div class="header-left">
-            <div class="header-logo" onclick="showSection('dashboard')" role="button" tabindex="0" aria-label="Dashboard">
-                <i class="fas fa-shield-alt" aria-hidden="true"></i>
-            </div>
+            <div class="header-logo" onclick="showSection('dashboard')" role="button" tabindex="0" aria-label="Dashboard"></div>
             <div class="header-title">INSIDIOUS BOT <i class="fas fa-bolt" aria-hidden="true"></i> Premium Deployment</div>
         </div>
         <div class="status-badge">
@@ -512,7 +509,7 @@
         <!-- Dashboard -->
         <section id="dashboard" class="section active">
             <h1 class="dashboard-title"><i class="fas fa-shield-alt" aria-hidden="true"></i> INSIDIOUS BOT</h1>
-            <p class="dashboard-subtitle">Premium WhatsApp bot deployment with instant pairing, MongoDB sessions and enterprise security.</p>
+            <p class="dashboard-subtitle">Premium WhatsApp bot deployment with instant pairing, session management and enterprise security.</p>
             
             <div class="quick-links">
                 <a href="https://whatsapp.com/channel/0029Vb7fzu4EwEjmsD4Tzs1p" target="_blank" rel="noopener" class="quick-link">
@@ -550,7 +547,7 @@
             </div>
         </section>
 
-        <!-- Pair Section (updated with copy button for pairing code) -->
+        <!-- Pair Section -->
         <section id="pair" class="section">
             <div class="card">
                 <div class="card-header">
@@ -573,7 +570,7 @@
                     <p style="color:var(--text-muted);margin-bottom:0.4rem"><i class="fas fa-info-circle" aria-hidden="true"></i> Your 8-digit pairing code:</p>
                     <div class="result-code" id="pairCode">----</div>
                     
-                    <!-- New copy button for pairing code -->
+                    <!-- Copy button for pairing code -->
                     <div style="display: flex; justify-content: center; margin: 0.5rem 0 1rem;">
                         <button class="btn btn-copy" id="copyPairCodeBtn" onclick="copyPairCode()" style="width: auto;">
                             <i class="fas fa-copy" aria-hidden="true"></i> Copy Code
@@ -630,13 +627,13 @@
         <section id="sessions" class="section">
             <div class="card">
                 <div class="card-header">
-                    <h3><i class="fas fa-list" aria-hidden="true"></i> Active Sessions</h3>
+                    <h3><i class="fas fa-list" aria-hidden="true"></i> Your Sessions</h3>
                     <button class="back-btn" onclick="showSection('dashboard')">
                         <i class="fas fa-arrow-left" aria-hidden="true"></i> Back
                     </button>
                 </div>
                 <div class="table-wrap">
-                    <table class="sessions-table" role="table" aria-label="Active sessions">
+                    <table class="sessions-table" role="table" aria-label="Your sessions">
                         <thead>
                             <tr>
                                 <th scope="col">Number</th>
@@ -646,7 +643,7 @@
                             </tr>
                         </thead>
                         <tbody id="sessionsTableBody">
-                            <tr><td colspan="4" style="text-align:center;padding:1.5rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Loading sessions...</td></tr>
+                            <tr><td colspan="4" style="text-align:center;padding:1.5rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Loading your sessions...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -703,12 +700,12 @@
         <i class="fas fa-bolt"></i><span>POWERED BY RAILWAY</span>
     </div>
 
-    <!-- Footer -->
+    <!-- Footer (MongoDB mention removed) -->
     <footer role="contentinfo">
         <p><strong>INSIDIOUS BOT v3.0</strong> | <time datetime="2025">2025</time> Stanley Assanaly<br>
         <a href="https://wa.me/255787069580" target="_blank" rel="noopener"><i class="fas fa-user" aria-hidden="true"></i> Contact</a> <i class="fas fa-circle" style="font-size:6px;margin:0 4px"></i>
         <a href="https://whatsapp.com/channel/0029Vb7fzu4EwEjmsD4Tzs1p" target="_blank" rel="noopener"><i class="fab fa-whatsapp" aria-hidden="true"></i> Channel</a></p>
-        <p><i class="fas fa-shield-alt" aria-hidden="true"></i> End-to-end encrypted <i class="fas fa-circle" style="font-size:5px;margin:0 4px"></i> MongoDB secured</p>
+        <p><i class="fas fa-shield-alt" aria-hidden="true"></i> End-to-end encrypted</p>
     </footer>
 
     <!-- Toast Container -->
@@ -716,6 +713,9 @@
     <div id="ariaLive" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
     <script>
+        // Disable right-click
+        document.addEventListener('contextmenu', event => event.preventDefault());
+
         // ===== LOADER =====
         window.addEventListener('load', () => {
             setTimeout(() => {
@@ -797,7 +797,6 @@
             }
         }
 
-        // New function to copy pairing code
         function copyPairCode() {
             const code = document.getElementById('pairCode').textContent.trim();
             const btn = document.getElementById('copyPairCodeBtn');
@@ -814,6 +813,26 @@
             if (sid && sid!=='Loading...') {
                 copyToClipboard(sid, btn).then(()=> showToast('Session ID copied', 'success'));
             }
+        }
+
+        // ===== LOCAL STORAGE FOR USER SESSIONS =====
+        function getUserSessionIds() {
+            const stored = localStorage.getItem('user_sessions');
+            return stored ? JSON.parse(stored) : [];
+        }
+
+        function addUserSessionId(sessionId) {
+            const sessions = getUserSessionIds();
+            if (!sessions.includes(sessionId)) {
+                sessions.push(sessionId);
+                localStorage.setItem('user_sessions', JSON.stringify(sessions));
+            }
+        }
+
+        function removeUserSessionId(sessionId) {
+            let sessions = getUserSessionIds();
+            sessions = sessions.filter(id => id !== sessionId);
+            localStorage.setItem('user_sessions', JSON.stringify(sessions));
         }
 
         // ===== API: PAIR =====
@@ -844,14 +863,17 @@
                     if (data.code) {
                         pairCode.textContent = data.code;
                         resultBox.classList.add('show');
-                        // Auto-copy pairing code (optional)
                         await copyToClipboard(data.code);
                         showToast('Pairing code generated and copied', 'success');
                     }
                     if (data.sessionId) {
                         sessionIdEl.innerHTML = `<code>${data.sessionId}</code>`;
                         sessionInfo.style.display = 'block';
+                        // Save session ID to localStorage
+                        addUserSessionId(data.sessionId);
                         showToast('Pairing successful! Session ID ready.', 'success');
+                        // Clear the input for next pairing
+                        document.getElementById('pairNumber').value = '';
                     }
                 } else {
                     showToast(data.error || 'Pairing failed', 'error');
@@ -906,6 +928,8 @@
                         </small></span>`;
                     showToast('Bot deployed successfully', 'success');
                     refreshSessions();
+                    // After successful deploy, return to dashboard
+                    setTimeout(() => showSection('dashboard'), 1500);
                 } else {
                     msgEl.textContent = data.error || 'Deployment failed';
                     showToast('Deployment failed: ' + (data.error || 'Unknown error'), 'error');
@@ -925,21 +949,30 @@
             }
         });
 
-        // ===== API: SESSIONS =====
+        // ===== API: SESSIONS (filtered by user) =====
         async function loadSessions() {
             const tbody = document.getElementById('sessionsTableBody');
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:1.5rem"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Loading...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:1.5rem"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Loading your sessions...</td></tr>';
             try {
                 const res = await fetchWithTimeout('/sessions', {}, 5000);
                 const data = await res.json();
                 if (data.success && data.sessions?.length) {
+                    const userSessions = getUserSessionIds();
+                    // Filter only sessions that belong to this user
+                    const mySessions = data.sessions.filter(s => userSessions.includes(s.sessionId));
+                    
+                    if (mySessions.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:1.5rem;color:var(--text-muted)">You have no active sessions</td></tr>';
+                        return;
+                    }
+
                     tbody.innerHTML = '';
-                    data.sessions.forEach(s => {
+                    mySessions.forEach(s => {
                         const statusClass = s.status==='active'?'success':s.status==='pending'?'warning':'danger';
                         const statusIcon = s.status==='active'?'check-circle':s.status==='pending'?'clock':'times-circle';
                         const row = document.createElement('tr');
                         row.innerHTML = `
-                            <td><strong>${s.phoneNumber||s.sessionId}</strong></td>
+                            <td><strong>${s.phoneNumber||'Unknown'}</strong></td>
                             <td><code style="font-size:0.83rem;background:rgba(15,23,42,0.7);padding:0.18rem 0.35rem;border-radius:4px">${s.sessionId}</code></td>
                             <td><span class="badge badge-${statusClass}"><i class="fas fa-${statusIcon}" aria-hidden="true"></i> ${s.status}</span></td>
                             <td><div class="action-btns">
@@ -949,7 +982,7 @@
                         tbody.appendChild(row);
                     });
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:1.5rem;color:var(--text-muted)">No active sessions</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:1.5rem;color:var(--text-muted)">You have no active sessions</td></tr>';
                 }
             } catch (err) {
                 console.error('Sessions error:', err);
@@ -968,8 +1001,14 @@
             try {
                 const res = await fetchWithTimeout(`/sessions/${id}`, { method: 'DELETE' }, 5000);
                 const data = await res.json();
-                if (data.success) { showToast(`Session ${id} deleted`, 'warning'); loadSessions(); }
-                else { showToast(data.error || 'Delete failed', 'error'); }
+                if (data.success) { 
+                    // Remove from localStorage
+                    removeUserSessionId(id);
+                    showToast(`Session ${id} deleted`, 'warning'); 
+                    loadSessions(); 
+                } else {
+                    showToast(data.error || 'Delete failed', 'error');
+                }
             } catch (err) {
                 console.error('Delete error:', err);
                 if (err.name === 'AbortError') {
@@ -1044,10 +1083,8 @@
                 input.addEventListener('blur', function() { this.parentElement.style.transform='scale(1)'; });
             });
 
-            // Console info
+            // Console info (no simulation messages)
             console.log('%cINSIDIOUS BOT v3.0', 'color:#7c3aed;font-weight:bold;font-size:13px');
-            console.log('%cBackend: Baileys + MongoDB + Express', 'color:#10b981;font-size:10px');
-            console.log('%cDeployed on Railway - Health: /health', 'color:#f59e0b;font-size:10px');
         }
 
         // Keyboard shortcuts
