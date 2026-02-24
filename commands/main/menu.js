@@ -8,155 +8,179 @@ module.exports = {
     name: "menu",
     execute: async (conn, msg, args, { from, sender, pushname }) => {
         try {
-            // ========== USER TAGGING + REAL NAME ==========
+            // ========== 🎯 REAL USERNAME FETCHER (English Only) ==========
             const userNumber = sender.split('@')[0];
-            let userName = pushname || '';
-            if (!userName) {
+            let userName = pushname?.trim() || '';
+            
+            if (!userName || userName === 'undefined') {
                 try {
-                    const contact = await conn.getContact(sender);
-                    userName = contact?.name || contact?.pushname || userNumber;
-                } catch {
-                    userName = userNumber;
-                }
+                    const contact = conn.contactStore?.contacts?.[sender] || await conn.getContact(sender);
+                    userName = contact?.name || contact?.pushname || contact?.verifiedName || '';
+                } catch {}
             }
-            const mentionText = `@${userNumber}`;
+            if (!userName || userName === 'undefined') {
+                try {
+                    const groupMetadata = from.endsWith('@g.us') ? await conn.groupMetadata(from) : null;
+                    const participant = groupMetadata?.participants?.find(p => p.id === sender);
+                    userName = participant?.name || '';
+                } catch {}
+            }
+            userName = userName?.trim() || `User_${userNumber.slice(-4)}`;
+            const userDisplay = `@${userNumber}`;
             const mentions = [sender];
-            // Display both name and mention
-            const userDisplay = `${userName} (${mentionText})`;
 
-            // ========== SCAN COMMANDS FOLDER ==========
+            // ========== 📱 DEVICE COMPATIBILITY ==========
+            const clientInfo = msg?.message?.conversation || msg?.message?.extendedTextMessage?.text || '';
+            const isOldClient = clientInfo.length < 2;
+            const maxButtons = isOldClient ? 3 : 6;
+
+            // ========== 🗂️ SCAN COMMANDS ==========
             const cmdPath = path.join(__dirname, '../../commands');
             const allCategories = fs.readdirSync(cmdPath).filter(cat => 
                 fs.statSync(path.join(cmdPath, cat)).isDirectory()
             );
 
-            // Determine if this is a navigation call (via .nav command)
             let targetCategory = null;
             let targetPage = 0;
             if (args[0] === 'nav' && args[1] && args[2]) {
                 targetCategory = args[1];
-                targetPage = parseInt(args[2]) || 0;
+                targetPage = Math.max(0, parseInt(args[2]) || 0);
             }
 
-            const categories = targetCategory 
-                ? [targetCategory] 
-                : allCategories;
-
+            const categories = targetCategory ? [targetCategory] : allCategories;
             const cards = [];
-            const BUTTONS_PER_PAGE = 6; // Good medium size
 
-            // Optional image header
+            // ========== 🖼️ HEADER IMAGE ==========
             let imageMedia = null;
-            if (config.menuImage) {
+            if (config.menuImage && !isOldClient) {
                 try {
                     imageMedia = await prepareWAMessageMedia(
                         { image: { url: config.menuImage } },
                         { upload: conn.waUploadToServer }
                     );
                 } catch (e) {
-                    console.error("Menu image failed:", e);
+                    console.warn("⚠️ Menu image skipped:", e.message);
                 }
             }
 
+            // ========== 🎨 PREMIUM BUTTON FACTORY ==========
+            const createPremiumButton = (text, id, icon = '▸') => ({
+                name: "quick_reply",
+                buttonParamsJson: JSON.stringify({
+                    display_text: `${icon} ${text}`,
+                    id: `${config.prefix}${id.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')}`
+                })
+            });
+
+            const createNavButton = (text, id, icon) => ({
+                name: "quick_reply", 
+                buttonParamsJson: JSON.stringify({
+                    display_text: `${icon} ${text}`,
+                    id: `${config.prefix}${id}`
+                })
+            });
+
+            // ========== 🔄 BUILD CAROUSEL CARDS ==========
             for (const cat of categories) {
                 const catPath = path.join(cmdPath, cat);
                 let files = fs.readdirSync(catPath)
-                    .filter(f => f.endsWith('.js'))
-                    .map(f => f.replace('.js', ''));
+                    .filter(f => f.endsWith('.js') && f !== 'index.js')
+                    .map(f => f.replace('.js', ''))
+                    .sort();
 
                 if (files.length === 0) continue;
 
-                // Pagination
+                // 📏 DYNAMIC PAGINATION
+                const buttonsPerPage = files.length <= 3 ? 3 : maxButtons;
                 const pages = [];
-                for (let i = 0; i < files.length; i += BUTTONS_PER_PAGE) {
-                    pages.push(files.slice(i, i + BUTTONS_PER_PAGE));
+                for (let i = 0; i < files.length; i += buttonsPerPage) {
+                    pages.push(files.slice(i, i + buttonsPerPage));
                 }
 
-                // If target page is out of range, default to 0
-                const startPage = targetCategory === cat ? targetPage : 0;
+                const startPage = (targetCategory === cat) ? targetPage : 0;
 
                 pages.forEach((pageFiles, pageIndex) => {
-                    // Only include the target page if navigation was requested
-                    if (targetCategory === cat && pageIndex !== targetPage) return;
+                    if (targetCategory === cat && pageIndex !== startPage) return;
 
-                    // Command buttons – clean, stylish
-                    const buttons = pageFiles.map(cmd => ({
-                        name: "quick_reply",
-                        buttonParamsJson: JSON.stringify({
-                            display_text: `▸ ${config.prefix}${cmd}`,
-                            id: `${config.prefix}${cmd}`
-                        })
-                    }));
+                    // 🎨 PREMIUM BUTTONS with rotating icons
+                    const buttons = pageFiles.map((cmd, idx) => {
+                        const icons = ['⚡','🎯','🔧','✨','🚀','💎','🔥','🌟'];
+                        const icon = icons[idx % icons.length];
+                        return createPremiumButton(cmd, cmd, icon);
+                    });
 
-                    // Navigation buttons (only if multiple pages)
+                    // 🧭 NAVIGATION
                     if (pages.length > 1) {
                         if (pageIndex > 0) {
-                            buttons.push({
-                                name: "quick_reply",
-                                buttonParamsJson: JSON.stringify({
-                                    display_text: "◀ Prev",
-                                    id: `${config.prefix}nav ${cat} ${pageIndex - 1}`
-                                })
-                            });
+                            buttons.push(createNavButton(`Back`, `nav ${cat} ${pageIndex - 1}`, '◀'));
                         }
                         if (pageIndex < pages.length - 1) {
-                            buttons.push({
-                                name: "quick_reply",
-                                buttonParamsJson: JSON.stringify({
-                                    display_text: "Next ▶",
-                                    id: `${config.prefix}nav ${cat} ${pageIndex + 1}`
-                                })
-                            });
+                            buttons.push(createNavButton(`Next`, `nav ${cat} ${pageIndex + 1}`, '▶'));
                         }
+                        buttons.push(createNavButton(`🏠 Home`, `menu`, '🏠'));
                     }
 
-                    // Card header (image or title)
-                    const cardHeader = imageMedia ? {
-                        hasMediaAttachment: true,
-                        imageMessage: imageMedia.imageMessage
-                    } : {
-                        hasMediaAttachment: false,
-                        title: fancy(config.botName)
-                    };
-
-                    // Category title with page indicator (compact if single page)
-                    const categoryTitle = pages.length > 1
-                        ? `${cat.toUpperCase()} — ${pageIndex + 1}/${pages.length}`
+                    // 📏 DYNAMIC CARD HEIGHT
+                    const paddingLines = pageFiles.length < 4 ? '\n\n' : '\n';
+                    const categoryTitle = pages.length > 1 
+                        ? `${cat.toUpperCase()} • Page ${pageIndex + 1}/${pages.length}`
                         : cat.toUpperCase();
 
-                    // Card body – shows real username + mention
-                    const cardBody = `╭━━━━━━━━━━━━━━╮
-   ✦ ${categoryTitle}
-╰━━━━━━━━━━━━━━╯
-👤 ${userDisplay}
-Select a command:`;
+                    // 💎 CARD BODY - ENGLISH ONLY
+                    const cardBody = `╭━━━ ✦ ✦ ✦ ━━━╮
+   ✨ ${categoryTitle}
+╰━━━ ✦ ✦ ✦ ━━━╯${paddingLines}👤 ${userName} ${userDisplay}
+📌 Select a command below:${paddingLines}`;
 
                     const card = {
                         body: { text: fancy(cardBody) },
-                        footer: { text: fancy(`━━━━━━━━━━━━━━\n👑 Developer: ${config.developerName}`) },
-                        header: cardHeader,
-                        nativeFlowMessage: {
-                            buttons: buttons
-                        }
+                        footer: { 
+                            text: fancy(`━━━ ✦ ✦ ✦ ━━━\n👑 Developer: ${config.developerName} • v2.2`) 
+                        },
+                        header: imageMedia ? {
+                            hasMediaAttachment: true,
+                            imageMessage: imageMedia.imageMessage
+                        } : {
+                            hasMediaAttachment: false,
+                            title: fancy(`🤖 ${config.botName}`)
+                        },
+                        nativeFlowMessage: { buttons }
                     };
                     cards.push(card);
                 });
             }
 
-            // Main dashboard header (clean, centered)
-            const mainHeader = `╭━━━━━━━━━━━━━━╮
-   👁 INSIDIOUS V2.1.1
-╰━━━━━━━━━━━━━━╯`;
+            // ========== 🎪 MAIN DASHBOARD ==========
+            const stats = {
+                cmds: cards.reduce((sum, c) => sum + (c.nativeFlowMessage?.buttons?.length || 0), 0),
+                cats: categories.length,
+                uptime: runtime(process.uptime())
+            };
 
+            const mainHeader = `╭━━━ ✦ INSIDIOUS ✦ ━━━╮
+   👁 V2.2 • PREMIUM EDITION
+╰━━━ ✦ ✦ ✦ ━━━╯
+
+⚡ ${stats.cmds}+ Commands Available
+📂 ${stats.cats} Categories
+⏱️ Uptime: ${stats.uptime}
+
+🔍 Tip: Type ${config.prefix}search <keyword>`;
+
+            // ========== 📲 SEND INTERACTIVE MESSAGE ==========
             const interactiveMessage = {
-                body: { text: fancy(mainHeader + `\n\n⏱️ Uptime: ${runtime(process.uptime())}`) },
-                footer: { text: fancy("◀ Swipe for more categories  ▶") },
+                body: { text: fancy(mainHeader) },
+                footer: { 
+                    text: fancy(`🔄 Swipe ← → for more • ${config.prefix}help for guide`) 
+                },
                 header: {
-                    title: fancy(config.botName),
-                    hasMediaAttachment: false
+                    title: fancy(`🌟 ${config.botName}`),
+                    hasMediaAttachment: false,
+                    subtitle: fancy('Premium WhatsApp Bot')
                 },
                 carouselMessage: {
-                    cards: cards
+                    cards: cards,
+                    messageVersion: 1
                 }
             };
 
@@ -165,35 +189,55 @@ Select a command:`;
                 userJid: conn.user.id,
                 upload: conn.waUploadToServer
             });
-            await conn.relayMessage(from, waMessage.message, { messageId: waMessage.key.id, mentions });
+            
+            await conn.relayMessage(from, waMessage.message, { 
+                messageId: waMessage.key.id, 
+                mentions 
+            });
 
         } catch (e) {
-            console.error("Menu error:", e);
-            // Fallback text menu with real username
-            const userNumber = sender.split('@')[0];
-            let userName = pushname || userNumber;
-            if (!pushname) {
-                try {
-                    const contact = await conn.getContact(sender);
-                    userName = contact?.name || contact?.pushname || userNumber;
-                } catch {}
-            }
-            let text = `╭━━━━━━━━━━━━━━╮\n   *INSIDIOUS MENU*\n╰━━━━━━━━━━━━━━╯\n\n👤 ${userName} (@${userNumber})\n\n`;
+            console.error("❌ Menu Error:", e);
             
+            // ========== 🆘 FALLBACK: UNIVERSAL TEXT MENU (ENGLISH) ==========
+            const userNumber = sender.split('@')[0];
+            let userName = pushname || `User_${userNumber.slice(-4)}`;
+            try {
+                const contact = await conn.getContact(sender);
+                userName = contact?.name || contact?.pushname || userName;
+            } catch {}
+
+            let text = `╭━━━ ✦ INSIDIOUS ✦ ━━━╮
+   📜 PREMIUM MENU • V2.2
+╰━━━ ✦ ✦ ✦ ━━━╯
+
+👤 ${userName} @${userNumber}
+⏱️ Uptime: ${runtime(process.uptime())}
+
+`;
             const cmdPath = path.join(__dirname, '../../commands');
             const categories = fs.readdirSync(cmdPath).filter(cat => 
                 fs.statSync(path.join(cmdPath, cat)).isDirectory()
             );
+            
             for (const cat of categories) {
                 const catPath = path.join(cmdPath, cat);
-                const files = fs.readdirSync(catPath).filter(f => f.endsWith('.js')).map(f => f.replace('.js', ''));
+                const files = fs.readdirSync(catPath)
+                    .filter(f => f.endsWith('.js'))
+                    .map(f => f.replace('.js', ''));
                 if (files.length) {
-                    text += `✦ ${cat.toUpperCase()}\n`;
-                    text += files.map(cmd => `${config.prefix}${cmd}`).join(' · ') + '\n\n';
+                    text += `✦ ${cat.toUpperCase()} [${files.length} commands]\n`;
+                    text += files.map(cmd => `  ${config.prefix}${cmd}`).join('\n') + '\n\n';
                 }
             }
-            text += `━━━━━━━━━━━━━━\n👑 Developer: ${config.developerName}\n⏱️ Uptime: ${runtime(process.uptime())}`;
-            await conn.sendMessage(from, { text: fancy(text), mentions: [sender] }, { quoted: msg });
+            text += `━━━ ✦ ✦ ✦ ━━━
+👑 Developer: ${config.developerName}
+💡 Tip: Use ${config.prefix}search <command_name>`;
+            
+            await conn.sendMessage(from, { 
+                text: fancy(text), 
+                mentions: [sender] 
+            }, { quoted: msg });
         }
     }
 };
+
