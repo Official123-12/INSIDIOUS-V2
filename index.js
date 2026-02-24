@@ -5,31 +5,109 @@ const {
     Browsers, 
     makeCacheableSignalKeyStore, 
     fetchLatestBaileysVersion, 
-    DisconnectReason 
+    DisconnectReason,
+    BufferJSON,
+    proto
 } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
 const fs = require('fs');
 
+// ==================== CONFIG & HANDLER ====================
 const handler = require('./handler');
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-// ✅ **MONGODB SCHEMA**
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// ==================== DATABASE SCHEMAS ====================
+
 const sessionSchema = new mongoose.Schema({
-    sessionId: { type: String, required: true, unique: true },
+    sessionId: { type: String, required: true, unique: true, index: true },
     phoneNumber: { type: String, required: true },
-    creds: { type: Object, required: true }, 
-    status: { type: String, default: 'active' },
+    creds: { type: Object, required: true },
+    status: { type: String, default: 'active', index: true },
     addedAt: { type: Date, default: Date.now }
 });
 const Session = mongoose.model('UserSession', sessionSchema);
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+const authKeySchema = new mongoose.Schema({
+    sessionId: { type: String, required: true, index: true },
+    keyId: { type: String, required: true },
+    data: { type: Object }
+});
+authKeySchema.index({ sessionId: 1, keyId: 1 }, { unique: true });
+const AuthKey = mongoose.model('AuthKey', authKeySchema);
 
-// ✅ **SPEED OPTIMIZED GENERATORS**
+// ==================== ENTERPRISE MONGO AUTH STATE ====================
+
+const useMongoAuthState = async (sessionId) => {
+    const writeData = async (data, keyId) => {
+        try {
+            await AuthKey.updateOne(
+                { sessionId, keyId },
+                { $set: { data: JSON.parse(JSON.stringify(data, BufferJSON.replacer)) } },
+                { upsert: true }
+            );
+        } catch (e) { console.error('AuthKey Save Error:', e); }
+    };
+
+    const readData = async (keyId) => {
+        try {
+            const res = await AuthKey.findOne({ sessionId, keyId });
+            return res ? JSON.parse(JSON.stringify(res.data), BufferJSON.reviver) : null;
+        } catch (e) { return null; }
+    };
+
+    const removeData = async (keyId) => {
+        try { await AuthKey.deleteOne({ sessionId, keyId }); } catch (e) { }
+    };
+
+    const sessionRecord = await Session.findOne({ sessionId });
+    let creds = sessionRecord ? JSON.parse(JSON.stringify(sessionRecord.creds), BufferJSON.reviver) : null;
+
+    return {
+        state: {
+            creds,
+            keys: {
+                get: async (type, ids) => {
+                    const data = {};
+                    await Promise.all(ids.map(async (id) => {
+                        let value = await readData(`${type}-${id}`);
+                        if (type === 'app-state-sync-key' && value) value = proto.Message.AppStateSyncKeyData.fromObject(value);
+                        data[id] = value;
+                    }));
+                    return data;
+                },
+                set: async (data) => {
+                    for (const category in data) {
+                        for (const id in data[category]) {
+                            const value = data[category][id];
+                            const keyId = `${category}-${id}`;
+                            value ? await writeData(value, keyId) : await removeData(keyId);
+                        }
+                    }
+                }
+            }
+        },
+        saveCreds: async () => {
+            await Session.updateOne(
+                { sessionId },
+                { $set: { creds: JSON.parse(JSON.stringify(creds, BufferJSON.replacer)) } }
+            );
+        }
+    };
+};
+
+// ==================== UTILITIES ====================
+
+function fancy(text) {
+    const map = { a: 'ᴀ', b: 'ʙ', c: 'ᴄ', d: 'ᴅ', e: 'ᴇ', f: 'ꜰ', g: 'ɢ', h: 'ʜ', i: 'ɪ', j: 'ᴊ', k: 'ᴋ', l: 'ʟ', m: 'ᴍ', n: 'ɴ', o: 'ᴏ', p: 'ᴘ', q: 'ǫ', r: 'ʀ', s: 'ꜱ', t: 'ᴛ', u: 'ᴜ', v: 'ᴠ', w: 'ᴡ', x: 'x', y: 'ʏ', z: 'ᴢ' };
+    return text.split('').map(c => map[c.toLowerCase()] || c).join('');
+}
+
 function randomMegaId(len = 6, numLen = 4) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let out = '';
@@ -37,19 +115,12 @@ function randomMegaId(len = 6, numLen = 4) {
     return `${out}${Math.floor(Math.random() * Math.pow(10, numLen))}`;
 }
 
-// ✅ **DB CONNECTION**
-mongoose.connect(process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority")
-    .then(() => { console.log("✅ DB Connected"); loadActiveBots(); })
-    .catch(err => console.log("❌ DB Error"));
+// ==================== PAIRING ENGINE (FILE AUTH) ====================
 
-// ✅ **PAIRING ENGINE (OPTIMIZED FOR SPEED)**
 let pairingSocket = null;
 
 async function startPairingEngine() {
-    // 1. Force clear cache for instant startup
-    if (fs.existsSync('./pairing_temp')) {
-        fs.rmSync('./pairing_temp', { recursive: true, force: true });
-    }
+    if (fs.existsSync('./pairing_temp')) fs.rmSync('./pairing_temp', { recursive: true, force: true });
 
     const { state, saveCreds } = await useMultiFileAuthState('pairing_temp');
     const { version } = await fetchLatestBaileysVersion();
@@ -61,13 +132,10 @@ async function startPairingEngine() {
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) 
         },
         logger: pino({ level: "silent" }),
-        browser: Browsers.macOS("Desktop"), // Better than Safari for fast handshake
-        syncFullHistory: false, // ❌ ZIMA HISTORY SYNC (This is the fix!)
-        shouldSyncHistoryMessage: () => false, // ❌ USIDOWNLOAD MESEJI
-        connectTimeoutMs: 60000, 
-        defaultQueryTimeoutMs: 0,
-        keepAliveIntervalMs: 10000,
-        generateHighQualityLinkPreview: false
+        browser: Browsers.macOS("Safari"),
+        syncFullHistory: false,
+        shouldSyncHistoryMessage: () => false,
+        connectTimeoutMs: 60000
     });
 
     pairingSocket = conn;
@@ -79,29 +147,34 @@ async function startPairingEngine() {
             const userJid = conn.user.id.split(':')[0];
             const sessionId = randomMegaId();
 
-            // Save to DB
+            // Initial migration of file-creds to MongoDB
             await Session.findOneAndUpdate(
                 { phoneNumber: userJid },
-                { sessionId, phoneNumber: userJid, creds: state.creds, status: 'active' },
+                { 
+                    sessionId, 
+                    phoneNumber: userJid, 
+                    creds: JSON.parse(JSON.stringify(state.creds, BufferJSON.replacer)), 
+                    status: 'active' 
+                },
                 { upsert: true }
             );
 
-            // Send messages quickly
-            const msg = `✅ *Connected Successfully!*\n\n🆔 *SESSION ID:* \`${sessionId}\``;
-            await conn.sendMessage(userJid + '@s.whatsapp.net', { text: msg });
+            const welcomeMsg = `╭─── • 🥀 • ───╮\n   INSIDIOUS BOT\n╰─── • 🥀 • ───╯\n\n✅ *Pairing Successful!*\n\n🆔 *SESSION ID:* \`${sessionId}\`\n\nPaste this ID on the web dashboard to deploy.`;
+            
+            await conn.sendMessage(userJid + '@s.whatsapp.net', { 
+                image: { url: "https://raw.githubusercontent.com/Official123-12/STANYFREEBOT-/refs/heads/main/IMG_1377.jpeg" },
+                caption: welcomeMsg
+            });
             await conn.sendMessage(userJid + '@s.whatsapp.net', { text: sessionId });
 
-            console.log(`✅ Session Created: ${sessionId}`);
-
-            // Close connection immediately to free up resources
             setTimeout(async () => {
                 await conn.logout();
                 startPairingEngine(); 
-            }, 3000);
+            }, 5000);
         }
 
         if (connection === 'close') {
-            const code = (lastDisconnect?.error)?.output?.statusCode;
+            const code = lastDisconnect?.error?.output?.statusCode;
             if (code !== DisconnectReason.loggedOut) startPairingEngine();
         }
     });
@@ -109,59 +182,144 @@ async function startPairingEngine() {
     conn.ev.on('creds.update', saveCreds);
 }
 
-// ✅ **BOT DEPLOYMENT (FOR LIVE BOTS)**
-async function activateBot(sessionId, number) {
-    try {
-        const sessionData = await Session.findOne({ sessionId });
-        if (!sessionData) return { success: false };
+// ==================== DEPLOYMENT SYSTEM (MONGO AUTH) ====================
 
+const activeBots = new Map();
+
+async function activateBot(sessionId, number) {
+    if (activeBots.has(sessionId)) {
+        try {
+            activeBots.get(sessionId).ev.removeAllListeners();
+            activeBots.get(sessionId).terminate();
+        } catch (e) {}
+        activeBots.delete(sessionId);
+    }
+
+    try {
+        const { state, saveCreds } = await useMongoAuthState(sessionId);
         const { version } = await fetchLatestBaileysVersion();
+
         const conn = makeWASocket({
             version,
-            auth: { creds: sessionData.creds, keys: makeCacheableSignalKeyStore(sessionData.creds.keys, pino({ level: "fatal" })) },
+            auth: {
+                creds: state.creds,
+                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }))
+            },
             logger: pino({ level: "silent" }),
             browser: Browsers.ubuntu("Chrome"),
-            syncFullHistory: false // Keep it light
+            syncFullHistory: false,
+            markOnlineOnConnect: true,
+            connectTimeoutMs: 60000
+        });
+
+        activeBots.set(sessionId, conn);
+
+        conn.ev.on('creds.update', saveCreds);
+
+        conn.ev.on('connection.update', async (update) => {
+            const { connection, lastDisconnect } = update;
+            
+            if (connection === 'open') {
+                await Session.updateOne({ sessionId }, { $set: { status: 'active' } });
+                console.log(`🚀 [BOT LIVE] ID: ${sessionId} | Number: ${number}`);
+            }
+
+            if (connection === 'close') {
+                const statusCode = lastDisconnect?.error?.output?.statusCode;
+                const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+
+                if (shouldReconnect) {
+                    console.log(`🔄 [RECONNECTING] ID: ${sessionId} | Reason: ${statusCode}`);
+                    setTimeout(() => activateBot(sessionId, number), 5000);
+                } else {
+                    await Session.deleteOne({ sessionId });
+                    await AuthKey.deleteMany({ sessionId });
+                    activeBots.delete(sessionId);
+                    console.log(`🗑️ [LOGGED OUT] ID: ${sessionId}`);
+                }
+            }
         });
 
         conn.ev.on('messages.upsert', async (m) => {
-            await handler(conn, m);
+            try { await handler(conn, m); } catch (e) { console.error('Handler Error:', e); }
         });
 
         return { success: true };
     } catch (e) {
-        return { success: false };
+        console.error(`❌ [DEPLOY FAILURE] ID: ${sessionId}`, e);
+        return { success: false, error: e.message };
     }
 }
 
 async function loadActiveBots() {
-    const active = await Session.find({ status: 'active' });
-    for (let sess of active) { activateBot(sess.sessionId, sess.phoneNumber); }
+    try {
+        const active = await Session.find({ status: 'active' });
+        console.log(`📂 [DATABASE] Restoring ${active.length} sessions...`);
+        for (const sess of active) {
+            await new Promise(resolve => setTimeout(resolve, 2000)); 
+            activateBot(sess.sessionId, sess.phoneNumber);
+        }
+    } catch (e) { console.error('LoadActiveBots Error:', e); }
 }
 
-// ==================== ENDPOINTS ====================
+// ==================== API ENDPOINTS ====================
 
 app.get('/pair', async (req, res) => {
     let num = req.query.num;
     if (!num) return res.json({ success: false, error: "Number required" });
     try {
         const cleanNum = num.replace(/[^0-9]/g, '');
+        if (!pairingSocket) return res.json({ success: false, error: "Engine initializing" });
         const code = await pairingSocket.requestPairingCode(cleanNum);
         res.json({ success: true, code });
     } catch (err) {
-        res.json({ success: false, error: "Retry again" });
+        res.json({ success: false, error: "Pairing failed. Retry." });
     }
 });
 
 app.post('/deploy', async (req, res) => {
     const { sessionId, number } = req.body;
+    if (!sessionId || !number) return res.json({ success: false, error: "Missing data" });
     const result = await activateBot(sessionId, number);
     res.json(result);
 });
 
+app.get('/sessions', async (req, res) => {
+    try {
+        const data = await Session.find({}, { creds: 0 }).sort({ addedAt: -1 });
+        res.json({ success: true, sessions: data });
+    } catch (e) { res.json({ success: false, error: e.message }); }
+});
+
+app.delete('/sessions/:id', async (req, res) => {
+    try {
+        const sid = req.params.id;
+        await Session.deleteOne({ sessionId: sid });
+        await AuthKey.deleteMany({ sessionId: sid });
+        if (activeBots.has(sid)) {
+            activeBots.get(sid).terminate();
+            activeBots.delete(sid);
+        }
+        res.json({ success: true });
+    } catch (e) { res.json({ success: false, error: e.message }); }
+});
+
+app.get('/health', (req, res) => {
+    res.json({ status: 'healthy', active: activeBots.size, uptime: process.uptime() });
+});
+
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// Start Engine
-startPairingEngine();
+// ==================== START SERVER ====================
 
-app.listen(PORT, () => console.log(`🌐 FAST SERVER LIVE: ${PORT}`));
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
+
+mongoose.connect(MONGODB_URI).then(() => {
+    console.log(fancy("🟢 INSIDIOUS BOT SERVER LIVE"));
+    startPairingEngine();
+    loadActiveBots();
+});
+
+app.listen(PORT, () => console.log(`🚀 Port: ${PORT}`));
+
+module.exports = app;
