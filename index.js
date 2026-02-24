@@ -1,5 +1,5 @@
 const express = require('express');
-const { default: makeWASocket, useMultiFileAuthState, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys");
+const { default: makeWASocket, Browsers, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
@@ -37,7 +37,7 @@ function fancy(text) {
     }
 }
 
-// ==================== RANDOM MEGA ID (YOUR FUNCTION) ====================
+// ==================== RANDOM MEGA ID ====================
 function randomMegaId(len = 6, numLen = 4) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let out = '';
@@ -50,17 +50,19 @@ const PORT = process.env.PORT || 3000;
 
 // ==================== MONGODB CONNECTION ====================
 console.log(fancy("🔗 Connecting to MongoDB..."));
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://Stanyfreebot:Stanyfreebot@cluster0.ennpt6t.mongodb.net/insidious?retryWrites=true&w=majority";
 
 mongoose.connect(MONGODB_URI, {
     serverSelectionTimeoutMS: 30000,
     socketTimeoutMS: 45000,
     maxPoolSize: 10
 })
-.then(() => {
+.then(async () => {
     console.log(fancy("✅ MongoDB Connected"));
-    // After DB connected, start all active sessions
-    startAllActiveSessions();
+    // Safisha sessions zisizo kamili
+    await cleanupInvalidSessions();
+    // Anzisha sessions zilizo active
+    await startAllActiveSessions();
 })
 .catch((err) => {
     console.log(fancy("❌ MongoDB Connection FAILED"));
@@ -105,6 +107,27 @@ try {
     };
 }
 
+// ==================== CLEANUP INVALID SESSIONS ====================
+async function cleanupInvalidSessions() {
+    try {
+        // Futa sessions ambazo hazina creds au hazina creds.me
+        const result = await Session.deleteMany({
+            $or: [
+                { creds: { $exists: false } },
+                { creds: null },
+                { "creds.me": { $exists: false } }
+            ]
+        });
+        console.log(fancy(`🧹 Cleaned up ${result.deletedCount} invalid sessions`));
+        
+        // Weka sessions zilizobaki ziwe 'inactive' ili zisijaribu kuanza moja kwa moja
+        await Session.updateMany({ status: 'active' }, { status: 'inactive' });
+        console.log(fancy(`📝 Reset all sessions to inactive`));
+    } catch (error) {
+        console.error("Error cleaning sessions:", error.message);
+    }
+}
+
 // ==================== FUNCTION TO START A SINGLE USER BOT ====================
 async function startUserBot(sessionId, phoneNumber) {
     if (activeSockets.has(sessionId)) {
@@ -114,6 +137,14 @@ async function startUserBot(sessionId, phoneNumber) {
 
     try {
         const { state, saveCreds, saveKeys } = await useMongoAuthState(sessionId);
+        
+        // CHECK: Kama creds hazina 'me', session ni mbovu – usianzishe
+        if (!state.creds || !state.creds.me || !state.creds.me.id) {
+            console.log(fancy(`⚠️ Session ${sessionId} has invalid credentials. Marking as expired.`));
+            await Session.updateOne({ sessionId }, { status: 'expired' });
+            return;
+        }
+
         const { version } = await fetchLatestBaileysVersion();
 
         const conn = makeWASocket({
@@ -128,8 +159,6 @@ async function startUserBot(sessionId, phoneNumber) {
             connectTimeoutMs: 60000,
             keepAliveIntervalMs: 10000,
             markOnlineOnConnect: true,
-            generateHighQualityLinkPreview: true,
-            // Prevent automatic reconnection handling; we'll do it manually
             shouldSyncHistoryMessage: () => false
         });
 
@@ -137,7 +166,6 @@ async function startUserBot(sessionId, phoneNumber) {
 
         // Save credentials when updated
         conn.ev.on('creds.update', saveCreds);
-        // You might also want to save keys periodically, but Baileys handles that internally
 
         // Connection update handler
         conn.ev.on('connection.update', async (update) => {
@@ -146,9 +174,6 @@ async function startUserBot(sessionId, phoneNumber) {
             if (connection === 'open') {
                 console.log(fancy(`✅ Session ${sessionId} (${phoneNumber}) connected`));
                 await Session.updateOne({ sessionId }, { status: 'active' });
-
-                // Send welcome to owner if needed (optional – you can keep your original welcome logic)
-                // For simplicity, we skip per-user welcome here; you can add if you want.
             }
             
             if (connection === 'close') {
@@ -207,15 +232,25 @@ async function startUserBot(sessionId, phoneNumber) {
 
     } catch (error) {
         console.error(`Error starting user bot ${sessionId}:`, error.message);
+        // Mark session as expired to prevent repeated errors
+        await Session.updateOne({ sessionId }, { status: 'expired' });
     }
 }
 
 // ==================== FUNCTION TO START ALL ACTIVE SESSIONS FROM DB ====================
 async function startAllActiveSessions() {
     try {
+        // Tunasoma sessions zilizo na status 'active'
         const activeSessions = await Session.find({ status: 'active' });
         console.log(fancy(`📦 Found ${activeSessions.length} active sessions to start`));
+        
         for (const session of activeSessions) {
+            // Angalia tena kama creds zina me kabla ya kuanza
+            if (!session.creds || !session.creds.me || !session.creds.me.id) {
+                console.log(fancy(`⚠️ Session ${session.sessionId} has invalid creds, marking expired`));
+                await Session.updateOne({ _id: session._id }, { status: 'expired' });
+                continue;
+            }
             startUserBot(session.sessionId, session.phoneNumber);
         }
     } catch (error) {
@@ -225,7 +260,7 @@ async function startAllActiveSessions() {
 
 // ==================== HTTP ENDPOINTS ====================
 
-// ✅ PAIRING ENDPOINT (generates session ID and returns code)
+// ✅ PAIRING ENDPOINT
 app.get('/pair', async (req, res) => {
     try {
         let num = req.query.num;
@@ -238,11 +273,11 @@ app.get('/pair', async (req, res) => {
             return res.json({ success: false, error: "Invalid number. Must be at least 10 digits." });
         }
         
-        // 1. Generate unique session ID using your function
-        const sessionId = randomMegaId(6, 4); // e.g., "aB3xY91234"
+        // 1. Generate unique session ID
+        const sessionId = randomMegaId(6, 4);
         
         // 2. Create temporary socket for pairing
-        const { state, saveCreds, saveKeys } = await useMongoAuthState(sessionId);
+        const { state, saveCreds } = await useMongoAuthState(sessionId);
         const { version } = await fetchLatestBaileysVersion();
 
         const tempConn = makeWASocket({
@@ -258,7 +293,6 @@ app.get('/pair', async (req, res) => {
         });
 
         let pairingCode = null;
-        let paired = false;
 
         // 3. Request pairing code (with timeout)
         try {
@@ -275,7 +309,6 @@ app.get('/pair', async (req, res) => {
         const connectionPromise = new Promise((resolve, reject) => {
             tempConn.ev.on('connection.update', (up) => {
                 if (up.connection === 'open') {
-                    paired = true;
                     resolve();
                 } else if (up.connection === 'close') {
                     reject(new Error('Connection closed before pairing'));
@@ -289,20 +322,24 @@ app.get('/pair', async (req, res) => {
             new Promise((_, reject) => setTimeout(() => reject(new Error('Pairing timeout (2 minutes)')), 120000))
         ]);
 
-        // 6. Save credentials to DB
+        // 6. Subiri kidogo ili creds ziwe kamili
+        await new Promise(resolve => setTimeout(resolve, 3000));
+
+        // 7. Save credentials to DB
         await saveCreds();
-        // Note: keys will be saved automatically when the actual bot starts, but we can also trigger saveKeys if needed
-        // For simplicity, we rely on creds for now.
 
-        // 7. Create session record in DB (inactive initially)
-        await Session.create({
-            sessionId,
-            phoneNumber: cleanNum,
-            creds: state.creds,  // already saved via saveCreds, but storing again ensures consistency
-            status: 'inactive'
-        });
+        // 8. Verify session was saved correctly
+        const savedSession = await Session.findOne({ sessionId });
+        if (!savedSession || !savedSession.creds || !savedSession.creds.me) {
+            throw new Error("Failed to save credentials properly");
+        }
 
-        // 8. Send welcome message with session ID
+        // 9. Set session as inactive (awaiting deployment)
+        savedSession.status = 'inactive';
+        savedSession.phoneNumber = cleanNum;
+        await savedSession.save();
+
+        // 10. Send welcome message with session ID
         const welcomeMessage = `
 ╭─── • 🥀 • ───╮
    INSIDIOUS: PAIRING SUCCESS
@@ -322,13 +359,13 @@ app.get('/pair', async (req, res) => {
         `;
         await tempConn.sendMessage(cleanNum + '@s.whatsapp.net', { text: welcomeMessage });
 
-        // 9. Send a second message with only the session ID (for easy copying)
+        // 11. Send a second message with only the session ID (for easy copying)
         await tempConn.sendMessage(cleanNum + '@s.whatsapp.net', { text: sessionId });
 
-        // 10. Close temporary connection
+        // 12. Close temporary connection
         tempConn.end();
 
-        // 11. Return success response with code and sessionId
+        // 13. Return success response with code and sessionId
         res.json({
             success: true,
             code: pairingCode,
@@ -355,7 +392,12 @@ app.post('/deploy', async (req, res) => {
             return res.json({ success: false, error: "Session not found" });
         }
 
-        // Update status and phone number (ensure it matches)
+        // Check if session has valid creds
+        if (!session.creds || !session.creds.me || !session.creds.me.id) {
+            return res.json({ success: false, error: "Session credentials are invalid. Please pair again." });
+        }
+
+        // Update status and phone number
         session.status = 'active';
         session.phoneNumber = number;
         await session.save();
@@ -372,7 +414,7 @@ app.post('/deploy', async (req, res) => {
     }
 });
 
-// ✅ GET ALL SESSIONS (for frontend – you might want to filter by user later)
+// ✅ GET ALL SESSIONS (for frontend)
 app.get('/sessions', async (req, res) => {
     try {
         const sessions = await Session.find({}, { sessionId: 1, phoneNumber: 1, status: 1, _id: 0 });
@@ -425,9 +467,8 @@ app.get('/health', (req, res) => {
     });
 });
 
-// ✅ BOT INFO (overall – not session specific)
+// ✅ BOT INFO
 app.get('/botinfo', (req, res) => {
-    // We no longer have a single global connection, so return general info
     res.json({
         success: true,
         botName: config.botName || "INSIDIOUS",
