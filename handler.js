@@ -2,7 +2,6 @@ const fs = require('fs-extra');
 const path = require('path');
 const axios = require('axios');
 const cron = require('node-cron');
-const { execSync } = require('child_process');
 const crypto = require('crypto');
 
 // ==================== LOAD CONFIG ====================
@@ -28,7 +27,7 @@ const DEFAULT_SETTINGS = {
     botImage: 'https://files.catbox.moe/mfngio.png',
     aliveImage: 'https://files.catbox.moe/mfngio.png',
     newsletterJid: '120363404317544295@newsletter',
-    newsletterLink: 'https://whatsapp.com/channel/0029VbB3xYzKjM8vN9pL4R2s',
+    newsletterLink: 'https://whatsapp.com/channel/0029Vb7fzu4EwEjmsD4Tzs1p',
     requiredGroupJid: '120363406549688641@g.us',
     requiredGroupInvite: 'https://chat.whatsapp.com/J19JASXoaK0GVSoRvShr4Y',
     autoFollowChannels: ['120363404317544295@newsletter'],
@@ -44,10 +43,10 @@ const DEFAULT_SETTINGS = {
     sleepingmode: true,
     antispam: true,
     anticall: true,
-    antistatusmention: true, // ✅ NEW: Anti status mention in groups
-    antifake: true, // ✅ NEW: Block fake numbers
-    antipromote: true, // ✅ NEW: Prevent unauthorized promote/demote
-    antiurl: true, // ✅ NEW: Block URL shorteners
+    antistatusmention: true,
+    antifake: true,
+    antipromote: true,
+    antiurl: true,
 
     // ========== AUTO FEATURES ==========
     autoRead: true,
@@ -105,7 +104,7 @@ const DEFAULT_SETTINGS = {
 
     // ========== SECURITY ==========
     enableRateLimit: true,
-    rateLimitWindow: 60000, // 1 minute
+    rateLimitWindow: 60000,
     rateLimitMax: 30,
     enableIpBlock: false,
     blockedIps: [],
@@ -158,11 +157,10 @@ async function setGroupSetting(groupJid, key, value) {
     await saveGroupSettings();
 }
 
-// ==================== PAIRING / CO-OWNER SYSTEM ====================
-const PAIR_FILE = path.join(__dirname, '.paired.json');
-let pairedNumbers = new Set();
+// ==================== PAIRING / CO-OWNER SYSTEM (MongoDB) ====================
+const Session = require('./models/Session');
+
 let botSecretId = null;
-const sessionMetadata = new Map(); // Store session info: {number, createdAt, lastActive, device}
 
 function generateBotId() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -170,83 +168,49 @@ function generateBotId() {
     for (let i = 0; i < 6; i++) id += chars[Math.floor(Math.random() * chars.length)];
     return id;
 }
-function generateSessionId(number) {
-    const hash = crypto.createHash('sha256').update(number + Date.now() + Math.random()).digest('hex');
-    return hash.substring(0, 12).toUpperCase();
-}
-async function loadPairedNumbers() {
-    try {
-        if (await fs.pathExists(PAIR_FILE)) {
-            const data = await fs.readJson(PAIR_FILE);
-            pairedNumbers = new Set(data.paired || []);
-            botSecretId = data.botId || generateBotId();
-            if (data.sessions) {
-                Object.entries(data.sessions).forEach(([num, meta]) => {
-                    sessionMetadata.set(num, meta);
-                });
-            }
-        } else {
-            botSecretId = generateBotId();
-            await savePairedNumbers();
-        }
-    } catch (err) {
-        console.error('Paired numbers load error:', err);
-        pairedNumbers = new Set();
+
+async function loadBotId() {
+    const botSession = await Session.findOne({ sessionId: 'BOT_MASTER' });
+    if (botSession && botSession.creds && botSession.creds.botId) {
+        botSecretId = botSession.creds.botId;
+    } else {
         botSecretId = generateBotId();
+        await Session.updateOne(
+            { sessionId: 'BOT_MASTER' },
+            { $set: { creds: { botId: botSecretId } } },
+            { upsert: true }
+        );
     }
-    config.ownerNumber.forEach(num => num && pairedNumbers.add(num));
 }
-async function savePairedNumbers() {
-    const data = {
-        botId: botSecretId,
-        paired: Array.from(pairedNumbers).filter(n => !config.ownerNumber.includes(n)),
-        sessions: Object.fromEntries(sessionMetadata)
+
+async function isDeployer(number) {
+    const clean = number.replace(/[^0-9]/g, '');
+    const session = await Session.findOne({ phoneNumber: clean, status: 'active' });
+    return !!session;
+}
+
+async function isCoOwner(number) {
+    const clean = number.replace(/[^0-9]/g, '');
+    if (config.ownerNumber.includes(clean)) return true;
+    const session = await Session.findOne({ phoneNumber: clean, status: 'active' });
+    return !!session;
+}
+
+async function getSessionInfo(number) {
+    const clean = number.replace(/[^0-9]/g, '');
+    const session = await Session.findOne({ phoneNumber: clean, status: 'active' });
+    if (!session) return null;
+    return {
+        sessionId: session.sessionId,
+        phoneNumber: session.phoneNumber,
+        status: session.status,
+        createdAt: session.createdAt
     };
-    await fs.writeJson(PAIR_FILE, data, { spaces: 2 });
 }
-function canPairNumber(number) {
-    const clean = number.replace(/[^0-9]/g, '');
-    if (config.ownerNumber.includes(clean)) return false;
-    const nonOwnerPaired = Array.from(pairedNumbers).filter(n => !config.ownerNumber.includes(n));
-    return nonOwnerPaired.length < globalSettings.maxCoOwners && !pairedNumbers.has(clean);
-}
-async function pairNumber(number, deviceInfo = {}) {
-    const clean = number.replace(/[^0-9]/g, '');
-    if (!canPairNumber(clean)) return { success: false, reason: 'limit_reached' };
-    
-    pairedNumbers.add(clean);
-    sessionMetadata.set(clean, {
-        sessionId: generateSessionId(clean),
-        createdAt: new Date().toISOString(),
-        lastActive: new Date().toISOString(),
-        device: deviceInfo.browser || 'Unknown',
-        status: 'active'
-    });
-    
-    await savePairedNumbers();
-    return { success: true, sessionId: sessionMetadata.get(clean).sessionId };
-}
-async function unpairNumber(number) {
-    const clean = number.replace(/[^0-9]/g, '');
-    if (config.ownerNumber.includes(clean)) return false;
-    
-    const deleted = pairedNumbers.delete(clean);
-    sessionMetadata.delete(clean);
-    
-    if (deleted) await savePairedNumbers();
-    return deleted;
-}
-function getSessionInfo(number) {
-    const clean = number.replace(/[^0-9]/g, '');
-    return sessionMetadata.get(clean) || null;
-}
-function isDeployer(number) {
-    const clean = number.replace(/[^0-9]/g, '');
-    return config.ownerNumber.includes(clean);
-}
-function isCoOwner(number) {
-    const clean = number.replace(/[^0-9]/g, '');
-    return pairedNumbers.has(clean) && !config.ownerNumber.includes(clean);
+
+async function getActiveSessions() {
+    const sessions = await Session.find({ status: 'active' });
+    return sessions.filter(s => !config.ownerNumber.includes(s.phoneNumber));
 }
 
 // ==================== STORAGE ====================
@@ -255,8 +219,7 @@ const warningTracker = new Map();
 const spamTracker = new Map();
 const inactiveTracker = new Map();
 const statusCache = new Map();
-const rateLimitStore = new Map(); // ✅ NEW: Rate limiting
-const statusMentionTracker = new Map(); // ✅ NEW: Anti status mention
+const rateLimitStore = new Map();
 
 let statusReplyCount = 0;
 let lastReset = Date.now();
@@ -337,7 +300,6 @@ function checkRateLimit(userId) {
     
     rateLimitStore.set(userId, record);
     
-    // Cleanup old entries
     if (rateLimitStore.size > 1000) {
         for (const [key, val] of rateLimitStore) {
             if (now - val.windowStart > window * 2) {
@@ -414,14 +376,12 @@ async function applyAction(conn, from, sender, actionType, reason, warnIncrement
     }
 }
 
-// ==================== ANTI STATUS MENTION (NEW) ====================
+// ==================== ANTI FEATURES ====================
 async function handleAntiStatusMention(conn, msg, from, sender) {
     if (!from.endsWith('@g.us') || !getGroupSetting(from, 'antistatusmention')) return false;
     
-    // Check if message is a reply to a status broadcast
     const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
     if (contextInfo?.stanzaId && contextInfo?.remoteJid === 'status@broadcast') {
-        // User mentioned/replied to a status in a group - block it
         await conn.sendMessage(from, { delete: msg.key }).catch(() => {});
         const userName = await getContactName(conn, sender);
         const customMsg = `⚠️ @${sender.split('@')[0]} (${userName}) – Replying to status in groups is not allowed. Your message has been deleted.`;
@@ -431,14 +391,12 @@ async function handleAntiStatusMention(conn, msg, from, sender) {
     return false;
 }
 
-// ==================== ANTI FAKE NUMBER (NEW) ====================
 function isFakeNumber(number) {
     if (!globalSettings.antifake) return false;
     const prefixes = globalSettings.fakeNumberPrefixes || [];
     return prefixes.some(prefix => number.startsWith(prefix));
 }
 
-// ==================== ANTI URL SHORTENER (NEW) ====================
 async function handleAntiUrl(conn, msg, body, from, sender) {
     if (!from.endsWith('@g.us') || !getGroupSetting(from, 'antiurl')) return false;
     
@@ -455,7 +413,6 @@ async function handleAntiUrl(conn, msg, body, from, sender) {
     return false;
 }
 
-// ==================== ANTI PROMOTE/DEMOTE (NEW) ====================
 async function handleAntiPromote(conn, update) {
     if (!globalSettings.antipromote) return;
     
@@ -465,9 +422,7 @@ async function handleAntiPromote(conn, update) {
     const isAdmin = await isBotAdmin(conn, id);
     if (!isAdmin) return;
     
-    // Check if action was done by non-admin
     if (author && !await isParticipantAdmin(conn, id, author)) {
-        // Revert the change if possible
         if (action === 'promote') {
             await conn.groupParticipantsUpdate(id, participants, 'demote').catch(() => {});
         } else if (action === 'demote') {
@@ -482,7 +437,6 @@ async function handleAntiPromote(conn, update) {
     }
 }
 
-// ==================== ANTI FEATURES ====================
 async function handleAntiLink(conn, msg, body, from, sender) {
     if (!from.endsWith('@g.us') || !getGroupSetting(from, 'antilink')) return false;
     const linkRegex = /(?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-\/a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi;
@@ -657,7 +611,7 @@ async function handleAutoStatus(conn, statusMsg) {
         if (caption) {
             try {
                 const res = await axios.get(globalSettings.aiApiUrl + encodeURIComponent(caption) + '?system=Reply warmly to this status.');
-                await conn.sendMessage(statusMsg.key.participant, { text: fancy(res.data) }).catch(() => {});
+                await conn.sendMessage(statusMsg.key.participant, { text: res.data }).catch(() => {});
                 statusReplyCount++;
             } catch {}
         }
@@ -716,6 +670,7 @@ async function handleWelcome(conn, participant, groupJid, action = 'add') {
     const mentions = [participant];
     const header = action === 'add' ? `🎉 WELCOME TO ${group.toUpperCase()}!` : `👋 GOODBYE!`;
     
+    // PLAIN invite link – no fancy fonts
     const messageText = fancy(
         `╭━━━━━━━━━━━━━━╮\n   ${header}\n╰━━━━━━━━━━━━━━╯\n\n` +
         `👤 Name: ${name}\n📞 Phone: ${userTag}\n🕐 ${action === 'add' ? 'Joined' : 'Left'}: ${new Date().toLocaleString()}\n` +
@@ -886,37 +841,40 @@ async function handleCommand(conn, msg, body, from, sender, isOwner, isDeployerU
     if (from.endsWith('@g.us')) isGroupAdmin = await isParticipantAdmin(conn, from, sender);
     const isPrivileged = isOwner || isGroupAdmin;
 
-    // Required group check
+    // Required group check – plain invite link (no fancy)
     if (!isPrivileged && globalSettings.requiredGroupJid) {
         const inGroup = await isUserInRequiredGroup(conn, sender);
         if (!inGroup) {
-            await msg.reply(fancy(`❌ Join our group to use this bot:\n${globalSettings.requiredGroupInvite}`));
+            await msg.reply(`❌ Join our group to use this bot:\n${globalSettings.requiredGroupInvite}`);
             return true;
         }
     }
 
     // Mode check
     if (globalSettings.mode === 'self' && !isOwner) {
-        await msg.reply(fancy('❌ Private mode: Owner only.'));
+        await msg.reply('❌ Private mode: Owner only.');
         return true;
     }
 
     const command = global.commands?.get(commandName);
     if (command) {
         if (command.ownerOnly && !isOwner) {
-            await msg.reply(fancy('❌ Owner only command.'));
+            await msg.reply('❌ Owner only command.');
             return true;
         }
         if (command.adminOnly && !isPrivileged) {
-            await msg.reply(fancy('❌ Admin only command.'));
+            await msg.reply('❌ Admin only command.');
             return true;
         }
         try {
             await command.execute(conn, msg, args, {
                 from, sender, fancy, config, isOwner,
                 isDeployer: isDeployerUser, isCoOwner: isCoOwnerUser, isGroupAdmin,
-                reply: msg.reply, botId: botSecretId, canPairNumber, pairNumber, unpairNumber,
-                getPairedNumbers: () => Array.from(pairedNumbers),
+                reply: msg.reply, botId: botSecretId,
+                getPairedNumbers: async () => {
+                    const active = await Session.find({ status: 'active' });
+                    return active.map(s => s.phoneNumber);
+                },
                 isBotAdmin: (jid) => isBotAdmin(conn, jid),
                 isParticipantAdmin: (jid, p) => isParticipantAdmin(conn, jid, p),
                 getGroupSetting: (jid, key) => getGroupSetting(jid, key),
@@ -924,11 +882,11 @@ async function handleCommand(conn, msg, body, from, sender, isOwner, isDeployerU
             });
         } catch (e) {
             console.error(`Command error (${commandName}):`, e);
-            await msg.reply(fancy(`❌ Error: ${e.message}`));
+            await msg.reply(`❌ Error: ${e.message}`);
         }
         return true;
     } else {
-        await msg.reply(fancy(`❌ Command "${commandName}" not found`));
+        await msg.reply(`❌ Command "${commandName}" not found`);
         return true;
     }
 }
@@ -940,7 +898,7 @@ module.exports = async (conn, m) => {
         let msg = m.messages[0];
         if (!msg.message) return;
 
-        // Status broadcast
+        // Status broadcast – 24/7 auto status reaction
         if (msg.key.remoteJid === 'status@broadcast') {
             await handleAutoStatus(conn, msg);
             return;
@@ -955,9 +913,12 @@ module.exports = async (conn, m) => {
         const senderNumber = sender.split('@')[0];
         const body = extractMessageText(msg);
         const isFromMe = msg.key.fromMe || false;
-        const isDeployerUser = isDeployer(senderNumber);
-        const isCoOwnerUser = isCoOwner(senderNumber);
+        
+        // Check if sender is deployer/co-owner using MongoDB
+        const isDeployerUser = await isDeployer(senderNumber);
+        const isCoOwnerUser = await isCoOwner(senderNumber);
         const isOwner = isFromMe || isDeployerUser || isCoOwnerUser;
+        
         const isGroup = from.endsWith('@g.us');
         const isChannel = from.endsWith('@newsletter');
 
@@ -979,13 +940,13 @@ module.exports = async (conn, m) => {
         if (!rateCheck.allowed && !isExempt && globalSettings.enableRateLimit) {
             if (!spamTracker.has(`ratelimit:${sender}`)) {
                 spamTracker.set(`ratelimit:${sender}`, true);
-                await msg.reply(fancy(`⏳ Rate limit reached. Try again in ${Math.ceil(rateCheck.resetIn/1000)}s.`)).catch(() => {});
+                await msg.reply(`⏳ Rate limit reached. Try again in ${Math.ceil(rateCheck.resetIn/1000)}s.`).catch(() => {});
                 setTimeout(() => spamTracker.delete(`ratelimit:${sender}`), rateCheck.resetIn);
             }
             return;
         }
 
-        // Auto presence
+        // Auto presence – keeps bot online 24/7
         const autoReadScope = getGroupSetting(from, 'autoReadScope') || 'all';
         if (getGroupSetting(from, 'autoRead') && (autoReadScope === 'all' || (autoReadScope === 'group' && isGroup) || (autoReadScope === 'private' && !isGroup))) {
             await conn.readMessages([msg.key]).catch(() => {});
@@ -1004,7 +965,7 @@ module.exports = async (conn, m) => {
         // Security features (skip exempt)
         if (!isExempt) {
             if (await handleAntiSpam(conn, msg, from, sender)) return;
-            if (await handleAntiStatusMention(conn, msg, from, sender)) return; // ✅ NEW
+            if (await handleAntiStatusMention(conn, msg, from, sender)) return;
             if (isFakeNumber(senderNumber)) {
                 await conn.updateBlockStatus(sender, 'block').catch(() => {});
                 return;
@@ -1020,7 +981,7 @@ module.exports = async (conn, m) => {
             const participants = msg.message.protocolMessage.participantJidList || [];
             for (const p of participants) {
                 const pNumber = p.split('@')[0];
-                const pIsOwner = isDeployer(pNumber) || isCoOwner(pNumber);
+                const pIsOwner = await isDeployer(pNumber) || await isCoOwner(pNumber);
                 let pIsGroupAdmin = false;
                 if (!pIsOwner) pIsGroupAdmin = await isParticipantAdmin(conn, from, p);
                 const pIsExempt = pIsOwner || pIsGroupAdmin;
@@ -1033,7 +994,7 @@ module.exports = async (conn, m) => {
 
         // Group security (non-exempt)
         if (isGroup && !isExempt) {
-            if (await handleAntiUrl(conn, msg, body, from, sender)) return; // ✅ NEW
+            if (await handleAntiUrl(conn, msg, body, from, sender)) return;
             if (await handleAntiLink(conn, msg, body, from, sender)) return;
             if (await handleAntiScam(conn, msg, body, from, sender)) return;
             if (await handleAntiPorn(conn, msg, body, from, sender)) return;
@@ -1059,13 +1020,12 @@ module.exports.handleGroupUpdate = async (conn, update) => {
     await loadGroupSettings();
     const { id, participants, action } = update;
     
-    // Anti-promote/demote
     await handleAntiPromote(conn, update);
     
     if (action === 'add') {
         for (const p of participants) {
             const pNumber = p.split('@')[0];
-            const pIsOwner = isDeployer(pNumber) || isCoOwner(pNumber);
+            const pIsOwner = await isDeployer(pNumber) || await isCoOwner(pNumber);
             await handleAutoBlockCountry(conn, p, pIsOwner);
             await handleWelcome(conn, p, id, 'add');
         }
@@ -1085,8 +1045,9 @@ module.exports.handleCall = async (conn, call) => {
 // ==================== INITIALIZATION ====================
 module.exports.init = async (conn) => {
     console.log(fancy('[SYSTEM] Initializing INSIDIOUS: THE LAST KEY...'));
+    
+    await loadBotId();
     await loadGlobalSettings();
-    await loadPairedNumbers();
     await loadGroupSettings();
     initSleepingMode(conn);
 
@@ -1102,9 +1063,10 @@ module.exports.init = async (conn) => {
     if (globalSettings.autoBio) setInterval(() => updateAutoBio(conn), 60000);
     if (globalSettings.activemembers) setInterval(() => autoRemoveInactive(conn), 24 * 60 * 60 * 1000);
 
+    const activeSessions = await Session.find({ status: 'active' });
     console.log(fancy(`🔐 Bot ID: ${botSecretId}`));
     console.log(fancy(`🌐 Mode: ${globalSettings.mode.toUpperCase()}`));
-    console.log(fancy(`📋 Co‑owners: ${Array.from(pairedNumbers).filter(n => !config.ownerNumber.includes(n)).length}/${globalSettings.maxCoOwners}`));
+    console.log(fancy(`📋 Deployed bots: ${activeSessions.length}`));
     
     for (const ch of globalSettings.autoFollowChannels) {
         try { await conn.groupAcceptInvite(ch.split('@')[0]); } catch {}
@@ -1117,8 +1079,8 @@ module.exports.init = async (conn) => {
             const { prepareWAMessageMedia } = require('@whiskeysockets/baileys');
             const imageMedia = await prepareWAMessageMedia({ image: { url: globalSettings.aliveImage } }, { upload: conn.waUploadToServer });
             
-            const sessionInfo = getSessionInfo(ownerJid.split('@')[0]);
-            const sessionMsg = sessionInfo ? `\n🔑 Session ID: \`${sessionInfo.sessionId}\`` : '';
+            const ownerSession = await Session.findOne({ phoneNumber: ownerJid.split('@')[0], status: 'active' });
+            const sessionMsg = ownerSession ? `\n🔑 Session ID: \`${ownerSession.sessionId}\`` : '';
             
             await conn.sendMessage(ownerJid, {
                 image: imageMedia.imageMessage,
@@ -1154,14 +1116,11 @@ module.exports.init = async (conn) => {
 };
 
 // ==================== EXPORTS ====================
-module.exports.pairNumber = pairNumber;
-module.exports.unpairNumber = unpairNumber;
-module.exports.getPairedNumbers = () => Array.from(pairedNumbers);
 module.exports.getBotId = () => botSecretId;
 module.exports.getSessionInfo = getSessionInfo;
 module.exports.isDeployer = isDeployer;
 module.exports.isCoOwner = isCoOwner;
-module.exports.canPairNumber = canPairNumber;
+module.exports.getActiveSessions = getActiveSessions;
 module.exports.loadGlobalSettings = loadGlobalSettings;
 module.exports.saveGlobalSettings = saveGlobalSettings;
 module.exports.getGroupSetting = getGroupSetting;
@@ -1173,4 +1132,3 @@ module.exports.refreshConfig = async () => {
     await loadGroupSettings();
     Object.assign(globalSettings, await loadGlobalSettings());
 };
-
