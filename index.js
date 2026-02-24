@@ -16,19 +16,14 @@ const PORT = process.env.PORT || 3000;
 
 // ==================== CONFIG ====================
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/insidious_bot';
-const TEMP_SESSION_EXPIRY = 30 * 60 * 1000; // 30 minutes
+const TEMP_SESSION_EXPIRY = 30 * 60 * 1000;
 
-// ==================== MONGODB SETUP (Non-blocking) ====================
+// ==================== MONGODB SETUP ====================
 mongoose.connect(MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-    serverSelectionTimeoutMS: 5000, // Timeout after 5s
-    socketTimeoutMS: 45000,
 }).then(() => console.log('✅ MongoDB Connected'))
-  .catch(err => {
-      console.error('⚠️ MongoDB Connection Warning:', err.message);
-      console.log('📝 Server will continue without database...');
-  });
+  .catch(err => console.error('❌ MongoDB Error:', err));
 
 // Bot Session Schema
 const botSessionSchema = new mongoose.Schema({
@@ -57,18 +52,16 @@ const BotSession = mongoose.model('BotSession', botSessionSchema);
 // ==================== TEMPORARY STORAGE ====================
 const tempSessions = new Map();
 
-// Cleanup expired temp sessions
 setInterval(() => {
     const now = Date.now();
     for (const [id, data] of tempSessions.entries()) {
         if (now - data.createdAt > TEMP_SESSION_EXPIRY) {
             tempSessions.delete(id);
-            console.log(`🧹 Cleaned expired session: ${id}`);
         }
     }
 }, 10 * 60 * 1000);
 
-// ==================== SESSION ID GENERATOR ====================
+// ==================== SESSION ID GENERATOR 🆔 ====================
 function randomMegaId(len = 6, numLen = 4) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let out = '';
@@ -81,11 +74,8 @@ function randomMegaId(len = 6, numLen = 4) {
 // ==================== MIDDLEWARE ====================
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
-
-// Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
-// CORS headers
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
@@ -94,36 +84,23 @@ app.use((req, res, next) => {
     next();
 });
 
-// Request logger
-app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-    next();
-});
-
-// ==================== AUTH STATE HELPERS ====================
-async function useTempAuthState(sessionId) {
-    const authDir = path.join(__dirname, 'auth', `temp_${sessionId}`);
-    await fs.mkdir(authDir, { recursive: true });
-    return useMultiFileAuthState(authDir);
-}
-
-async function useActiveAuthState(sessionId) {
-    const authDir = path.join(__dirname, 'auth', `active_${sessionId}`);
-    await fs.mkdir(authDir, { recursive: true });
-    return useMultiFileAuthState(authDir);
-}
-
-// ==================== HEALTH CHECK (Railway Compatible) ====================
-app.get('/health', (req, res) => {
-    const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
-    
-    res.json({
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        database: dbStatus,
-        uptime: process.uptime(),
-        message: dbStatus === 'connected' ? 'All systems operational' : 'Running without database'
-    });
+// ==================== HEALTH CHECK ====================
+app.get('/health', async (req, res) => {
+    try {
+        const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+        const activeBots = await BotSession.countDocuments({ status: 'active' });
+        
+        res.json({
+            status: 'healthy',
+            timestamp: new Date().toISOString(),
+            database: dbStatus,
+            activeBots,
+            tempSessions: tempSessions.size,
+            uptime: process.uptime()
+        });
+    } catch (err) {
+        res.status(500).json({ status: 'unhealthy', error: err.message });
+    }
 });
 
 // ==================== API: PAIRING ====================
@@ -141,11 +118,14 @@ app.get('/pair', async (req, res) => {
     let responded = false;
 
     try {
+        // 🆔 Generate Session ID using randomMegaId
         const sessionId = randomMegaId(6, 4);
         console.log(`🔑 Generated Session ID for ${num}: ${sessionId}`);
 
         const { version } = await fetchLatestBaileysVersion();
-        const { state, saveCreds } = await useTempAuthState(sessionId);
+        const authDir = path.join(__dirname, 'auth', `temp_${sessionId}`);
+        await fs.mkdir(authDir, { recursive: true });
+        const { state, saveCreds } = await useMultiFileAuthState(authDir);
         
         sock = makeWASocket({
             version,
@@ -172,8 +152,8 @@ app.get('/pair', async (req, res) => {
                 console.log(`✅ ${num} successfully linked device`);
 
                 try {
-                    // MESSAGE 1: Welcome + Session ID
-                    const welcomeMsg = `🎉 *INSIDIOUS BOT ACTIVATED*\n\n✅ Device linked successfully!\n🆔 *Your Session ID:*\n\`${sessionId}\`\n\n🔹 *Save this ID* to deploy your bot\n🔹 Visit: https://insidious-bot.railway.app/deploy\n\n*Powered by Stanley Assanaly* 🇹🇿`;
+                    // 📩 MESSAGE 1: Welcome + Session ID (Complete Message)
+                    const welcomeMsg = `🎉 *INSIDIOUS BOT ACTIVATED*\n\n✅ Device linked successfully!\n🆔 *Your Session ID:*\n\`${sessionId}\`\n\n🔹 *Save this ID* to deploy your bot\n🔹 Visit: https://insidious-bot.railway.app/deploy\n🔹 Enter your Session ID + Phone Number\n\n*Powered by Stanley Assanaly* 🇹🇿`;
                     
                     await sock.sendMessage(`${num}@s.whatsapp.net`, { 
                         text: welcomeMsg,
@@ -188,29 +168,30 @@ app.get('/pair', async (req, res) => {
                         }
                     });
 
+                    // ⏳ Delay between messages
                     await new Promise(resolve => setTimeout(resolve, 2000));
 
-                    // MESSAGE 2: Session ID ONLY
-                    const sessionIdMsg = `🆔 *COPY YOUR SESSION ID*\n\n\`\`\`${sessionId}\`\`\`\n\n⚠️ Keep this private!`;
+                    // 📩 MESSAGE 2: Session ID Only (For Easy Copy)
+                    const sessionIdMsg = `🆔 *COPY YOUR SESSION ID*\n\n\`\`\`${sessionId}\`\`\`\n\n⚠️ Keep this private! Do not share with anyone.`;
                     
                     await sock.sendMessage(`${num}@s.whatsapp.net`, { text: sessionIdMsg });
 
-                    console.log(`📤 Sent welcome messages to ${num}`);
+                    console.log(`📤 Sent 2 welcome messages to ${num}`);
 
                 } catch (msgErr) {
-                    console.error('❌ Error sending messages:', msgErr);
+                    console.error('❌ Error sending welcome messages:', msgErr);
                 }
 
-                // CLOSE CONNECTION
+                // 🚫 CLOSE CONNECTION - Bot NOT Active Yet!
                 try {
                     await sock.logout();
-                    console.log(`🔌 Connection closed for ${num}`);
+                    console.log(`🔌 Connection closed for ${num} - awaiting deployment`);
                 } catch (closeErr) {
                     console.error('⚠️ Error closing connection:', closeErr);
                     sock.end?.();
                 }
 
-                // Store temporarily
+                // 💾 Store in temporary storage
                 tempSessions.set(sessionId, {
                     phoneNumber: num,
                     createdAt: Date.now(),
@@ -223,7 +204,7 @@ app.get('/pair', async (req, res) => {
                         success: true, 
                         code, 
                         sessionId,
-                        message: 'Pairing successful! Check WhatsApp'
+                        message: 'Pairing successful! Check WhatsApp for Session ID'
                     });
                 }
                 return;
@@ -231,19 +212,21 @@ app.get('/pair', async (req, res) => {
 
             if (connection === 'close') {
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
-                console.log(`🔌 Connection closed: ${statusCode}`);
+                const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+                
+                console.log(`🔌 Connection closed: ${statusCode} - Reconnect: ${shouldReconnect}`);
 
                 if (!responded && statusCode === DisconnectReason.badSession) {
                     responded = true;
                     res.status(400).json({ 
                         success: false, 
-                        error: 'Invalid session. Try again' 
+                        error: 'Invalid session. Please try pairing again' 
                     });
                 } else if (!responded && statusCode === DisconnectReason.loggedOut) {
                     responded = true;
                     res.status(401).json({ 
                         success: false, 
-                        error: 'Device logged out' 
+                        error: 'Device logged out. Please pair again' 
                     });
                 }
             }
@@ -265,7 +248,7 @@ app.get('/pair', async (req, res) => {
                 sock?.end?.();
                 res.status(408).json({ 
                     success: false, 
-                    error: 'Pairing timed out' 
+                    error: 'Pairing timed out. Please try again' 
                 });
             }
         }, 90000);
@@ -291,7 +274,7 @@ app.post('/deploy', async (req, res) => {
     if (!sessionId || !number) {
         return res.status(400).json({ 
             success: false, 
-            error: 'Session ID and phone number required' 
+            error: 'Session ID and phone number are required' 
         });
     }
 
@@ -303,25 +286,26 @@ app.post('/deploy', async (req, res) => {
     }
 
     try {
+        // 🔍 Verify Session ID from temporary storage
         const tempData = tempSessions.get(sessionId);
         
         if (!tempData) {
             return res.status(400).json({ 
                 success: false, 
-                error: 'Invalid or expired Session ID' 
+                error: 'Invalid or expired Session ID. Please pair again.' 
             });
         }
 
         if (tempData.phoneNumber !== number) {
             return res.status(400).json({ 
                 success: false, 
-                error: 'Phone number does not match' 
+                error: 'Phone number does not match Session ID' 
             });
         }
 
-        console.log(`🚀 Deploying bot for ${number}`);
+        console.log(`🚀 Deploying bot for ${number} with Session ID: ${sessionId}`);
 
-        // Save to MongoDB
+        // 🗄️ Save to MongoDB - Bot becomes ACTIVE here
         const newBot = new BotSession({
             sessionId,
             phoneNumber: number,
@@ -340,17 +324,18 @@ app.post('/deploy', async (req, res) => {
         await newBot.save();
         console.log(`💾 Saved to MongoDB: ${sessionId}`);
 
-        // Move auth files
+        // 🔄 Move auth files from temp to active
         const tempAuthDir = path.join(__dirname, 'auth', `temp_${sessionId}`);
         const activeAuthDir = path.join(__dirname, 'auth', `active_${sessionId}`);
         
         try {
             await fs.rename(tempAuthDir, activeAuthDir);
-            console.log(`📁 Auth files moved`);
+            console.log(`📁 Auth files moved to active: ${sessionId}`);
         } catch (moveErr) {
             console.warn('⚠️ Could not move auth files:', moveErr);
         }
 
+        // 🧹 Remove from temporary storage
         tempSessions.delete(sessionId);
 
         res.json({ 
@@ -360,7 +345,7 @@ app.post('/deploy', async (req, res) => {
             status: 'active'
         });
 
-        console.log(`✅ Bot DEPLOYED: ${number}`);
+        console.log(`✅ Bot DEPLOYED: ${number} | ${sessionId}`);
 
     } catch (err) {
         console.error('❌ Deploy error:', err);
@@ -420,7 +405,7 @@ app.delete('/sessions/:sessionId', async (req, res) => {
 
         tempSessions.delete(sessionId);
 
-        res.json({ success: true, message: 'Session deleted' });
+        res.json({ success: true, message: 'Session deleted successfully' });
         console.log(`🗑️ Session deleted: ${sessionId}`);
 
     } catch (err) {
@@ -470,14 +455,15 @@ app.get('*', (req, res) => {
 
 // ==================== ERROR HANDLER ====================
 app.use((err, req, res, next) => {
-    console.error('💥 Error:', err);
+    console.error('💥 Unhandled error:', err);
     res.status(500).json({ success: false, error: 'Internal server error' });
 });
 
 // ==================== START SERVER ====================
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 INSIDIOUS BOT Server running on port ${PORT}`);
-    console.log(`🌐 Health: http://localhost:${PORT}/health`);
+    console.log(`🌐 Frontend: http://localhost:${PORT}`);
+    console.log(`🔗 API: http://localhost:${PORT}/health`);
 });
 
 // Graceful shutdown
