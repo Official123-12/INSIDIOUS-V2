@@ -9,9 +9,17 @@ const handler = require('./handler');
 const useMongoAuthState = require('./mongoAuthState');
 const Session = require('./models/Session');
 
+// ==================== FANCY FUNCTION ====================
 function fancy(text) {
     if (!text || typeof text !== 'string') return text;
-    const map = { a: 'ᴀ', b: 'ʙ', c: 'ᴄ', d: 'ᴅ', e: 'ᴇ', f: 'ꜰ', g: 'ɢ', h: 'ʜ', i: 'ɪ', j: 'ᴊ', k: 'ᴋ', l: 'ʟ', m: 'ᴍ', n: 'ɴ', o: 'ᴏ', p: 'ᴘ', q: 'ǫ', r: 'ʀ', s: 'ꜱ', t: 'ᴛ', u: 'ᴜ', v: 'ᴠ', w: 'ᴡ', x: 'x', y: 'ʏ', z: 'ᴢ', A: 'ᴀ', B: 'ʙ', C: 'ᴄ', D: 'ᴅ', E: 'ᴇ', F: 'ꜰ', G: 'ɢ', H: 'ʜ', I: 'ɪ', J: 'ᴊ', K: 'ᴋ', L: 'ʟ', M: 'ᴍ', N: 'ɴ', O: 'ᴏ', P: 'ᴘ', Q: 'ǫ', R: 'ʀ', S: 'ꜱ', T: 'ᴛ', U: 'ᴜ', V: 'ᴠ', W: 'ᴡ', X: 'x', Y: 'ʏ', Z: 'ᴢ' };
+    const map = {
+        a: 'ᴀ', b: 'ʙ', c: 'ᴄ', d: 'ᴅ', e: 'ᴇ', f: 'ꜰ', g: 'ɢ', h: 'ʜ', i: 'ɪ',
+        j: 'ᴊ', k: 'ᴋ', l: 'ʟ', m: 'ᴍ', n: 'ɴ', o: 'ᴏ', p: 'ᴘ', q: 'ǫ', r: 'ʀ',
+        s: 'ꜱ', t: 'ᴛ', u: 'ᴜ', v: 'ᴠ', w: 'ᴡ', x: 'x', y: 'ʏ', z: 'ᴢ',
+        A: 'ᴀ', B: 'ʙ', C: 'ᴄ', D: 'ᴅ', E: 'ᴇ', F: 'ꜰ', G: 'ɢ', H: 'ʜ', I: 'ɪ',
+        J: 'ᴊ', K: 'ᴋ', L: 'ʟ', M: 'ᴍ', N: 'ɴ', O: 'ᴏ', P: 'ᴘ', Q: 'ǫ', R: 'ʀ',
+        S: 'ꜱ', T: 'ᴛ', U: 'ᴜ', V: 'ᴠ', W: 'ᴡ', X: 'x', Y: 'ʏ', Z: 'ᴢ'
+    };
     return text.split('').map(c => map[c] || c).join('');
 }
 
@@ -25,36 +33,83 @@ function randomMegaId(len = 6, numLen = 4) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ==================== MONGODB CONNECTION (Sila Cluster) ====================
+console.log(fancy("🔗 Connecting to MongoDB (Sila)..."));
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
-const mongooseOptions = { serverSelectionTimeoutMS: 60000, socketTimeoutMS: 90000, connectTimeoutMS: 60000, maxPoolSize: 20, minPoolSize: 5, retryWrites: true, retryReads: true };
+const mongooseOptions = {
+    serverSelectionTimeoutMS: 60000,
+    socketTimeoutMS: 90000,
+    connectTimeoutMS: 60000,
+    maxPoolSize: 20,
+    minPoolSize: 5,
+    retryWrites: true,
+    retryReads: true
+};
 
 let isMongoConnected = false;
-mongoose.connect(MONGODB_URI, mongooseOptions)
-    .then(async () => {
+
+async function connectToMongo() {
+    try {
+        await mongoose.connect(MONGODB_URI, mongooseOptions);
         console.log(fancy("✅ MongoDB Connected (Sila)"));
         isMongoConnected = true;
         await cleanupInvalidSessions();
         await startAllActiveSessions();
-    })
-    .catch(err => {
+    } catch (err) {
         console.log(fancy("❌ MongoDB Connection FAILED"), err.message);
         isMongoConnected = false;
-        setTimeout(() => mongoose.connect(MONGODB_URI, mongooseOptions), 30000);
-    });
+        // Jaribu tena baada ya sekunde 30
+        setTimeout(connectToMongo, 30000);
+    }
+}
 
+// ==================== SERVER INASUBIRI MONGODB IWE TAYARI ====================
+async function startServer() {
+    // Anza kuunganisha MongoDB
+    connectToMongo();
+
+    // Subiri hadi MongoDB iwe tayari au tuanze server hata kama haijaunganishwa
+    // (tutaacha server ianze, lakini endpoints zitaangalia connection)
+    app.listen(PORT, () => {
+        console.log(fancy(`🌐 Web Interface: http://localhost:${PORT}`));
+        console.log(fancy(`🔗 Pairing: http://localhost:${PORT}/pair?num=255XXXXXXXXX`));
+        console.log(fancy(`🚀 Deploy: POST http://localhost:${PORT}/deploy`));
+        console.log(fancy(`📋 Sessions: http://localhost:${PORT}/sessions`));
+        console.log(fancy(`❤️ Health: http://localhost:${PORT}/health`));
+        console.log(fancy("👑 Developer: STANYTZ"));
+        console.log(fancy("📅 Version: 3.0.0 | Year: 2025"));
+    });
+}
+
+// ==================== WAIT FOR MONGO CONNECTION (kwa endpoints) ====================
+async function waitForMongoConnection(timeout = 10000) {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+        if (mongoose.connection.readyState === 1) return true;
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    return false;
+}
+
+// ==================== MIDDLEWARE ====================
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-if (!fs.existsSync(path.join(__dirname, 'public'))) fs.mkdirSync(path.join(__dirname, 'public'), { recursive: true });
+
+if (!fs.existsSync(path.join(__dirname, 'public'))) {
+    fs.mkdirSync(path.join(__dirname, 'public'), { recursive: true });
+}
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
 
+// ==================== GLOBAL VARIABLES ====================
 const activeSockets = new Map();
 let botStartTime = Date.now();
 
 let config = {};
 try { config = require('./config'); console.log(fancy("📋 Config loaded")); } catch { config = { prefix: '.', ownerNumber: ['255000000000'], botName: 'INSIDIOUS', workMode: 'public', botImage: 'https://files.catbox.moe/f3c07u.jpg' }; }
 
+// ==================== CLEANUP & START SESSIONS ====================
 async function cleanupInvalidSessions() {
     try {
         const result = await Session.deleteMany({ $or: [{ creds: { $exists: false } }, { creds: null }, { "creds.me": { $exists: false } }] });
@@ -73,7 +128,17 @@ async function startUserBot(sessionId, phoneNumber) {
             await Session.updateOne({ sessionId }, { status: 'expired' }); return;
         }
         const { version } = await fetchLatestBaileysVersion();
-        const conn = makeWASocket({ version, auth: { creds: state.creds, keys: state.keys }, logger: pino({ level: "silent" }), browser: Browsers.macOS("Safari"), syncFullHistory: false, connectTimeoutMs: 60000, keepAliveIntervalMs: 10000, markOnlineOnConnect: true, shouldSyncHistoryMessage: () => false });
+        const conn = makeWASocket({
+            version,
+            auth: { creds: state.creds, keys: state.keys },
+            logger: pino({ level: "silent" }),
+            browser: Browsers.macOS("Safari"),
+            syncFullHistory: false,
+            connectTimeoutMs: 60000,
+            keepAliveIntervalMs: 10000,
+            markOnlineOnConnect: true,
+            shouldSyncHistoryMessage: () => false
+        });
         activeSockets.set(sessionId, conn);
         conn.ev.on('creds.update', saveCreds);
         conn.ev.on('connection.update', async (update) => {
@@ -84,7 +149,7 @@ async function startUserBot(sessionId, phoneNumber) {
                 activeSockets.delete(sessionId);
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
                 const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-                if (shouldReconnect) { console.log(fancy(`🔄 Reconnecting session ${sessionId} in 5s...`)); setTimeout(() => startUserBot(sessionId, phoneNumber), 5000); } 
+                if (shouldReconnect) { console.log(fancy(`🔄 Reconnecting session ${sessionId} in 5s...`)); setTimeout(() => startUserBot(sessionId, phoneNumber), 5000); }
                 else { console.log(fancy(`🚫 Session ${sessionId} logged out.`)); await Session.updateOne({ sessionId }, { status: 'expired' }); }
             }
         });
@@ -106,44 +171,59 @@ async function startAllActiveSessions() {
     } catch (error) { console.error(fancy("❌ Error loading active sessions:"), error.message); }
 }
 
-// ==================== PAIR ENDPOINT (IMEBORESHA) ====================
+// ==================== ENDPOINTS (zimesubiri connection) ====================
+
+// ✅ PAIR ENDPOINT
 app.get('/pair', async (req, res) => {
-    if (mongoose.connection.readyState !== 1) return res.json({ success: false, error: "MongoDB not connected. Please try again later." });
+    if (!await waitForMongoConnection()) return res.json({ success: false, error: "MongoDB not connected. Please try again." });
     try {
         let num = req.query.num;
         if (!num) return res.json({ success: false, error: "Provide number! Example: /pair?num=255123456789" });
         const cleanNum = num.replace(/[^0-9]/g, '');
         if (cleanNum.length < 10) return res.json({ success: false, error: "Invalid number. Must be at least 10 digits." });
-        
+
         const sessionId = randomMegaId(6, 4);
         console.log(`[PAIR] Starting pairing for ${cleanNum} with session ${sessionId}`);
-        
+
         const { state, saveCreds } = await useMongoAuthState(sessionId);
         const { version } = await fetchLatestBaileysVersion();
-        const tempConn = makeWASocket({ version, auth: { creds: state.creds, keys: state.keys }, logger: pino({ level: "silent" }), browser: Browsers.macOS("Safari"), syncFullHistory: false });
+        const tempConn = makeWASocket({
+            version,
+            auth: { creds: state.creds, keys: state.keys },
+            logger: pino({ level: "silent" }),
+            browser: Browsers.macOS("Safari"),
+            syncFullHistory: false
+        });
 
         let pairingCode = await tempConn.requestPairingCode(cleanNum);
         console.log(`[PAIR] Pairing code generated: ${pairingCode}`);
-        
-        let paired = false;
+
         const connectionPromise = new Promise((resolve, reject) => {
             tempConn.ev.on('connection.update', (up) => {
                 console.log(`[PAIR] Connection update:`, up.connection);
-                if (up.connection === 'open') { paired = true; resolve(); }
+                if (up.connection === 'open') resolve();
                 else if (up.connection === 'close') reject(new Error('Connection closed'));
             });
         });
 
-        await Promise.race([ connectionPromise, new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 120000)) ]);
+        await Promise.race([connectionPromise, new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 120000))]);
         console.log(`[PAIR] Connection opened. Waiting for creds to populate...`);
 
-        // Subiri creds zijazwe (max 15 seconds)
+        // Subiri creds zijazwe (max 15 sec)
         let credsReady = false;
         for (let i = 0; i < 15; i++) {
             await new Promise(resolve => setTimeout(resolve, 1000));
-            if (tempConn.authState.creds && tempConn.authState.creds.me) { console.log(`[PAIR] Creds found in memory after ${i+1}s`); credsReady = true; break; }
+            if (tempConn.authState.creds && tempConn.authState.creds.me) {
+                console.log(`[PAIR] Creds found in memory after ${i+1}s`);
+                credsReady = true;
+                break;
+            }
             const checkSession = await Session.findOne({ sessionId });
-            if (checkSession && checkSession.creds && checkSession.creds.me) { console.log(`[PAIR] Creds found in DB after ${i+1}s`); credsReady = true; break; }
+            if (checkSession && checkSession.creds && checkSession.creds.me) {
+                console.log(`[PAIR] Creds found in DB after ${i+1}s`);
+                credsReady = true;
+                break;
+            }
         }
         if (!credsReady) throw new Error("Credentials did not populate after pairing");
 
@@ -170,9 +250,9 @@ app.get('/pair', async (req, res) => {
     }
 });
 
-// ==================== DEPLOY ENDPOINT ====================
+// ✅ DEPLOY ENDPOINT
 app.post('/deploy', async (req, res) => {
-    if (mongoose.connection.readyState !== 1) return res.json({ success: false, error: "MongoDB not connected. Please try again later." });
+    if (!await waitForMongoConnection()) return res.json({ success: false, error: "MongoDB not connected. Please try again." });
     try {
         const { sessionId, number } = req.body;
         if (!sessionId || !number) return res.json({ success: false, error: "Missing sessionId or number" });
@@ -185,14 +265,16 @@ app.post('/deploy', async (req, res) => {
     } catch (err) { console.error("Deploy error:", err.message); res.json({ success: false, error: "Failed: " + err.message }); }
 });
 
+// ✅ GET SESSIONS
 app.get('/sessions', async (req, res) => {
-    if (mongoose.connection.readyState !== 1) return res.json({ success: false, error: "MongoDB not connected" });
-    try { const sessions = await Session.find({}, { sessionId: 1, phoneNumber: 1, status: 1, _id: 0 }); res.json({ success: true, sessions }); } 
+    if (!await waitForMongoConnection()) return res.json({ success: false, error: "MongoDB not connected" });
+    try { const sessions = await Session.find({}, { sessionId: 1, phoneNumber: 1, status: 1, _id: 0 }); res.json({ success: true, sessions }); }
     catch (err) { console.error("Sessions fetch error:", err.message); res.json({ success: false, error: err.message }); }
 });
 
+// ✅ DELETE SESSION
 app.delete('/sessions/:sessionId', async (req, res) => {
-    if (mongoose.connection.readyState !== 1) return res.json({ success: false, error: "MongoDB not connected" });
+    if (!await waitForMongoConnection()) return res.json({ success: false, error: "MongoDB not connected" });
     try {
         const { sessionId } = req.params;
         const session = await Session.findOne({ sessionId });
@@ -204,21 +286,19 @@ app.delete('/sessions/:sessionId', async (req, res) => {
     } catch (err) { console.error("Delete session error:", err.message); res.json({ success: false, error: err.message }); }
 });
 
+// ✅ HEALTH CHECK
 app.get('/health', (req, res) => {
     const uptime = process.uptime(); const hours = Math.floor(uptime / 3600); const minutes = Math.floor((uptime % 3600) / 60); const seconds = Math.floor(uptime % 60);
     res.json({ status: 'healthy', connectedSessions: activeSockets.size, database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected', uptime: `${hours}h ${minutes}m ${seconds}s` });
 });
 
+// ✅ BOT INFO
 app.get('/botinfo', (req, res) => { res.json({ success: true, botName: config.botName || "INSIDIOUS", activeSessions: activeSockets.size, uptime: Date.now() - botStartTime }); });
 
-app.listen(PORT, () => {
-    console.log(fancy(`🌐 Web Interface: http://localhost:${PORT}`));
-    console.log(fancy(`🔗 Pairing: http://localhost:${PORT}/pair?num=255XXXXXXXXX`));
-    console.log(fancy(`🚀 Deploy: POST http://localhost:${PORT}/deploy`));
-    console.log(fancy(`📋 Sessions: http://localhost:${PORT}/sessions`));
-    console.log(fancy(`❤️ Health: http://localhost:${PORT}/health`));
-    console.log(fancy("👑 Developer: STANYTZ"));
-    console.log(fancy("📅 Version: 3.0.0 | Year: 2025"));
-});
+// ==================== HANDLE UNHANDLED REJECTIONS ====================
+process.on('unhandledRejection', (err) => { console.error('Unhandled Rejection:', err); });
+
+// ==================== START SERVER ====================
+startServer();
 
 module.exports = app;
