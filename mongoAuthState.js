@@ -4,7 +4,6 @@ const Session = require('./models/Session');
 async function useMongoAuthState(sessionId) {
     const writeData = async (data, file) => {
         const update = { updatedAt: new Date() };
-        
         if (file === 'creds') {
             update.creds = JSON.parse(JSON.stringify(data, BufferJSON.replacer));
         } else {
@@ -14,24 +13,16 @@ async function useMongoAuthState(sessionId) {
             }
             update.keys = keysObj;
         }
-
-        await Session.findOneAndUpdate(
-            { sessionId },
-            update,
-            { upsert: true, new: true }
-        );
+        await Session.findOneAndUpdate({ sessionId }, update, { upsert: true });
     };
 
     const readData = async (file) => {
         const session = await Session.findOne({ sessionId });
-        if (!session) {
-            return file === 'creds' ? null : new Map();
-        }
+        if (!session) return file === 'creds' ? null : new Map();
 
         if (file === 'creds') {
-            return session.creds 
-                ? JSON.parse(JSON.stringify(session.creds), BufferJSON.reviver)
-                : null;
+            if (!session.creds || typeof session.creds !== 'object') return null;
+            return JSON.parse(JSON.stringify(session.creds), BufferJSON.reviver);
         } else {
             const map = new Map();
             if (session.keys && typeof session.keys === 'object') {
@@ -56,11 +47,7 @@ async function useMongoAuthState(sessionId) {
         await writeData(state.keys, 'keys');
     };
 
-    return {
-        state,
-        saveCreds,
-        saveKeys
-    };
+    return { state, saveCreds, saveKeys };
 }
 
 module.exports = useMongoAuthState;
