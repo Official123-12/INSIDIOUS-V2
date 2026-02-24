@@ -22,7 +22,7 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ==================== DATABASE SCHEMAS ====================
+// ==================== ENTERPRISE DATABASE SCHEMAS ====================
 
 const sessionSchema = new mongoose.Schema({
     sessionId: { type: String, required: true, unique: true, index: true },
@@ -115,7 +115,7 @@ function randomMegaId(len = 6, numLen = 4) {
     return `${out}${Math.floor(Math.random() * Math.pow(10, numLen))}`;
 }
 
-// ==================== PAIRING ENGINE (FILE AUTH) ====================
+// ==================== PAIRING ENGINE (EPHEMERAL FILE AUTH) ====================
 
 let pairingSocket = null;
 
@@ -125,14 +125,13 @@ async function startPairingEngine() {
     const { state, saveCreds } = await useMultiFileAuthState('pairing_temp');
 
     const conn = makeWASocket({
-        // ✅ PROTOCOL FIX: Fixed Version to prevent Connection Closed
-        version: [2, 3000, 1033105955],
+        version: [2, 3000, 1033105955], // Protocol Fix
         auth: { 
             creds: state.creds, 
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) 
         },
         logger: pino({ level: "silent" }),
-        browser: Browsers.macOS("Safari"),
+        browser: Browsers.macOS("Safari"), // Safari for pairing
         syncFullHistory: false,
         shouldSyncHistoryMessage: () => false,
         connectTimeoutMs: 60000
@@ -147,6 +146,7 @@ async function startPairingEngine() {
             const userJid = conn.user.id.split(':')[0];
             const sessionId = randomMegaId();
 
+            // Store initial creds into Mongo (Pairing -> Deploy migration)
             await Session.findOneAndUpdate(
                 { phoneNumber: userJid },
                 { 
@@ -158,7 +158,7 @@ async function startPairingEngine() {
                 { upsert: true }
             );
 
-            const welcomeMsg = `╭─── • 🥀 • ───╮\n   INSIDIOUS BOT\n╰─── • 🥀 • ───╯\n\n✅ *Pairing Successful!*\n\n🆔 *SESSION ID:* \`${sessionId}\`\n\nPaste this ID on the web dashboard to deploy.`;
+            const welcomeMsg = `╭─── • 🥀 • ───╮\n   INSIDIOUS BOT\n╰─── • 🥀 • ───╯\n\n✅ *Pairing Successful!*\n\n🆔 *SESSION ID:* \`${sessionId}\`\n\nPaste this ID on the web dashboard to deploy your bot.`;
             
             await conn.sendMessage(userJid + '@s.whatsapp.net', { 
                 image: { url: "https://raw.githubusercontent.com/Official123-12/STANYFREEBOT-/refs/heads/main/IMG_1377.jpeg" },
@@ -181,11 +181,12 @@ async function startPairingEngine() {
     conn.ev.on('creds.update', saveCreds);
 }
 
-// ==================== DEPLOYMENT SYSTEM (MONGO AUTH) ====================
+// ==================== DEPLOYMENT SYSTEM (PERSISTENT MONGO AUTH) ====================
 
 const activeBots = new Map();
 
 async function activateBot(sessionId, number) {
+    // Prevent duplicate sockets
     if (activeBots.has(sessionId)) {
         try {
             activeBots.get(sessionId).ev.removeAllListeners();
@@ -198,8 +199,7 @@ async function activateBot(sessionId, number) {
         const { state, saveCreds } = await useMongoAuthState(sessionId);
 
         const conn = makeWASocket({
-            // ✅ PROTOCOL FIX: Fixed Version to prevent Connection Closed
-            version: [2, 3000, 1033105955],
+            version: [2, 3000, 1033105955], // Protocol Fix
             auth: {
                 creds: state.creds,
                 keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }))
@@ -234,7 +234,7 @@ async function activateBot(sessionId, number) {
                     await Session.deleteOne({ sessionId });
                     await AuthKey.deleteMany({ sessionId });
                     activeBots.delete(sessionId);
-                    console.log(`🗑️ [LOGGED OUT] ID: ${sessionId}`);
+                    console.log(`🗑️ [SESSION TERMINATED] ID: ${sessionId}`);
                 }
             }
         });
@@ -253,9 +253,10 @@ async function activateBot(sessionId, number) {
 async function loadActiveBots() {
     try {
         const active = await Session.find({ status: 'active' });
-        console.log(`📂 [DATABASE] Restoring ${active.length} sessions...`);
+        console.log(`📂 [DATABASE] Found ${active.length} sessions to restore...`);
         for (const sess of active) {
-            await new Promise(resolve => setTimeout(resolve, 2000)); 
+            // Stagger boot to prevent WhatsApp rate limiting
+            await new Promise(resolve => setTimeout(resolve, 3000)); 
             activateBot(sess.sessionId, sess.phoneNumber);
         }
     } catch (e) { console.error('LoadActiveBots Error:', e); }
@@ -304,12 +305,12 @@ app.delete('/sessions/:id', async (req, res) => {
 });
 
 app.get('/health', (req, res) => {
-    res.json({ status: 'healthy', active: activeBots.size, uptime: process.uptime() });
+    res.json({ status: 'healthy', active_bots: activeBots.size, uptime: process.uptime() });
 });
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// ==================== START SERVER ====================
+// ==================== RUN SERVER ====================
 
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
 
