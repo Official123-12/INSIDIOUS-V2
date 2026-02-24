@@ -41,6 +41,7 @@
     <title>INSIDIOUS BOT | Premium Deployment</title>
     
     <style>
+        /* (Keep all existing CSS exactly as before) */
         :root {
             --primary: #7c3aed;
             --primary-light: #8b5cf6;
@@ -242,6 +243,7 @@
             background: var(--card); border: var(--glass-border); border-radius: var(--radius-lg);
             padding: 1.6rem; backdrop-filter: var(--glass-blur);
             margin-bottom: 1.4rem; box-shadow: var(--shadow-lg);
+            position: relative;
         }
         .card::before {
             content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
@@ -849,7 +851,7 @@
             }
         });
 
-        // ===== API: DEPLOY =====
+        // ===== API: DEPLOY (UPDATED) =====
         document.getElementById('deployForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const sessionId = document.getElementById('deploySession').value.trim();
@@ -858,27 +860,47 @@
             const resultBox = document.getElementById('deployResult');
             const msgEl = document.getElementById('deployMessage');
 
+            if (!sessionId || !/^[0-9]{10,15}$/.test(number)) {
+                showToast('Please provide a valid Session ID and phone number', 'error');
+                return;
+            }
+
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner"></span> Deploying...';
             resultBox.classList.add('show');
             msgEl.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Initializing deployment...';
 
             try {
-                // Simulate deployment – in reality you'd call your backend
-                await new Promise(resolve => setTimeout(resolve, 1500));
-                msgEl.innerHTML = `<strong>Bot deployed successfully!</strong><br>
-                    <span style="color:var(--text-muted);margin-top:0.4rem;display:block;line-height:1.6">
-                    Session: <code style="background:rgba(15,23,42,0.8);padding:0.2rem 0.4rem;border-radius:4px;font-size:0.86rem">${sessionId}</code><br>
-                    Number: <strong>${number}</strong><br>
-                    <small style="display:block;margin-top:0.3rem;color:var(--success)">
-                    <i class="fas fa-check" aria-hidden="true"></i> Bot is now active on WhatsApp servers.
-                    </small></span>`;
-                showToast('Bot deployed successfully', 'success');
-                refreshSessions();
+                const res = await fetchWithTimeout('/deploy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId, number })
+                }, 10000);
+                const data = await res.json();
+
+                if (data.success) {
+                    msgEl.innerHTML = `<strong>Bot deployed successfully!</strong><br>
+                        <span style="color:var(--text-muted);margin-top:0.4rem;display:block;line-height:1.6">
+                        Session: <code style="background:rgba(15,23,42,0.8);padding:0.2rem 0.4rem;border-radius:4px;font-size:0.86rem">${sessionId}</code><br>
+                        Number: <strong>${number}</strong><br>
+                        <small style="display:block;margin-top:0.3rem;color:var(--success)">
+                        <i class="fas fa-check" aria-hidden="true"></i> Bot is now active on WhatsApp servers.
+                        </small></span>`;
+                    showToast('Bot deployed successfully', 'success');
+                    refreshSessions();
+                } else {
+                    msgEl.textContent = data.error || 'Deployment failed';
+                    showToast('Deployment failed: ' + (data.error || 'Unknown error'), 'error');
+                }
             } catch (err) {
                 console.error('Deploy error:', err);
-                msgEl.textContent = 'Network error. Please check connection.';
-                showToast('Deployment failed - connection error', 'error');
+                if (err.name === 'AbortError') {
+                    msgEl.textContent = 'Request timed out. Please try again.';
+                    showToast('Deployment timed out', 'error');
+                } else {
+                    msgEl.textContent = 'Network error. Please check connection.';
+                    showToast('Deployment failed - connection error', 'error');
+                }
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-play" aria-hidden="true"></i> Deploy Bot';
@@ -940,7 +962,7 @@
             }
         }
 
-        // ===== API: SETTINGS =====
+        // ===== API: SETTINGS (UPDATED – returns to dashboard on success) =====
         function saveSettings() {
             const settings = {
                 antiviewonce: document.getElementById('setting-antiviewonce').checked,
@@ -956,8 +978,12 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(settings)
             }, 5000).then(r=>r.json()).then(d=>{
-                if(d.success) showToast('Settings saved', 'success');
-                else showToast(d.error || 'Save failed', 'error');
+                if(d.success) {
+                    showToast('Settings saved', 'success');
+                    showSection('dashboard'); // <-- Return to home after saving
+                } else {
+                    showToast(d.error || 'Save failed', 'error');
+                }
             }).catch(err => {
                 if (err.name === 'AbortError') {
                     showToast('Request timed out', 'error');
