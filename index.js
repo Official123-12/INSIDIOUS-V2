@@ -1,10 +1,9 @@
 // ==================== index.js (INSIDIOUS BOT) ====================
-// Original style – updated with multi‑session, MongoDB, and full API
-// All original structure preserved – only missing features added
+// Original style – updated with multi‑session + WhatsApp session ID
 // Developer: STANYTZ | Version: 2.2.1
 
 const express = require('express');
-const { default: makeWASocket, useMultiFileAuthState, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys");
+const { default: makeWASocket, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
@@ -34,15 +33,11 @@ function fancy(text) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ **MONGODB CONNECTION** – will be done after server starts
-console.log(fancy("🔗 Preparing to connect to MongoDB..."));
-const MONGODB_URI = process.env.MONGODB_URI;
-if (!MONGODB_URI) {
-    console.error(fancy("❌ MONGODB_URI environment variable is required!"));
-    process.exit(1);
-}
+// ✅ **MONGODB CONNECTION**
+console.log(fancy("🔗 Connecting to MongoDB..."));
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
 
-// ✅ **MONGOOSE MODELS** (new)
+// ✅ **MONGOOSE MODELS**
 const SessionSchema = new mongoose.Schema({
     sessionId: { type: String, required: true, unique: true },
     phoneNumber: String,
@@ -73,7 +68,11 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ✅ **GLOBAL VARIABLES** – adapted for multi‑session
+app.get('/dashboard', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+// ✅ **GLOBAL VARIABLES** – Multi-session map
 const activeSockets = new Map(); // sessionId -> { socket, saveCreds }
 let botStartTime = Date.now();
 
@@ -86,7 +85,7 @@ try {
     console.log(fancy("⚠️ No config file, using defaults"));
     config = {
         prefix: '.',
-        ownerNumber: [],
+        ownerNumber: ['255000000000'],
         botName: 'INSIDIOUS',
         workMode: 'public',
         botImage: 'https://files.catbox.moe/f3c07u.jpg',
@@ -94,7 +93,7 @@ try {
     };
 }
 
-// ==================== MONGO AUTH STATE (new) ====================
+// ==================== MONGO AUTH STATE ====================
 async function useMongoAuthState(sessionId) {
     let session = await Session.findOne({ sessionId });
     if (!session) {
@@ -123,7 +122,7 @@ async function useMongoAuthState(sessionId) {
     };
 }
 
-// ==================== SESSION MANAGER (adapted from original startBot) ====================
+// ==================== SESSION MANAGER ====================
 async function startSocket(sessionId) {
     if (activeSockets.has(sessionId)) {
         return activeSockets.get(sessionId).socket;
@@ -176,7 +175,7 @@ async function startSocket(sessionId) {
         }
     });
 
-    // ✅ **MESSAGE HANDLER** (unchanged logic)
+    // ✅ **MESSAGE HANDLER** (unchanged)
     socket.ev.on('messages.upsert', async (m) => {
         try {
             if (handler && typeof handler === 'function') {
@@ -222,7 +221,7 @@ async function stopSocket(sessionId) {
     }
 }
 
-// ==================== WELCOME MESSAGE (new) ====================
+// ==================== WELCOME MESSAGE (with Session ID - kama screenshot) ====================
 async function sendWelcomeMessage(socket, sessionId, phoneNumber) {
     try {
         const jid = phoneNumber + '@s.whatsapp.net';
@@ -237,28 +236,19 @@ async function sendWelcomeMessage(socket, sessionId, phoneNumber) {
 \`\`\`
 ${sessionId}
 \`\`\`
-📞 *Your Number:* ${phoneNumber}
+📞 *Number:* ${phoneNumber}
 
-📋 *How to copy this Session ID:*
-• On Android/iOS: *Tap and hold* on the code above, then select *Copy*.
-• Then go to the INSIDIOUS website, paste it in the *Deploy* section and click *Deploy*.
+📋 *How to use:*
+1. *Copy this Session ID* (tap and hold on the code above → Copy)
+2. Go to INSIDIOUS website
+3. Paste in *Deploy* section and click *Deploy*
+4. Your bot will be active immediately
 
 ⚡ *Status:* ONLINE & ACTIVE
-
-📊 *ALL FEATURES ACTIVE:*
-🛡️ Anti View Once: ✅
-🗑️ Anti Delete: ✅
-🤖 AI Chatbot: ✅
-⚡ Auto Typing: ✅
-📼 Auto Recording: ✅
-👀 Auto Read: ✅
-❤️ Auto React: ✅
-🎉 Welcome/Goodbye: ✅
-
 👑 *Developer:* STANYTZ
 💾 *Version:* 2.2.1 | Multi-session
 
-👉 *Deploy now:* ${process.env.BASE_URL || 'https://your-app.railway.app'}
+👉 ${process.env.BASE_URL || 'https://your-app.railway.app'}
 `;
 
         await socket.sendMessage(jid, {
@@ -273,26 +263,13 @@ ${sessionId}
                 }
             }
         });
-        console.log(fancy(`📨 Welcome message sent to ${phoneNumber}`));
+        console.log(fancy(`📨 Welcome message sent to ${phoneNumber} with Session ID: ${sessionId}`));
     } catch (err) {
-        console.error(fancy(`❌ Failed to send welcome message to ${phoneNumber}:`), err.message);
+        console.error(fancy(`❌ Failed to send welcome message: ${err.message}`));
     }
 }
 
-// ==================== RESTORE SESSIONS ON START ====================
-async function restoreSessions() {
-    const activeSessions = await Session.find({ status: 'active' });
-    console.log(fancy(`🔄 Restoring ${activeSessions.length} active sessions...`));
-    for (const session of activeSessions) {
-        try {
-            await startSocket(session.sessionId);
-        } catch (err) {
-            console.error(fancy(`❌ Failed to restore session ${session.sessionId}:`), err.message);
-        }
-    }
-}
-
-// ==================== HEALTH CHECK (new) ====================
+// ==================== HEALTH CHECK ====================
 app.get('/health', (req, res) => {
     res.status(200).json({
         status: 'healthy',
@@ -302,7 +279,7 @@ app.get('/health', (req, res) => {
     });
 });
 
-// ✅ **PAIRING ENDPOINT** – updated to return sessionId and code
+// ✅ **PAIRING ENDPOINT** – Anarudisha code + sessionId
 app.get('/pair', async (req, res) => {
     try {
         let num = req.query.num;
@@ -315,7 +292,7 @@ app.get('/pair', async (req, res) => {
             return res.json({ success: false, error: "Invalid number. Must be at least 10 digits." });
         }
         
-        // Generate unique session ID
+        // ✅ Generate unique session ID kwa kila user
         const sessionId = `STANY~${randomMegaId()}`;
         
         console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum} with session ${sessionId}`));
@@ -336,7 +313,7 @@ app.get('/pair', async (req, res) => {
     }
 });
 
-// ✅ **UNPAIR ENDPOINT** (unchanged, but uses handler)
+// ✅ **UNPAIR ENDPOINT** (unchanged)
 app.get('/unpair', async (req, res) => {
     try {
         let num = req.query.num;
@@ -367,7 +344,7 @@ app.get('/unpair', async (req, res) => {
     }
 });
 
-// ✅ **SESSIONS ENDPOINT** (new)
+// ✅ **SESSIONS ENDPOINT** – List all active sessions
 app.get('/sessions', async (req, res) => {
     try {
         const sessions = await Session.find({ status: 'active' })
@@ -379,7 +356,7 @@ app.get('/sessions', async (req, res) => {
     }
 });
 
-// ✅ **DELETE SESSION** (new)
+// ✅ **DELETE SESSION** – Remove from DB and stop socket
 app.delete('/sessions/:id', async (req, res) => {
     try {
         const sessionId = req.params.id;
@@ -391,7 +368,7 @@ app.delete('/sessions/:id', async (req, res) => {
     }
 });
 
-// ✅ **DEPLOY ENDPOINT** (new)
+// ✅ **DEPLOY ENDPOINT** – User anapaste session ID na bot inawaka
 app.post('/deploy', async (req, res) => {
     try {
         const { sessionId, number } = req.body;
@@ -414,7 +391,7 @@ app.post('/deploy', async (req, res) => {
     }
 });
 
-// ✅ **SETTINGS ENDPOINTS** (new)
+// ✅ **SETTINGS ENDPOINTS**
 app.post('/settings', async (req, res) => {
     try {
         const settings = req.body;
@@ -438,7 +415,7 @@ app.get('/settings', async (req, res) => {
     }
 });
 
-// ✅ **BOT INFO ENDPOINT** (updated for multi‑session)
+// ✅ **BOT INFO ENDPOINT** (updated)
 app.get('/botinfo', (req, res) => {
     if (activeSockets.size === 0) {
         return res.json({ 
@@ -448,7 +425,6 @@ app.get('/botinfo', (req, res) => {
         });
     }
     
-    // Return aggregate info
     res.json({
         success: true,
         activeSessions: activeSockets.size,
@@ -466,15 +442,28 @@ function randomMegaId(len = 6, numLen = 4) {
     return `${out}${Math.floor(Math.random() * Math.pow(10, numLen))}`;
 }
 
+// ==================== RESTORE SESSIONS ON START ====================
+async function restoreSessions() {
+    const activeSessions = await Session.find({ status: 'active' });
+    console.log(fancy(`🔄 Restoring ${activeSessions.length} active sessions...`));
+    for (const session of activeSessions) {
+        try {
+            await startSocket(session.sessionId);
+        } catch (err) {
+            console.error(fancy(`❌ Failed to restore session ${session.sessionId}:`), err.message);
+        }
+    }
+}
+
 // ==================== START SERVER & CONNECT TO DB ====================
-// Start server immediately so health check passes
+// Start server first so health check passes
 const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(fancy(`🌐 Web Interface: http://localhost:${PORT}`));
-    console.log(fancy(`🔗 8-digit Pairing: http://localhost:${PORT}/pair?num=255XXXXXXXXX`));
+    console.log(fancy(`🔗 Pairing: http://localhost:${PORT}/pair?num=255XXXXXXXXX`));
     console.log(fancy(`📋 Sessions: http://localhost:${PORT}/sessions`));
     console.log(fancy(`❤️ Health: http://localhost:${PORT}/health`));
     console.log(fancy("👑 Developer: STANYTZ"));
-    console.log(fancy("📅 Version: 2.2.1 | Multi-session"));
+    console.log(fancy("📅 Version: 2.2.1 | Multi-session + WhatsApp Session ID"));
 });
 
 // Then connect to MongoDB
@@ -484,11 +473,11 @@ mongoose.connect(MONGODB_URI, {
     maxPoolSize: 10
 }).then(() => {
     console.log(fancy("✅ MongoDB Connected"));
-    restoreSessions(); // Restore active sessions
+    restoreSessions(); // Restore active sessions after DB connects
 }).catch((err) => {
     console.log(fancy("❌ MongoDB Connection FAILED"));
     console.log(fancy("💡 Error: " + err.message));
-    process.exit(1); // Exit because DB is required
+    process.exit(1);
 });
 
 // ==================== GRACEFUL SHUTDOWN ====================
