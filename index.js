@@ -1,11 +1,10 @@
 // index.js - INSIDIOUS BOT Backend
-// WhatsApp Bot Deployment System with Pairing → Session → Deploy Flow
+// WhatsApp Bot Deployment System
 
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
-const { Boom } = require('@hapi/boom');
 const mongoose = require('mongoose');
 const pino = require('pino');
 const path = require('path');
@@ -19,12 +18,17 @@ const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/insidious_bot';
 const TEMP_SESSION_EXPIRY = 30 * 60 * 1000; // 30 minutes
 
-// ==================== MONGODB SETUP ====================
+// ==================== MONGODB SETUP (Non-blocking) ====================
 mongoose.connect(MONGODB_URI, {
     useNewUrlParser: true,
-    useUnifiedTopology: true
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 5000, // Timeout after 5s
+    socketTimeoutMS: 45000,
 }).then(() => console.log('✅ MongoDB Connected'))
-  .catch(err => console.error('❌ MongoDB Error:', err));
+  .catch(err => {
+      console.error('⚠️ MongoDB Connection Warning:', err.message);
+      console.log('📝 Server will continue without database...');
+  });
 
 // Bot Session Schema
 const botSessionSchema = new mongoose.Schema({
@@ -51,7 +55,6 @@ const botSessionSchema = new mongoose.Schema({
 const BotSession = mongoose.model('BotSession', botSessionSchema);
 
 // ==================== TEMPORARY STORAGE ====================
-// Stores sessions between pairing and deployment (use Redis in production)
 const tempSessions = new Map();
 
 // Cleanup expired temp sessions
@@ -63,7 +66,7 @@ setInterval(() => {
             console.log(`🧹 Cleaned expired session: ${id}`);
         }
     }
-}, 10 * 60 * 1000); // Check every 10 minutes
+}, 10 * 60 * 1000);
 
 // ==================== SESSION ID GENERATOR ====================
 function randomMegaId(len = 6, numLen = 4) {
@@ -79,7 +82,7 @@ function randomMegaId(len = 6, numLen = 4) {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files (your frontend)
+// Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
 // CORS headers
@@ -97,49 +100,40 @@ app.use((req, res, next) => {
     next();
 });
 
-// ==================== HELPER: AUTH STATE ====================
+// ==================== AUTH STATE HELPERS ====================
 async function useTempAuthState(sessionId) {
     const authDir = path.join(__dirname, 'auth', `temp_${sessionId}`);
     await fs.mkdir(authDir, { recursive: true });
-    
     return useMultiFileAuthState(authDir);
 }
 
 async function useActiveAuthState(sessionId) {
     const authDir = path.join(__dirname, 'auth', `active_${sessionId}`);
     await fs.mkdir(authDir, { recursive: true });
-    
     return useMultiFileAuthState(authDir);
 }
 
-// ==================== API: HEALTH CHECK ====================
-app.get('/health', async (req, res) => {
-    try {
-        const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
-        const activeBots = await BotSession.countDocuments({ status: 'active' });
-        
-        res.json({
-            status: 'healthy',
-            timestamp: new Date().toISOString(),
-            database: dbStatus,
-            activeBots,
-            tempSessions: tempSessions.size,
-            uptime: process.uptime()
-        });
-    } catch (err) {
-        res.status(500).json({ status: 'unhealthy', error: err.message });
-    }
+// ==================== HEALTH CHECK (Railway Compatible) ====================
+app.get('/health', (req, res) => {
+    const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+    
+    res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        database: dbStatus,
+        uptime: process.uptime(),
+        message: dbStatus === 'connected' ? 'All systems operational' : 'Running without database'
+    });
 });
 
 // ==================== API: PAIRING ====================
 app.get('/pair', async (req, res) => {
     const { num } = req.query;
     
-    // Validate phone number
     if (!num || !/^[0-9]{10,15}$/.test(num)) {
         return res.status(400).json({ 
             success: false, 
-            error: 'Invalid phone number. Use format: 2557XXXXXXXX (no + or spaces)' 
+            error: 'Invalid phone number. Use format: 2557XXXXXXXX' 
         });
     }
 
@@ -147,49 +141,39 @@ app.get('/pair', async (req, res) => {
     let responded = false;
 
     try {
-        // Generate unique Session ID
         const sessionId = randomMegaId(6, 4);
         console.log(`🔑 Generated Session ID for ${num}: ${sessionId}`);
 
-        // Get latest Baileys version
         const { version } = await fetchLatestBaileysVersion();
-        
-        // Setup temporary auth state
         const { state, saveCreds } = await useTempAuthState(sessionId);
         
-        // Create WhatsApp socket
         sock = makeWASocket({
             version,
             logger: pino({ level: 'silent' }),
             printQRInTerminal: false,
             auth: state,
             browser: ['INSIDIOUS BOT', 'Chrome', '3.0'],
-            markOnlineOnConnect: false // Don't mark online yet
+            markOnlineOnConnect: false
         });
 
-        // Save credentials on update
         sock.ev.on('creds.update', saveCreds);
 
-        // Request pairing code
         const code = await sock.requestPairingCode(num);
         console.log(`📱 Pairing code for ${num}: ${code}`);
 
-        // Handle connection updates
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
 
-            // QR code (fallback if pairing fails)
             if (qr) {
-                console.log('📷 QR code available (user should use pairing code instead)');
+                console.log('📷 QR code available');
             }
 
-            // Connection opened = user linked device ✅
             if (connection === 'open') {
                 console.log(`✅ ${num} successfully linked device`);
 
                 try {
-                    // 📩 MESSAGE 1: Welcome + Session ID + Instructions
-                    const welcomeMsg = `🎉 *INSIDIOUS BOT ACTIVATED*\n\n✅ Device linked successfully!\n🆔 *Your Session ID:*\n\`${sessionId}\`\n\n🔹 *Save this ID* to deploy your bot\n🔹 Visit: https://insidious-bot.railway.app/deploy\n🔹 Enter your Session ID + Phone Number\n\n*Powered by Stanley Assanaly* 🇹🇿`;
+                    // MESSAGE 1: Welcome + Session ID
+                    const welcomeMsg = `🎉 *INSIDIOUS BOT ACTIVATED*\n\n✅ Device linked successfully!\n🆔 *Your Session ID:*\n\`${sessionId}\`\n\n🔹 *Save this ID* to deploy your bot\n🔹 Visit: https://insidious-bot.railway.app/deploy\n\n*Powered by Stanley Assanaly* 🇹🇿`;
                     
                     await sock.sendMessage(`${num}@s.whatsapp.net`, { 
                         text: welcomeMsg,
@@ -204,74 +188,67 @@ app.get('/pair', async (req, res) => {
                         }
                     });
 
-                    // ⏳ Small delay between messages
                     await new Promise(resolve => setTimeout(resolve, 2000));
 
-                    // 📩 MESSAGE 2: Session ID ONLY (for easy copy-paste)
-                    const sessionIdMsg = `🆔 *COPY YOUR SESSION ID*\n\n\`\`\`${sessionId}\`\`\`\n\n⚠️ Keep this private! Do not share with anyone.`;
+                    // MESSAGE 2: Session ID ONLY
+                    const sessionIdMsg = `🆔 *COPY YOUR SESSION ID*\n\n\`\`\`${sessionId}\`\`\`\n\n⚠️ Keep this private!`;
                     
                     await sock.sendMessage(`${num}@s.whatsapp.net`, { text: sessionIdMsg });
 
                     console.log(`📤 Sent welcome messages to ${num}`);
 
                 } catch (msgErr) {
-                    console.error('❌ Error sending welcome messages:', msgErr);
+                    console.error('❌ Error sending messages:', msgErr);
                 }
 
-                // 🚫 CRITICAL: CLOSE CONNECTION - Bot NOT active yet!
+                // CLOSE CONNECTION
                 try {
-                    await sock.logout(); // Properly logout to close connection
-                    console.log(`🔌 Connection closed for ${num} - awaiting deployment`);
+                    await sock.logout();
+                    console.log(`🔌 Connection closed for ${num}`);
                 } catch (closeErr) {
                     console.error('⚠️ Error closing connection:', closeErr);
-                    sock.end?.(); // Fallback
+                    sock.end?.();
                 }
 
-                // 💾 Store in temporary storage for deployment step
+                // Store temporarily
                 tempSessions.set(sessionId, {
                     phoneNumber: num,
                     createdAt: Date.now(),
-                    authState: state // Keep auth state for later activation
+                    authState: state
                 });
 
-                // ✅ Respond to frontend with code and sessionId
                 if (!responded) {
                     responded = true;
                     res.json({ 
                         success: true, 
                         code, 
                         sessionId,
-                        message: 'Pairing successful! Check WhatsApp for your Session ID'
+                        message: 'Pairing successful! Check WhatsApp'
                     });
                 }
                 return;
             }
 
-            // Connection closed
             if (connection === 'close') {
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
-                const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-                
-                console.log(`🔌 Connection closed: ${statusCode} - Reconnect: ${shouldReconnect}`);
+                console.log(`🔌 Connection closed: ${statusCode}`);
 
                 if (!responded && statusCode === DisconnectReason.badSession) {
                     responded = true;
                     res.status(400).json({ 
                         success: false, 
-                        error: 'Invalid session. Please try pairing again' 
+                        error: 'Invalid session. Try again' 
                     });
                 } else if (!responded && statusCode === DisconnectReason.loggedOut) {
                     responded = true;
                     res.status(401).json({ 
                         success: false, 
-                        error: 'Device logged out. Please pair again' 
+                        error: 'Device logged out' 
                     });
                 }
-                // Don't respond here if already handled in 'open'
             }
         });
 
-        // Handle errors
         sock.ev.on('error', (err) => {
             console.error('❌ Socket error:', err);
             if (!responded) {
@@ -280,7 +257,7 @@ app.get('/pair', async (req, res) => {
             }
         });
 
-        // ⏱️ Timeout: 90 seconds max for pairing
+        // Timeout
         const pairingTimeout = setTimeout(() => {
             if (!responded) {
                 responded = true;
@@ -288,17 +265,10 @@ app.get('/pair', async (req, res) => {
                 sock?.end?.();
                 res.status(408).json({ 
                     success: false, 
-                    error: 'Pairing timed out. Please try again' 
+                    error: 'Pairing timed out' 
                 });
             }
         }, 90000);
-
-        // Clear timeout if response already sent
-        const originalJson = res.json.bind(res);
-        res.json = function(data) {
-            clearTimeout(pairingTimeout);
-            return originalJson(data);
-        };
 
     } catch (err) {
         console.error('❌ Pairing error:', err);
@@ -321,7 +291,7 @@ app.post('/deploy', async (req, res) => {
     if (!sessionId || !number) {
         return res.status(400).json({ 
             success: false, 
-            error: 'Session ID and phone number are required' 
+            error: 'Session ID and phone number required' 
         });
     }
 
@@ -333,26 +303,25 @@ app.post('/deploy', async (req, res) => {
     }
 
     try {
-        // 🔍 Verify Session ID exists in temporary storage
         const tempData = tempSessions.get(sessionId);
         
         if (!tempData) {
             return res.status(400).json({ 
                 success: false, 
-                error: 'Invalid or expired Session ID. Please pair again.' 
+                error: 'Invalid or expired Session ID' 
             });
         }
 
         if (tempData.phoneNumber !== number) {
             return res.status(400).json({ 
                 success: false, 
-                error: 'Phone number does not match Session ID' 
+                error: 'Phone number does not match' 
             });
         }
 
-        console.log(`🚀 Deploying bot for ${number} with Session ID: ${sessionId}`);
+        console.log(`🚀 Deploying bot for ${number}`);
 
-        // 🗄️ Save to MongoDB - Bot becomes ACTIVE here
+        // Save to MongoDB
         const newBot = new BotSession({
             sessionId,
             phoneNumber: number,
@@ -371,23 +340,18 @@ app.post('/deploy', async (req, res) => {
         await newBot.save();
         console.log(`💾 Saved to MongoDB: ${sessionId}`);
 
-        // 🔄 Move auth files from temp to active folder
+        // Move auth files
         const tempAuthDir = path.join(__dirname, 'auth', `temp_${sessionId}`);
         const activeAuthDir = path.join(__dirname, 'auth', `active_${sessionId}`);
         
         try {
             await fs.rename(tempAuthDir, activeAuthDir);
-            console.log(`📁 Auth files moved to active: ${sessionId}`);
+            console.log(`📁 Auth files moved`);
         } catch (moveErr) {
-            console.warn('⚠️ Could not move auth files (will recreate):', moveErr);
-            // Bot will re-authenticate on first message if needed
+            console.warn('⚠️ Could not move auth files:', moveErr);
         }
 
-        // 🧹 Remove from temporary storage
         tempSessions.delete(sessionId);
-
-        // 🚀 OPTIONAL: Start bot instance immediately (if using in-memory runner)
-        // await startBotInstance(sessionId, number, newBot.settings);
 
         res.json({ 
             success: true, 
@@ -396,8 +360,7 @@ app.post('/deploy', async (req, res) => {
             status: 'active'
         });
 
-        // 📊 Log deployment
-        console.log(`✅ Bot DEPLOYED: ${number} | ${sessionId}`);
+        console.log(`✅ Bot DEPLOYED: ${number}`);
 
     } catch (err) {
         console.error('❌ Deploy error:', err);
@@ -408,10 +371,9 @@ app.post('/deploy', async (req, res) => {
     }
 });
 
-// ==================== API: SESSIONS LIST ====================
+// ==================== API: SESSIONS ====================
 app.get('/sessions', async (req, res) => {
     try {
-        // Return all active sessions (in production, add auth/filtering)
         const sessions = await BotSession.find({ status: 'active' })
             .select('sessionId phoneNumber status deployedAt lastActive')
             .sort({ deployedAt: -1 })
@@ -438,7 +400,6 @@ app.delete('/sessions/:sessionId', async (req, res) => {
     const { sessionId } = req.params;
     
     try {
-        // Find and update status
         const result = await BotSession.findOneAndUpdate(
             { sessionId },
             { status: 'deleted', deletedAt: new Date() },
@@ -449,19 +410,17 @@ app.delete('/sessions/:sessionId', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Session not found' });
         }
 
-        // 🧹 Clean up auth files
         const authDir = path.join(__dirname, 'auth', `active_${sessionId}`);
         try {
             await fs.rm(authDir, { recursive: true, force: true });
-            console.log(`🗑️ Deleted auth files for: ${sessionId}`);
+            console.log(`🗑️ Deleted auth files: ${sessionId}`);
         } catch (err) {
             console.warn('⚠️ Could not delete auth files:', err);
         }
 
-        // 🗑️ Also remove from temp storage if exists
         tempSessions.delete(sessionId);
 
-        res.json({ success: true, message: 'Session deleted successfully' });
+        res.json({ success: true, message: 'Session deleted' });
         console.log(`🗑️ Session deleted: ${sessionId}`);
 
     } catch (err) {
@@ -495,11 +454,8 @@ app.post('/settings', async (req, res) => {
             });
         }
 
-        // 🔄 If bot is running in-memory, update its config here
-        // updateBotConfig(sessionId, settings);
-
         res.json({ success: true, message: 'Settings saved', settings: result.settings });
-        console.log(`⚙️ Settings updated for: ${sessionId}`);
+        console.log(`⚙️ Settings updated: ${sessionId}`);
 
     } catch (err) {
         console.error('❌ Settings error:', err);
@@ -514,15 +470,14 @@ app.get('*', (req, res) => {
 
 // ==================== ERROR HANDLER ====================
 app.use((err, req, res, next) => {
-    console.error('💥 Unhandled error:', err);
+    console.error('💥 Error:', err);
     res.status(500).json({ success: false, error: 'Internal server error' });
 });
 
 // ==================== START SERVER ====================
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 INSIDIOUS BOT Server running on port ${PORT}`);
-    console.log(`🌐 Frontend: http://localhost:${PORT}`);
-    console.log(`🔗 API Docs: http://localhost:${PORT}/health`);
+    console.log(`🌐 Health: http://localhost:${PORT}/health`);
 });
 
 // Graceful shutdown
@@ -534,64 +489,4 @@ process.on('SIGINT', async () => {
         process.exit(0);
     });
 });
-
-// ==================== BOT RUNNER (Optional - In-Memory) ====================
-/*
-// If you want to run bots in-memory after deployment:
-const activeBots = new Map();
-
-async function startBotInstance(sessionId, phoneNumber, settings) {
-    try {
-        const { state, saveCreds } = await useActiveAuthState(sessionId);
-        const { version } = await fetchLatestBaileysVersion();
-        
-        const sock = makeWASocket({
-            version,
-            logger: pino({ level: 'silent' }),
-            auth: state,
-            browser: ['INSIDIOUS BOT', 'Chrome', '3.0'],
-            markOnlineOnConnect: true // NOW mark online!
-        });
-
-        sock.ev.on('creds.update', saveCreds);
-        
-        sock.ev.on('connection.update', (update) => {
-            if (update.connection === 'open') {
-                console.log(`🟢 Bot ONLINE: ${phoneNumber}`);
-                BotSession.updateOne({ sessionId }, { status: 'active', lastActive: new Date() });
-            }
-        });
-
-        // Message handler
-        sock.ev.on('messages.upsert', async (m) => {
-            const msg = m.messages[0];
-            if (!msg.message) return;
-            
-            // Update last active
-            BotSession.updateOne({ sessionId }, { lastActive: new Date(), $inc: { messageCount: 1 } });
-            
-            // Your bot logic here based on settings
-            // if (settings.chatbot) { handleAI(msg, sock); }
-            // if (settings.antilink) { checkLinks(msg, sock); }
-            // etc...
-        });
-
-        activeBots.set(sessionId, sock);
-        return sock;
-        
-    } catch (err) {
-        console.error(`❌ Failed to start bot ${sessionId}:`, err);
-        throw err;
-    }
-}
-
-function stopBotInstance(sessionId) {
-    const sock = activeBots.get(sessionId);
-    if (sock) {
-        sock.end?.();
-        activeBots.delete(sessionId);
-        console.log(`🔴 Bot stopped: ${sessionId}`);
-    }
-}
-*/
 
