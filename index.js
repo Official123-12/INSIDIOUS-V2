@@ -15,7 +15,7 @@ const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
 // ==================== CONFIG ====================
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/insidious_bot';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/;
 const TEMP_SESSION_EXPIRY = 30 * 60 * 1000;
 
 // ==================== MONGODB SETUP ====================
