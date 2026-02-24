@@ -1,9 +1,13 @@
 const mongoose = require('mongoose');
 
-const sessionSchema = new mongoose.Schema({
-  phoneNumber: { type: String, required: true, unique: true },
-  creds: { type: mongoose.Schema.Types.Mixed, required: true },
-  keys: { type: mongoose.Schema.Types.Mixed, required: true }
-}, { timestamps: true });
+const SessionSchema = new mongoose.Schema({
+    sessionId: { type: String, required: true, unique: true },
+    phoneNumber: { type: String, required: true },
+    creds: { type: mongoose.Schema.Types.Mixed, default: {} },
+    keys: { type: mongoose.Schema.Types.Mixed, default: {} },
+    status: { type: String, enum: ['inactive', 'active', 'expired'], default: 'inactive' },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now }
+});
 
-module.exports = mongoose.model('Session', sessionSchema);
+module.exports = mongoose.model('Session', SessionSchema);
