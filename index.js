@@ -48,26 +48,44 @@ function randomMegaId(len = 6, numLen = 4) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ==================== MONGODB CONNECTION ====================
-console.log(fancy("🔗 Connecting to MongoDB..."));
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://Stanyfreebot:Stanyfreebot@cluster0.ennpt6t.mongodb.net/insidious?retryWrites=true&w=majority";
+// ==================== MONGODB CONNECTION (Sila Cluster) ====================
+console.log(fancy("🔗 Connecting to MongoDB (Sila)..."));
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
 
-mongoose.connect(MONGODB_URI, {
-    serverSelectionTimeoutMS: 30000,
-    socketTimeoutMS: 45000,
-    maxPoolSize: 10
-})
-.then(async () => {
-    console.log(fancy("✅ MongoDB Connected"));
-    // Safisha sessions zisizo kamili
-    await cleanupInvalidSessions();
-    // Anzisha sessions zilizo active
-    await startAllActiveSessions();
-})
-.catch((err) => {
-    console.log(fancy("❌ MongoDB Connection FAILED"));
-    console.log(fancy("💡 Error: " + err.message));
-});
+// Connection options – increase timeouts
+const mongooseOptions = {
+    serverSelectionTimeoutMS: 60000,      // 60 seconds
+    socketTimeoutMS: 90000,               // 90 seconds
+    connectTimeoutMS: 60000,               // 60 seconds
+    maxPoolSize: 20,
+    minPoolSize: 5,
+    retryWrites: true,
+    retryReads: true
+};
+
+let isMongoConnected = false;
+
+async function connectToMongo() {
+    try {
+        await mongoose.connect(MONGODB_URI, mongooseOptions);
+        console.log(fancy("✅ MongoDB Connected (Sila)"));
+        isMongoConnected = true;
+        
+        // Safisha sessions zisizo kamili
+        await cleanupInvalidSessions();
+        // Anzisha sessions zilizo active
+        await startAllActiveSessions();
+    } catch (err) {
+        console.log(fancy("❌ MongoDB Connection FAILED"));
+        console.log(fancy("💡 Error: " + err.message));
+        isMongoConnected = false;
+        // Jaribu kuunganisha tena baada ya sekunde 30
+        setTimeout(connectToMongo, 30000);
+    }
+}
+
+// Anza kuunganisha MongoDB
+connectToMongo();
 
 // ==================== MIDDLEWARE ====================
 app.use(express.json());
@@ -110,7 +128,6 @@ try {
 // ==================== CLEANUP INVALID SESSIONS ====================
 async function cleanupInvalidSessions() {
     try {
-        // Futa sessions ambazo hazina creds au hazina creds.me
         const result = await Session.deleteMany({
             $or: [
                 { creds: { $exists: false } },
@@ -120,7 +137,6 @@ async function cleanupInvalidSessions() {
         });
         console.log(fancy(`🧹 Cleaned up ${result.deletedCount} invalid sessions`));
         
-        // Weka sessions zilizobaki ziwe 'inactive' ili zisijaribu kuanza moja kwa moja
         await Session.updateMany({ status: 'active' }, { status: 'inactive' });
         console.log(fancy(`📝 Reset all sessions to inactive`));
     } catch (error) {
@@ -136,9 +152,8 @@ async function startUserBot(sessionId, phoneNumber) {
     }
 
     try {
-        const { state, saveCreds, saveKeys } = await useMongoAuthState(sessionId);
+        const { state, saveCreds } = await useMongoAuthState(sessionId);
         
-        // CHECK: Kama creds hazina 'me', session ni mbovu – usianzishe
         if (!state.creds || !state.creds.me || !state.creds.me.id) {
             console.log(fancy(`⚠️ Session ${sessionId} has invalid credentials. Marking as expired.`));
             await Session.updateOne({ sessionId }, { status: 'expired' });
@@ -164,10 +179,8 @@ async function startUserBot(sessionId, phoneNumber) {
 
         activeSockets.set(sessionId, conn);
 
-        // Save credentials when updated
         conn.ev.on('creds.update', saveCreds);
 
-        // Connection update handler
         conn.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update;
             
@@ -195,7 +208,6 @@ async function startUserBot(sessionId, phoneNumber) {
             }
         });
 
-        // Message handler
         conn.ev.on('messages.upsert', async (m) => {
             try {
                 if (handler && typeof handler === 'function') {
@@ -206,7 +218,6 @@ async function startUserBot(sessionId, phoneNumber) {
             }
         });
 
-        // Group update handler
         conn.ev.on('group-participants.update', async (update) => {
             try {
                 if (handler && handler.handleGroupUpdate) {
@@ -217,7 +228,6 @@ async function startUserBot(sessionId, phoneNumber) {
             }
         });
 
-        // Call handler
         conn.ev.on('call', async (call) => {
             try {
                 if (handler && handler.handleCall) {
@@ -232,7 +242,6 @@ async function startUserBot(sessionId, phoneNumber) {
 
     } catch (error) {
         console.error(`Error starting user bot ${sessionId}:`, error.message);
-        // Mark session as expired to prevent repeated errors
         await Session.updateOne({ sessionId }, { status: 'expired' });
     }
 }
@@ -240,12 +249,10 @@ async function startUserBot(sessionId, phoneNumber) {
 // ==================== FUNCTION TO START ALL ACTIVE SESSIONS FROM DB ====================
 async function startAllActiveSessions() {
     try {
-        // Tunasoma sessions zilizo na status 'active'
         const activeSessions = await Session.find({ status: 'active' });
         console.log(fancy(`📦 Found ${activeSessions.length} active sessions to start`));
         
         for (const session of activeSessions) {
-            // Angalia tena kama creds zina me kabla ya kuanza
             if (!session.creds || !session.creds.me || !session.creds.me.id) {
                 console.log(fancy(`⚠️ Session ${session.sessionId} has invalid creds, marking expired`));
                 await Session.updateOne({ _id: session._id }, { status: 'expired' });
@@ -262,6 +269,10 @@ async function startAllActiveSessions() {
 
 // ✅ PAIRING ENDPOINT
 app.get('/pair', async (req, res) => {
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+        return res.json({ success: false, error: "MongoDB not connected. Please try again later." });
+    }
     try {
         let num = req.query.num;
         if (!num) {
@@ -273,10 +284,8 @@ app.get('/pair', async (req, res) => {
             return res.json({ success: false, error: "Invalid number. Must be at least 10 digits." });
         }
         
-        // 1. Generate unique session ID
         const sessionId = randomMegaId(6, 4);
         
-        // 2. Create temporary socket for pairing
         const { state, saveCreds } = await useMongoAuthState(sessionId);
         const { version } = await fetchLatestBaileysVersion();
 
@@ -286,60 +295,37 @@ app.get('/pair', async (req, res) => {
             logger: pino({ level: "silent" }),
             browser: Browsers.macOS("Safari"),
             syncFullHistory: false,
-            connectTimeoutMs: 60000,
-            keepAliveIntervalMs: 10000,
-            markOnlineOnConnect: false,
-            shouldSyncHistoryMessage: () => false
         });
 
-        let pairingCode = null;
-
-        // 3. Request pairing code (with timeout)
-        try {
-            pairingCode = await Promise.race([
-                tempConn.requestPairingCode(cleanNum),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout requesting code')), 30000))
-            ]);
-        } catch (e) {
-            tempConn.end();
-            return res.json({ success: false, error: "Failed to get pairing code: " + e.message });
-        }
-
-        // 4. Wait for connection to open (user enters code)
+        let pairingCode = await tempConn.requestPairingCode(cleanNum);
+        
         const connectionPromise = new Promise((resolve, reject) => {
             tempConn.ev.on('connection.update', (up) => {
                 if (up.connection === 'open') {
                     resolve();
                 } else if (up.connection === 'close') {
-                    reject(new Error('Connection closed before pairing'));
+                    reject(new Error('Connection closed'));
                 }
             });
         });
 
-        // 5. Wait for user to complete pairing (max 2 minutes)
         await Promise.race([
             connectionPromise,
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Pairing timeout (2 minutes)')), 120000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 120000))
         ]);
 
-        // 6. Subiri kidogo ili creds ziwe kamili
         await new Promise(resolve => setTimeout(resolve, 3000));
-
-        // 7. Save credentials to DB
         await saveCreds();
 
-        // 8. Verify session was saved correctly
         const savedSession = await Session.findOne({ sessionId });
         if (!savedSession || !savedSession.creds || !savedSession.creds.me) {
             throw new Error("Failed to save credentials properly");
         }
 
-        // 9. Set session as inactive (awaiting deployment)
         savedSession.status = 'inactive';
         savedSession.phoneNumber = cleanNum;
         await savedSession.save();
 
-        // 10. Send welcome message with session ID
         const welcomeMessage = `
 ╭─── • 🥀 • ───╮
    INSIDIOUS: PAIRING SUCCESS
@@ -358,19 +344,15 @@ app.get('/pair', async (req, res) => {
 👑 *Developer:* STANYTZ
         `;
         await tempConn.sendMessage(cleanNum + '@s.whatsapp.net', { text: welcomeMessage });
-
-        // 11. Send a second message with only the session ID (for easy copying)
         await tempConn.sendMessage(cleanNum + '@s.whatsapp.net', { text: sessionId });
 
-        // 12. Close temporary connection
         tempConn.end();
 
-        // 13. Return success response with code and sessionId
         res.json({
             success: true,
             code: pairingCode,
             sessionId: sessionId,
-            message: "Pairing successful! Check your WhatsApp for welcome message and session ID."
+            message: "Pairing successful! Check your WhatsApp."
         });
 
     } catch (err) {
@@ -379,8 +361,11 @@ app.get('/pair', async (req, res) => {
     }
 });
 
-// ✅ DEPLOY ENDPOINT (activate session and start bot)
+// ✅ DEPLOY ENDPOINT
 app.post('/deploy', async (req, res) => {
+    if (mongoose.connection.readyState !== 1) {
+        return res.json({ success: false, error: "MongoDB not connected. Please try again later." });
+    }
     try {
         const { sessionId, number } = req.body;
         if (!sessionId || !number) {
@@ -392,17 +377,14 @@ app.post('/deploy', async (req, res) => {
             return res.json({ success: false, error: "Session not found" });
         }
 
-        // Check if session has valid creds
         if (!session.creds || !session.creds.me || !session.creds.me.id) {
             return res.json({ success: false, error: "Session credentials are invalid. Please pair again." });
         }
 
-        // Update status and phone number
         session.status = 'active';
         session.phoneNumber = number;
         await session.save();
 
-        // Start the bot if not already running
         if (!activeSockets.has(sessionId)) {
             startUserBot(sessionId, number);
         }
@@ -414,8 +396,11 @@ app.post('/deploy', async (req, res) => {
     }
 });
 
-// ✅ GET ALL SESSIONS (for frontend)
+// ✅ GET ALL SESSIONS
 app.get('/sessions', async (req, res) => {
+    if (mongoose.connection.readyState !== 1) {
+        return res.json({ success: false, error: "MongoDB not connected" });
+    }
     try {
         const sessions = await Session.find({}, { sessionId: 1, phoneNumber: 1, status: 1, _id: 0 });
         res.json({ success: true, sessions });
@@ -425,8 +410,11 @@ app.get('/sessions', async (req, res) => {
     }
 });
 
-// ✅ DELETE SESSION (logout)
+// ✅ DELETE SESSION
 app.delete('/sessions/:sessionId', async (req, res) => {
+    if (mongoose.connection.readyState !== 1) {
+        return res.json({ success: false, error: "MongoDB not connected" });
+    }
     try {
         const { sessionId } = req.params;
         const session = await Session.findOne({ sessionId });
@@ -434,7 +422,6 @@ app.delete('/sessions/:sessionId', async (req, res) => {
             return res.json({ success: false, error: "Session not found" });
         }
 
-        // If socket is active, logout and close
         const sock = activeSockets.get(sessionId);
         if (sock) {
             await sock.logout();
@@ -442,7 +429,6 @@ app.delete('/sessions/:sessionId', async (req, res) => {
             activeSockets.delete(sessionId);
         }
 
-        // Delete from DB
         await Session.deleteOne({ sessionId });
 
         res.json({ success: true, message: "Session deleted" });
