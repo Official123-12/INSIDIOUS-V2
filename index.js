@@ -1,30 +1,39 @@
 const express = require('express');
-const { default: makeWASocket, useMultiFileAuthState, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys");
+const { 
+    default: makeWASocket, 
+    useMultiFileAuthState, 
+    Browsers, 
+    makeCacheableSignalKeyStore, 
+    fetchLatestBaileysVersion, 
+    DisconnectReason 
+} = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
 const fs = require('fs');
 
+// ==================== CONFIG & MODELS ====================
 const handler = require('./handler');
 
-// ✅ **DATABASE MODEL (Kuhifadhi Sessions)**
+// MongoDB Schema to store sessions for deployment
 const sessionSchema = new mongoose.Schema({
     sessionId: { type: String, required: true, unique: true },
     phoneNumber: { type: String, required: true },
-    creds: { type: Object, required: true }, // Hapa tunahifadhi siri za WhatsApp
+    creds: { type: Object, required: true }, 
     status: { type: String, default: 'active' },
-    date: { type: Date, default: Date.now }
+    addedAt: { type: Date, default: Date.now }
 });
 const Session = mongoose.model('UserSession', sessionSchema);
 
+const app = express();
+const PORT = process.env.PORT || 3000;
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// ✅ **FANCY TEXT & ID GENERATOR**
 function fancy(text) {
-    if (!text || typeof text !== 'string') return text;
-    try {
-        const fancyMap = { a: 'ᴀ', b: 'ʙ', c: 'ᴄ', d: 'ᴅ', e: 'ᴇ', f: 'ꜰ', g: 'ɢ', h: 'ʜ', i: 'ɪ', j: 'ᴊ', k: 'ᴋ', l: 'ʟ', m: 'ᴍ', n: 'ɴ', o: 'ᴏ', p: 'ᴘ', q: 'ǫ', r: 'ʀ', s: 'ꜱ', t: 'ᴛ', u: 'ᴜ', v: 'ᴠ', w: 'ᴡ', x: 'x', y: 'ʏ', z: 'ᴢ' };
-        let result = '';
-        for (let i = 0; i < text.length; i++) { result += fancyMap[text[i].toLowerCase()] || text[i]; }
-        return result;
-    } catch (e) { return text; }
+    const map = { a: 'ᴀ', b: 'ʙ', c: 'ᴄ', d: 'ᴅ', e: 'ᴇ', f: 'ꜰ', g: 'ɢ', h: 'ʜ', i: 'ɪ', j: 'ᴊ', k: 'ᴋ', l: 'ʟ', m: 'ᴍ', n: 'ɴ', o: 'ᴏ', p: 'ᴘ', q: 'ǫ', r: 'ʀ', s: 'ꜱ', t: 'ᴛ', u: 'ᴜ', v: 'ᴠ', w: 'ᴡ', x: 'x', y: 'ʏ', z: 'ᴢ' };
+    return text.split('').map(c => map[c.toLowerCase()] || c).join('');
 }
 
 function randomMegaId(len = 6, numLen = 4) {
@@ -34,132 +43,154 @@ function randomMegaId(len = 6, numLen = 4) {
     return `${out}${Math.floor(Math.random() * Math.pow(10, numLen))}`;
 }
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-
-// ✅ **MONGODB CONNECTION**
+// ✅ **DB CONNECTION**
 mongoose.connect(process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority")
-.then(() => { console.log(fancy("✅ Connected to MongoDB")); loadActiveBots(); })
-.catch((err) => console.log("❌ DB Error: " + err.message));
+    .then(() => {
+        console.log(fancy("✅ Connected to MongoDB"));
+        loadActiveBots();
+    }).catch(err => console.log("❌ DB Error: " + err.message));
 
-let globalConn = null;
-let isConnected = false;
+// ✅ **GLOBAL STORE FOR PAIRING SOCKETS**
+// We use this to prevent session conflicts
+let pairingSocket = null;
 
-// ✅ **PAIRING ENGINE**
-async function startPairing() {
+async function startPairingEngine() {
+    // Clear old pairing cache to prevent "Enter code you requested" error
+    if (fs.existsSync('./pairing_temp')) {
+        fs.rmSync('./pairing_temp', { recursive: true, force: true });
+    }
+
     const { state, saveCreds } = await useMultiFileAuthState('pairing_temp');
     const { version } = await fetchLatestBaileysVersion();
 
     const conn = makeWASocket({
         version,
-        auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) },
+        auth: { 
+            creds: state.creds, 
+            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })) 
+        },
         logger: pino({ level: "silent" }),
-        browser: Browsers.macOS("Safari")
+        browser: Browsers.macOS("Safari"), // Fixed infinite loading
+        syncFullHistory: false,
+        printQRInTerminal: false
     });
 
-    globalConn = conn;
+    pairingSocket = conn;
 
     conn.ev.on('connection.update', async (update) => {
-        const { connection } = update;
+        const { connection, lastDisconnect } = update;
+
         if (connection === 'open') {
             const userJid = conn.user.id.split(':')[0];
             const sessionId = randomMegaId();
 
-            // ✅ 1. HIFADHI KWENYE DATABASE
-            await Session.create({
-                sessionId: sessionId,
-                phoneNumber: userJid,
-                creds: state.creds // Tunatunza state yote ya auth
-            });
+            // 1. Save all credentials to MongoDB
+            await Session.findOneAndUpdate(
+                { phoneNumber: userJid },
+                { sessionId, phoneNumber: userJid, creds: state.creds, status: 'active' },
+                { upsert: true }
+            );
 
-            // ✅ 2. TUMA SESSION ID KWA USER
-            const msg = `🆔 *SESSION ID:* \`${sessionId}\`\n\nCopy kodi hii na u-deploy kwenye website yako ili bot iwe active!`;
+            // 2. Send Session ID to the user
+            const msg = `╭─── • 🥀 • ───╮\n   INSIDIOUS BOT\n╰─── • 🥀 • ───╯\n\n✅ *Pairing Successful!*\n\n🆔 *SESSION ID:* \`${sessionId}\`\n\nCopy the ID above and paste it into the deployment website to start your bot.`;
+            
             await conn.sendMessage(userJid + '@s.whatsapp.net', { text: msg });
             await conn.sendMessage(userJid + '@s.whatsapp.net', { text: sessionId });
 
-            console.log(fancy(`✅ Session Saved: ${sessionId}`));
-            
-            // ✅ 3. LOGOUT (Ili pairing ibaki safi)
+            console.log(fancy(`✅ Session Created: ${sessionId}`));
+
+            // 3. Logout and Cleanup (Crucial for the next user)
             setTimeout(async () => {
                 await conn.logout();
-                if (fs.existsSync('./pairing_temp')) fs.rmSync('./pairing_temp', { recursive: true, force: true });
+                startPairingEngine(); // Restart engine for next user
             }, 5000);
+        }
+
+        if (connection === 'close') {
+            const code = (lastDisconnect?.error)?.output?.statusCode;
+            if (code !== DisconnectReason.loggedOut) {
+                startPairingEngine();
+            }
         }
     });
 
     conn.ev.on('creds.update', saveCreds);
 }
 
-// ✅ **FUNCTION YA KU-ACTIVATE BOT (Deployment)**
+// ✅ **BOT DEPLOYMENT LOGIC**
 async function activateBot(sessionId, number) {
     try {
         const sessionData = await Session.findOne({ sessionId });
         if (!sessionData) return { success: false, error: "Session not found" };
 
-        // Hapa sasa ndipo bot inakuwa live (Inaita handler yako)
-        // Kwenye mfumo huu, tunarun instance mpya ya Baileys kwa kila session iliyopo active
         const { version } = await fetchLatestBaileysVersion();
         const conn = makeWASocket({
             version,
-            auth: { creds: sessionData.creds, keys: makeCacheableSignalKeyStore(sessionData.creds.keys, pino({ level: "fatal" })) },
+            auth: { 
+                creds: sessionData.creds, 
+                keys: makeCacheableSignalKeyStore(sessionData.creds.keys, pino({ level: "fatal" })) 
+            },
             logger: pino({ level: "silent" }),
-            browser: Browsers.macOS("Chrome")
+            browser: Browsers.ubuntu("Chrome")
         });
 
         conn.ev.on('messages.upsert', async (m) => {
-            await handler(conn, m); // Handler yako inaanza kazi hapa
+            await handler(conn, m);
         });
 
-        console.log(fancy(`🚀 Bot Active for: ${number}`));
+        console.log(fancy(`🚀 Bot Live: ${number}`));
         return { success: true };
     } catch (e) {
         return { success: false, error: e.message };
     }
 }
 
-// ✅ **KURESTART BOT ZOTE ZILIZOPO KWENYE DB (Run on start)**
 async function loadActiveBots() {
-    const activeSessions = await Session.find({ status: 'active' });
-    for (let sess of activeSessions) {
+    const active = await Session.find({ status: 'active' });
+    for (let sess of active) {
         await activateBot(sess.sessionId, sess.phoneNumber);
     }
 }
 
-// ==================== API ENDPOINTS FOR WEBSITE ====================
+// ==================== ENDPOINTS ====================
 
-// 1. Endpoint ya Pairing
 app.get('/pair', async (req, res) => {
-    if (!req.query.num) return res.json({ success: false, error: "Namba inahitajika" });
-    const code = await globalConn.requestPairingCode(req.query.num.replace(/[^0-9]/g, ''));
-    res.json({ success: true, code });
+    let num = req.query.num;
+    if (!num) return res.json({ success: false, error: "Number required" });
+
+    try {
+        const cleanNum = num.replace(/[^0-9]/g, '');
+        if (!pairingSocket) return res.json({ success: false, error: "Engine starting, try again" });
+        
+        // Request pairing code from existing socket
+        const code = await pairingSocket.requestPairingCode(cleanNum);
+        res.json({ success: true, code });
+    } catch (err) {
+        console.log("Pairing Request Error:", err.message);
+        res.json({ success: false, error: "Request timed out. Please refresh and try again." });
+    }
 });
 
-// 2. Endpoint ya Deployment (Inaitwa na website yako)
 app.post('/deploy', async (req, res) => {
     const { sessionId, number } = req.body;
+    if (!sessionId || !number) return res.json({ success: false, error: "Missing data" });
     const result = await activateBot(sessionId, number);
     res.json(result);
 });
 
-// 3. Kupata list ya sessions (Kwa ajili ya website)
 app.get('/sessions', async (req, res) => {
-    const data = await Session.find({}, { creds: 0 }); // Usitume creds kwa browser!
+    const data = await Session.find({}, { creds: 0 }); 
     res.json({ success: true, sessions: data });
 });
 
-// 4. Kufuta session
 app.delete('/sessions/:id', async (req, res) => {
     await Session.deleteOne({ sessionId: req.params.id });
     res.json({ success: true });
 });
 
-app.get('/health', (req, res) => res.json({ status: 'healthy' }));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-startPairing();
-app.listen(PORT, () => console.log(`🌐 Station Live on Port ${PORT}`));
+// Start engine
+startPairingEngine();
 
-module.exports = app;
+app.listen(PORT, () => console.log(`🌐 Server Running on Port ${PORT}`));
