@@ -550,7 +550,7 @@
             </div>
         </section>
 
-        <!-- Pair Section -->
+        <!-- Pair Section (updated with copy button for pairing code) -->
         <section id="pair" class="section">
             <div class="card">
                 <div class="card-header">
@@ -572,6 +572,15 @@
                 <div class="result-box" id="pairResult" role="region" aria-live="polite">
                     <p style="color:var(--text-muted);margin-bottom:0.4rem"><i class="fas fa-info-circle" aria-hidden="true"></i> Your 8-digit pairing code:</p>
                     <div class="result-code" id="pairCode">----</div>
+                    
+                    <!-- New copy button for pairing code -->
+                    <div style="display: flex; justify-content: center; margin: 0.5rem 0 1rem;">
+                        <button class="btn btn-copy" id="copyPairCodeBtn" onclick="copyPairCode()" style="width: auto;">
+                            <i class="fas fa-copy" aria-hidden="true"></i> Copy Code
+                            <span class="copy-feedback" id="copyPairFeedback"><i class="fas fa-check" aria-hidden="true"></i> Copied</span>
+                        </button>
+                    </div>
+
                     <p style="font-size:0.86rem;color:var(--text-muted);margin:0.6rem 0 0.9rem">
                         <i class="fas fa-arrow-right" aria-hidden="true"></i> Enter in WhatsApp: <strong>Settings <i class="fas fa-chevron-right" aria-hidden="true"></i> Linked Devices <i class="fas fa-chevron-right" aria-hidden="true"></i> Link Device</strong>
                     </p>
@@ -788,6 +797,17 @@
             }
         }
 
+        // New function to copy pairing code
+        function copyPairCode() {
+            const code = document.getElementById('pairCode').textContent.trim();
+            const btn = document.getElementById('copyPairCodeBtn');
+            if (code && code !== '----') {
+                copyToClipboard(code, btn).then(() => showToast('Pairing code copied', 'success'));
+            } else {
+                showToast('No pairing code to copy', 'error');
+            }
+        }
+
         function copySession() {
             const sid = document.getElementById('sessionId').textContent.trim();
             const btn = document.getElementById('copySessionBtn');
@@ -824,6 +844,7 @@
                     if (data.code) {
                         pairCode.textContent = data.code;
                         resultBox.classList.add('show');
+                        // Auto-copy pairing code (optional)
                         await copyToClipboard(data.code);
                         showToast('Pairing code generated and copied', 'success');
                     }
@@ -848,7 +869,7 @@
             }
         });
 
-        // ===== API: DEPLOY (UPDATED) =====
+        // ===== API: DEPLOY =====
         document.getElementById('deployForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const sessionId = document.getElementById('deploySession').value.trim();
@@ -959,7 +980,7 @@
             }
         }
 
-        // ===== API: SETTINGS (UPDATED – returns to dashboard on success) =====
+        // ===== API: SETTINGS =====
         function saveSettings() {
             const settings = {
                 antiviewonce: document.getElementById('setting-antiviewonce').checked,
@@ -977,7 +998,7 @@
             }, 5000).then(r=>r.json()).then(d=>{
                 if(d.success) {
                     showToast('Settings saved', 'success');
-                    showSection('dashboard'); // <-- Return to home after saving
+                    showSection('dashboard'); // Return to home after saving
                 } else {
                     showToast(d.error || 'Save failed', 'error');
                 }
