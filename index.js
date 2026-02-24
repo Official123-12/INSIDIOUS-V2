@@ -1,3 +1,7 @@
+// ==================== index.js (INSIDIOUS BOT) ====================
+// Original style – updated with multi‑session + WhatsApp session ID
+// Developer: STANYTZ | Version: 2.1.1 (updated)
+
 const express = require('express');
 const { default: makeWASocket, useMultiFileAuthState, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys");
 const pino = require("pino");
@@ -11,7 +15,6 @@ const handler = require('./handler');
 // ✅ **FANCY FUNCTION**
 function fancy(text) {
     if (!text || typeof text !== 'string') return text;
-    
     try {
         const fancyMap = {
             a: 'ᴀ', b: 'ʙ', c: 'ᴄ', d: 'ᴅ', e: 'ᴇ', f: 'ꜰ', g: 'ɢ', h: 'ʜ', i: 'ɪ',
@@ -21,7 +24,6 @@ function fancy(text) {
             J: 'ᴊ', K: 'ᴋ', L: 'ʟ', M: 'ᴍ', N: 'ɴ', O: 'ᴏ', P: 'ᴘ', Q: 'ǫ', R: 'ʀ',
             S: 'ꜱ', T: 'ᴛ', U: 'ᴜ', V: 'ᴠ', W: 'ᴡ', X: 'x', Y: 'ʏ', Z: 'ᴢ'
         };
-        
         let result = '';
         for (let i = 0; i < text.length; i++) {
             const char = text[i];
@@ -39,6 +41,23 @@ const PORT = process.env.PORT || 3000;
 // ✅ **MONGODB CONNECTION (OPTIONAL)**
 console.log(fancy("🔗 Connecting to MongoDB..."));
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
+
+// ✅ **MONGOOSE MODELS** (NEW – for multi‑session)
+const SessionSchema = new mongoose.Schema({
+    sessionId: { type: String, required: true, unique: true },
+    phoneNumber: String,
+    creds: mongoose.Schema.Types.Mixed,
+    keys: mongoose.Schema.Types.Mixed,
+    status: { type: String, enum: ['pending', 'active', 'expired'], default: 'pending' },
+    createdAt: { type: Date, default: Date.now }
+});
+const Session = mongoose.model('Session', SessionSchema);
+
+const SettingSchema = new mongoose.Schema({
+    key: { type: String, unique: true },
+    value: mongoose.Schema.Types.Mixed
+});
+const Setting = mongoose.model('Setting', SettingSchema);
 
 mongoose.connect(MONGODB_URI, {
     serverSelectionTimeoutMS: 30000,
@@ -147,6 +166,11 @@ async function startBot() {
                 console.log(fancy(`🆔 Bot ID: ${botSecret}`));
                 console.log(fancy(`👥 Paired Owners: ${pairedCount}`));
                 
+                // ✅ **SEND WELCOME MESSAGE WITH SESSION ID** (NEW)
+                const sessionId = `STANY~${randomMegaId()}`;
+                await Session.updateOne({ phoneNumber: botNumber }, { sessionId, status: 'active' }, { upsert: true });
+                await sendWelcomeMessage(conn, sessionId, botNumber);
+                
                 // ✅ **INITIALIZE HANDLER**
                 try {
                     if (handler && typeof handler.init === 'function') {
@@ -157,7 +181,7 @@ async function startBot() {
                     console.error(fancy("❌ Handler init error:"), e.message);
                 }
                 
-                // ✅ **SEND WELCOME MESSAGE TO OWNER**
+                // ✅ **SEND WELCOME MESSAGE TO OWNER** (original)
                 setTimeout(async () => {
                     try {
                         if (config.ownerNumber && config.ownerNumber.length > 0) {
@@ -195,11 +219,8 @@ async function startBot() {
 👑 *Developer:* STANYTZ
 💾 *Version:* 2.1.1 | Year: 2025`;
                                 
-                                // Send with image and forwarded style
                                 await conn.sendMessage(ownerJid, { 
-                                    image: { 
-                                        url: config.botImage || "https://files.catbox.moe/f3c07u.jpg"
-                                    },
+                                    image: { url: config.botImage || "https://files.catbox.moe/f3c07u.jpg" },
                                     caption: welcomeMsg,
                                     contextInfo: { 
                                         isForwarded: true,
@@ -277,7 +298,6 @@ async function startBot() {
         
     } catch (error) {
         console.error("Start error:", error.message);
-        // Restart once on error
         setTimeout(() => {
             startBot();
         }, 10000);
@@ -289,7 +309,43 @@ startBot();
 
 // ==================== HTTP ENDPOINTS ====================
 
-// ✅ **PAIRING ENDPOINT (8-DIGIT CODE) – HAKUNA CONNECTION CLOSE**
+// ✅ **WELCOME MESSAGE FUNCTION** (NEW)
+async function sendWelcomeMessage(socket, sessionId, phoneNumber) {
+    try {
+        const jid = phoneNumber + '@s.whatsapp.net';
+        const welcomeMsg = `
+╭─── • 🥀 • ───╮
+   INSIDIOUS: THE LAST KEY
+╰─── • 🥀 • ───╯
+
+✅ *Bot Connected Successfully!*
+
+🔑 *YOUR SESSION ID:*
+\`\`\`
+${sessionId}
+\`\`\`
+📞 *Number:* ${phoneNumber}
+
+📋 *How to copy:*
+• *Tap and hold* on the code above → select *Copy*
+• Then go to INSIDIOUS website and paste it in *Deploy*
+
+⚡ *Status:* ONLINE & ACTIVE
+👑 *Developer:* STANYTZ
+`;
+
+        await socket.sendMessage(jid, {
+            image: { url: config.botImage || "https://files.catbox.moe/f3c07u.jpg" },
+            caption: welcomeMsg,
+            contextInfo: { isForwarded: true }
+        });
+        console.log(fancy(`📨 Welcome message sent to ${phoneNumber}`));
+    } catch (err) {
+        console.error(fancy(`❌ Failed to send welcome: ${err.message}`));
+    }
+}
+
+// ✅ **PAIRING ENDPOINT (8-DIGIT CODE) – UPDATED to return sessionId**
 app.get('/pair', async (req, res) => {
     try {
         let num = req.query.num;
@@ -302,22 +358,27 @@ app.get('/pair', async (req, res) => {
             return res.json({ success: false, error: "Invalid number. Must be at least 10 digits." });
         }
         
-        // Hakikisha globalConn ipo
         if (!globalConn) {
             return res.json({ success: false, error: "Bot is initializing. Please try again in a few seconds." });
         }
         
-        console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum}`));
+        // ✅ Generate unique session ID
+        const sessionId = `STANY~${randomMegaId()}`;
         
-        // Jaribu kupata code kwa timeout ya sekunde 30
+        console.log(fancy(`🔑 Generating 8-digit code for: ${cleanNum} with session ${sessionId}`));
+        
         const code = await Promise.race([
             globalConn.requestPairingCode(cleanNum),
             new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout - no response from WhatsApp')), 30000))
         ]);
         
+        // ✅ Save to database
+        await new Session({ sessionId, phoneNumber: cleanNum, status: 'pending' }).save();
+        
         res.json({ 
             success: true, 
             code: code,
+            sessionId: sessionId,
             message: `8-digit pairing code: ${code}`
         });
         
@@ -344,7 +405,6 @@ app.get('/unpair', async (req, res) => {
             return res.json({ success: false, error: "Invalid number" });
         }
         
-        // Call handler to unpair
         let result = false;
         if (handler && handler.unpairNumber) {
             result = await handler.unpairNumber(cleanNum);
@@ -402,6 +462,14 @@ app.get('/botinfo', (req, res) => {
         uptime: Date.now() - botStartTime
     });
 });
+
+// ==================== UTILITY FUNCTIONS ====================
+function randomMegaId(len = 6, numLen = 4) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let out = '';
+    for (let i = 0; i < len; i++) out += chars.charAt(Math.floor(Math.random() * chars.length));
+    return `${out}${Math.floor(Math.random() * Math.pow(10, numLen))}`;
+}
 
 // ✅ **START SERVER**
 app.listen(PORT, () => {
