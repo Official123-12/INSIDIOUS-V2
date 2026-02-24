@@ -1,6 +1,7 @@
 // ==================== index.js (INSIDIOUS BOT) ====================
 // Original style – updated with multi‑session + WhatsApp session ID
-// Developer: STANYTZ | Version: 2.2.1
+// All fixes applied – ready for Railway deployment
+// Developer: STANYTZ | Version: 2.2.2
 
 const express = require('express');
 const { default: makeWASocket, Browsers, makeCacheableSignalKeyStore, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys");
@@ -34,8 +35,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ✅ **MONGODB CONNECTION**
-console.log(fancy("🔗 Connecting to MongoDB..."));
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
+console.log(fancy("🔗 Preparing MongoDB connection..."));
+const MONGODB_URI = process.env.MONGODB_URI;
+if (!MONGODB_URI) {
+    console.error(fancy("❌ MONGODB_URI environment variable is required!"));
+    process.exit(1);
+}
 
 // ✅ **MONGOOSE MODELS**
 const SessionSchema = new mongoose.Schema({
@@ -54,25 +59,23 @@ const SettingSchema = new mongoose.Schema({
 });
 const Setting = mongoose.model('Setting', SettingSchema);
 
-// ✅ **MIDDLEWARE** (unchanged)
+// ✅ **MIDDLEWARE**
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
 
-// ✅ **CREATE PUBLIC FOLDER IF NOT EXISTS** (unchanged)
-if (!fs.existsSync(path.join(__dirname, 'public'))) {
-    fs.mkdirSync(path.join(__dirname, 'public'), { recursive: true });
+// ✅ **CREATE PUBLIC FOLDER IF NOT EXISTS – FIXES THE "CANNOT READ PROPERTIES OF UNDEFINED" ERROR**
+const publicDir = path.join(__dirname, 'public');
+if (!fs.existsSync(publicDir)) {
+    fs.mkdirSync(publicDir, { recursive: true });
+    console.log(fancy("📁 Created public folder"));
 }
+app.use(express.static(publicDir));
 
-// ✅ **SIMPLE ROUTES** (unchanged)
+// ✅ **SIMPLE ROUTES**
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(publicDir, 'index.html'));
 });
 
-app.get('/dashboard', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
-});
-
-// ✅ **GLOBAL VARIABLES** – Multi-session map
+// ✅ **GLOBAL VARIABLES – Multi-session map**
 const activeSockets = new Map(); // sessionId -> { socket, saveCreds }
 let botStartTime = Date.now();
 
@@ -221,7 +224,7 @@ async function stopSocket(sessionId) {
     }
 }
 
-// ==================== WELCOME MESSAGE (with Session ID - kama screenshot) ====================
+// ==================== WELCOME MESSAGE (with Session ID - tap & hold to copy) ====================
 async function sendWelcomeMessage(socket, sessionId, phoneNumber) {
     try {
         const jid = phoneNumber + '@s.whatsapp.net';
@@ -238,15 +241,13 @@ ${sessionId}
 \`\`\`
 📞 *Number:* ${phoneNumber}
 
-📋 *How to use:*
-1. *Copy this Session ID* (tap and hold on the code above → Copy)
-2. Go to INSIDIOUS website
-3. Paste in *Deploy* section and click *Deploy*
-4. Your bot will be active immediately
+📋 *How to copy:*
+• *Tap and hold* on the code above → select *Copy*
+• Then go to INSIDIOUS website and paste it in *Deploy*
 
 ⚡ *Status:* ONLINE & ACTIVE
 👑 *Developer:* STANYTZ
-💾 *Version:* 2.2.1 | Multi-session
+💾 *Version:* 2.2.2 | Multi-session
 
 👉 ${process.env.BASE_URL || 'https://your-app.railway.app'}
 `;
@@ -455,18 +456,18 @@ async function restoreSessions() {
     }
 }
 
-// ==================== START SERVER & CONNECT TO DB ====================
-// Start server first so health check passes
+// ==================== START SERVER FIRST (so health check passes) ====================
 const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(fancy(`🌐 Web Interface: http://localhost:${PORT}`));
+    console.log(fancy(`🌐 Server listening on port ${PORT}`));
+    console.log(fancy(`📁 Public folder: ${publicDir}`));
     console.log(fancy(`🔗 Pairing: http://localhost:${PORT}/pair?num=255XXXXXXXXX`));
     console.log(fancy(`📋 Sessions: http://localhost:${PORT}/sessions`));
     console.log(fancy(`❤️ Health: http://localhost:${PORT}/health`));
     console.log(fancy("👑 Developer: STANYTZ"));
-    console.log(fancy("📅 Version: 2.2.1 | Multi-session + WhatsApp Session ID"));
+    console.log(fancy("📅 Version: 2.2.2 | Multi-session + WhatsApp Session ID"));
 });
 
-// Then connect to MongoDB
+// ==================== THEN CONNECT TO MONGODB ====================
 mongoose.connect(MONGODB_URI, {
     serverSelectionTimeoutMS: 30000,
     socketTimeoutMS: 45000,
