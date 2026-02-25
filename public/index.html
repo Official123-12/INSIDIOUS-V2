@@ -831,7 +831,7 @@
             localStorage.setItem('user_sessions', JSON.stringify(sessions));
         }
 
-        // ===== API: PAIR =====
+        // ===== API: PAIR (with response validation) =====
         document.getElementById('pairForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const num = document.getElementById('pairNumber').value.trim();
@@ -854,6 +854,9 @@
             try {
                 const res = await fetchWithTimeout(`/pair?num=${encodeURIComponent(num)}`, {}, 30000);
                 const data = await res.json();
+
+                // Validate response object
+                if (!data || typeof data !== 'object') throw new Error('Invalid server response');
 
                 if (data.success) {
                     if (data.code) {
@@ -885,7 +888,7 @@
             }
         });
 
-        // ===== API: DEPLOY =====
+        // ===== API: DEPLOY (with response validation) =====
         document.getElementById('deployForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const sessionId = document.getElementById('deploySession').value.trim();
@@ -911,6 +914,8 @@
                     body: JSON.stringify({ sessionId, number })
                 }, 10000);
                 const data = await res.json();
+
+                if (!data || typeof data !== 'object') throw new Error('Invalid server response');
 
                 if (data.success) {
                     msgEl.innerHTML = `<strong>Bot deployed successfully!</strong><br>
@@ -949,6 +954,9 @@
             try {
                 const res = await fetchWithTimeout('/sessions', {}, 5000);
                 const data = await res.json();
+
+                if (!data || typeof data !== 'object') throw new Error('Invalid server response');
+
                 if (data.success && data.sessions?.length) {
                     const userSessions = getUserSessionIds();
                     const mySessions = data.sessions.filter(s => userSessions.includes(s.sessionId));
@@ -964,12 +972,12 @@
                         const statusIcon = s.status==='active'?'check-circle':s.status==='pending'?'clock':'times-circle';
                         const row = document.createElement('tr');
                         row.innerHTML = `
-                            <td><strong>${s.phoneNumber||'Unknown'}</strong></td>
-                            <td><code style="font-size:0.83rem;background:rgba(15,23,42,0.7);padding:0.18rem 0.35rem;border-radius:4px">${s.sessionId}</code></td>
-                            <td><span class="badge badge-${statusClass}"><i class="fas fa-${statusIcon}" aria-hidden="true"></i> ${s.status}</span></td>
+                            <td><strong>${s.phoneNumber || 'Unknown'}</strong></td>
+                            <td><code style="font-size:0.83rem;background:rgba(15,23,42,0.7);padding:0.18rem 0.35rem;border-radius:4px">${s.sessionId || ''}</code></td>
+                            <td><span class="badge badge-${statusClass}"><i class="fas fa-${statusIcon}" aria-hidden="true"></i> ${s.status || 'unknown'}</span></td>
                             <td><div class="action-btns">
                                 <button class="action-btn" title="Refresh" onclick="refreshSessions()"><i class="fas fa-sync" aria-hidden="true"></i></button>
-                                <button class="action-btn delete" title="Delete" onclick="deleteSession('${s.sessionId}')"><i class="fas fa-trash" aria-hidden="true"></i></button>
+                                <button class="action-btn delete" title="Delete" onclick="deleteSession('${s.sessionId || ''}')"><i class="fas fa-trash" aria-hidden="true"></i></button>
                             </div></td>`;
                         tbody.appendChild(row);
                     });
@@ -993,6 +1001,9 @@
             try {
                 const res = await fetchWithTimeout(`/sessions/${id}`, { method: 'DELETE' }, 5000);
                 const data = await res.json();
+
+                if (!data || typeof data !== 'object') throw new Error('Invalid server response');
+
                 if (data.success) { 
                     removeUserSessionId(id);
                     showToast(`Session ${id} deleted`, 'warning'); 
@@ -1025,14 +1036,19 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(settings)
-            }, 5000).then(r=>r.json()).then(d=>{
-                if(d.success) {
+            }, 5000)
+            .then(r => r.json())
+            .then(data => {
+                if (!data || typeof data !== 'object') throw new Error('Invalid server response');
+                if(data.success) {
                     showToast('Settings saved', 'success');
                     showSection('dashboard');
                 } else {
-                    showToast(d.error || 'Save failed', 'error');
+                    showToast(data.error || 'Save failed', 'error');
                 }
-            }).catch(err => {
+            })
+            .catch(err => {
+                console.error('Settings error:', err);
                 if (err.name === 'AbortError') {
                     showToast('Request timed out', 'error');
                 } else {
@@ -1048,7 +1064,7 @@
                 const data = await res.json();
                 const statusEl = document.getElementById('botStatus');
                 const dot = statusEl.previousElementSibling;
-                if (data.status === 'healthy' || data.connected) {
+                if (data && typeof data === 'object' && (data.status === 'healthy' || data.connected)) {
                     statusEl.textContent = 'Online';
                     dot.style.background = 'var(--success)';
                 } else {
