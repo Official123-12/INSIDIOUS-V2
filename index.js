@@ -400,6 +400,7 @@ app.get('/pair', async (req, res) => {
             success: true, 
             code: code,
             sessionId: sessionId,
+            mode: config.Mode || 'public',   // 👈 FIX: added mode for frontend
             message: `✅ Code: ${code}\n🔑 Session ID: ${sessionId}\n👑 You are the OWNER of this bot instance`
         });
         
@@ -624,4 +625,3 @@ process.on('SIGINT', async () => {
 startServer();
 
 module.exports = { app, sessionManager };
-
