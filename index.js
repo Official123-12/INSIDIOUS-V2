@@ -4,20 +4,19 @@ const {
     Browsers, 
     makeCacheableSignalKeyStore, 
     fetchLatestBaileysVersion, 
-    DisconnectReason,
-    useMultiFileAuthState // We'll replace this with MongoDB version
+    DisconnectReason
 } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
 const fs = require('fs');
-const { MongoClient, ObjectId } = require('mongodb');
+const { MongoClient } = require('mongodb');
 const crypto = require('crypto');
 
-// ✅ **HANDLER**
+// ✅ **HANDLER (ORIGINAL - NO CHANGES)**
 const handler = require('./handler');
 
-// ✅ **FANCY FUNCTION** (unchanged)
+// ✅ **FANCY FUNCTION**
 function fancy(text) {
     if (!text || typeof text !== 'string') return text;
     try {
@@ -45,8 +44,7 @@ const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@s
 
 // ==================== MONGODB AUTH STATE ====================
 /**
- * Custom MongoDB-based auth state for Baileys
- * Each session is isolated with unique sessionId
+ * Custom MongoDB auth state for Baileys - each session isolated
  */
 async function useMongoAuthState(sessionId, mongoUri, dbName = 'whatsapp_sessions') {
     const client = new MongoClient(mongoUri);
@@ -56,7 +54,7 @@ async function useMongoAuthState(sessionId, mongoUri, dbName = 'whatsapp_session
     const sessionsCollection = db.collection('sessions');
     const keysCollection = db.collection('session_keys');
 
-    // Load or initialize session document
+    // Load or create session
     let sessionDoc = await sessionsCollection.findOne({ sessionId });
     if (!sessionDoc) {
         sessionDoc = {
@@ -70,24 +68,19 @@ async function useMongoAuthState(sessionId, mongoUri, dbName = 'whatsapp_session
         await sessionsCollection.insertOne(sessionDoc);
     }
 
-    // Auth state object Baileys expects
     const authState = {
         creds: sessionDoc.creds || {},
         keys: {
             get: async (type, ids) => {
                 const keys = {};
-                // Normalize: type might be 'pre-key', 'session', etc.
                 const results = await keysCollection.find({
-                    sessionId,
-                    type,
-                    id: { $in: ids }
+                    sessionId, type, id: { $in: ids }
                 }).toArray();
                 results.forEach(key => { keys[key.id] = key.key; });
                 return keys;
             },
             set: async (data) => {
                 const bulkOps = [];
-                // data format: { 'pre-key': { '123': keyData }, 'session': {...} }
                 for (const [type, entries] of Object.entries(data)) {
                     for (const [id, key] of Object.entries(entries)) {
                         bulkOps.push({
@@ -102,9 +95,7 @@ async function useMongoAuthState(sessionId, mongoUri, dbName = 'whatsapp_session
                         });
                     }
                 }
-                if (bulkOps.length > 0) {
-                    await keysCollection.bulkWrite(bulkOps);
-                }
+                if (bulkOps.length > 0) await keysCollection.bulkWrite(bulkOps);
             }
         }
     };
@@ -129,22 +120,19 @@ class SessionManager {
     constructor(mongoUri) {
         this.mongoUri = mongoUri;
         this.sessions = new Map(); // sessionId -> { conn, saveCreds, clearSession, mongoClient, phoneNumber }
-        this.handler = null;
     }
 
-    setHandler(h) { this.handler = h; }
-
     /**
-     * Create a NEW isolated WhatsApp session for a user
+     * Create NEW isolated session - phoneNumber becomes the OWNER of this bot instance
      */
     async createSession(sessionId, phoneNumber = null) {
         if (this.sessions.has(sessionId)) {
-            console.log(fancy(`⚠️ Session ${sessionId} already exists`));
+            console.log(fancy(`⚠️ Session ${sessionId} already active`));
             return { success: true, conn: this.sessions.get(sessionId).conn };
         }
 
         try {
-            console.log(fancy(`🔐 Initializing session: ${sessionId}`));
+            console.log(fancy(`🔐 Creating session: ${sessionId} | Owner: ${phoneNumber || 'pending'}`));
             
             const { state, saveCreds, clearSession, mongoClient } = await useMongoAuthState(
                 sessionId, this.mongoUri
@@ -167,13 +155,13 @@ class SessionManager {
                 markOnlineOnConnect: true
             });
 
-            // Store session
+            // Store session with phoneNumber as OWNER
             this.sessions.set(sessionId, { 
-                conn, saveCreds, clearSession, mongoClient, phoneNumber, 
+                conn, saveCreds, clearSession, mongoClient, phoneNumber,
                 createdAt: Date.now() 
             });
 
-            // Setup event listeners
+            // Setup listeners - handler.js handles the rest
             this._setupListeners(conn, sessionId, saveCreds, clearSession, phoneNumber);
 
             return { success: true, conn };
@@ -184,20 +172,11 @@ class SessionManager {
         }
     }
 
-    /**
-     * Get session by ID
-     */
-    getSession(sessionId) {
-        return this.sessions.get(sessionId);
-    }
+    getSession(sessionId) { return this.sessions.get(sessionId); }
 
-    /**
-     * Disconnect and clean up a session
-     */
     async removeSession(sessionId) {
         const session = this.sessions.get(sessionId);
         if (!session) return false;
-
         try {
             session.conn?.end?.();
             session.mongoClient?.close?.();
@@ -206,13 +185,13 @@ class SessionManager {
             console.log(fancy(`🗑️ Session removed: ${sessionId}`));
             return true;
         } catch (error) {
-            console.error(fancy(`❌ Error removing session ${sessionId}: ${error.message}`));
+            console.error(fancy(`❌ Error removing ${sessionId}: ${error.message}`));
             return false;
         }
     }
 
     /**
-     * Reconnect ALL saved sessions from MongoDB (Railway restart recovery)
+     * Reconnect ALL sessions from MongoDB after Railway restart
      */
     async reconnectAllSessions() {
         try {
@@ -242,10 +221,10 @@ class SessionManager {
     }
 
     /**
-     * Setup Baileys event listeners for a session
+     * Setup Baileys event listeners - handler.js does the heavy lifting
      */
     _setupListeners(conn, sessionId, saveCreds, clearSession, phoneNumber) {
-        // Save credentials on update
+        // Save credentials
         conn.ev.on('creds.update', saveCreds);
 
         // Connection state
@@ -253,25 +232,31 @@ class SessionManager {
             const { connection, lastDisconnect, qr } = update;
 
             if (qr) {
-                // Optional: emit via WebSocket to frontend for QR display
                 console.log(fancy(`📱 QR ready for session: ${sessionId}`));
             }
 
             if (connection === 'open') {
                 console.log(fancy(`✅ ${sessionId} connected: ${conn.user?.id}`));
                 
-                // Initialize handler with session context
-                if (this.handler?.init && typeof this.handler.init === 'function') {
-                    try {
-                        await this.handler.init(conn, sessionId);
-                    } catch (e) {
-                        console.error(fancy(`❌ Handler init error for ${sessionId}: ${e.message}`));
-                    }
+                // Update MongoDB with connected status + owner number
+                if (phoneNumber) {
+                    const client = new MongoClient(this.mongoUri);
+                    await client.connect();
+                    const db = client.db('whatsapp_sessions');
+                    await db.collection('sessions').updateOne(
+                        { sessionId },
+                        { $set: { phoneNumber, status: 'connected', connectedAt: new Date() } }
+                    );
+                    await client.close();
                 }
-
-                // Send welcome to owner (only for first session or if configured)
-                if (phoneNumber && config?.ownerNumber?.includes(phoneNumber)) {
-                    this._sendWelcome(conn, sessionId, phoneNumber);
+                
+                // Initialize handler (original signature: init(conn))
+                if (handler?.init && typeof handler.init === 'function') {
+                    try {
+                        await handler.init(conn);
+                    } catch (e) {
+                        console.error(fancy(`❌ Handler init error: ${e.message}`));
+                    }
                 }
             }
 
@@ -291,92 +276,46 @@ class SessionManager {
             }
         });
 
-        // Messages
+        // Messages - handler.js receives (conn, m) as original
         conn.ev.on('messages.upsert', async (m) => {
             try {
-                if (this.handler && typeof this.handler === 'function') {
-                    await this.handler(conn, m, sessionId); // Pass sessionId to handler
+                if (handler && typeof handler === 'function') {
+                    await handler(conn, m); // Original signature - no sessionId needed
                 }
             } catch (error) {
-                console.error(fancy(`❌ Message error [${sessionId}]: ${error.message}`));
+                console.error(fancy(`❌ Message error: ${error.message}`));
             }
         });
 
         // Group updates
         conn.ev.on('group-participants.update', async (update) => {
             try {
-                if (this.handler?.handleGroupUpdate) {
-                    await this.handler.handleGroupUpdate(conn, update, sessionId);
+                if (handler?.handleGroupUpdate) {
+                    await handler.handleGroupUpdate(conn, update); // Original signature
                 }
             } catch (error) {
-                console.error(fancy(`❌ Group update error [${sessionId}]: ${error.message}`));
+                console.error(fancy(`❌ Group update error: ${error.message}`));
             }
         });
 
         // Calls
         conn.ev.on('call', async (call) => {
             try {
-                if (this.handler?.handleCall) {
-                    await this.handler.handleCall(conn, call, sessionId);
+                if (handler?.handleCall) {
+                    await handler.handleCall(conn, call); // Original signature
                 }
             } catch (error) {
-                console.error(fancy(`❌ Call error [${sessionId}]: ${error.message}`));
+                console.error(fancy(`❌ Call error: ${error.message}`));
             }
         });
     }
 
     /**
-     * Send welcome message to owner
-     */
-    async _sendWelcome(conn, sessionId, phoneNumber) {
-        setTimeout(async () => {
-            try {
-                const ownerJid = phoneNumber + '@s.whatsapp.net';
-                const botName = conn.user?.name || "INSIDIOUS";
-                const botNumber = conn.user?.id?.split(':')[0] || "Unknown";
-                const botSecret = this.handler?.getBotId?.() || 'Unknown';
-                const pairedCount = this.handler?.getPairedNumbers?.().length || 0;
-
-                const welcomeMsg = `
-╭─── • 🥀 • ───╮
-   INSIDIOUS: THE LAST KEY
-╰─── • 🥀 • ───╯
-
-✅ *Bot Connected Successfully!*
-🤖 *Name:* ${botName}
-📞 *Number:* ${botNumber}
-🆔 *Bot ID:* ${botSecret}
-👥 *Paired Owners:* ${pairedCount}
-🔑 *Session:* \`${sessionId}\`
-
-⚡ *Status:* ONLINE & ACTIVE
-
-👑 *Developer:* STANYTZ
-💾 *Version:* 2.1.1 | Year: 2025`;
-
-                await conn.sendMessage(ownerJid, { 
-                    image: { url: config?.botImage || "https://files.catbox.moe/f3c07u.jpg" },
-                    caption: welcomeMsg,
-                    contextInfo: { 
-                        isForwarded: true,
-                        forwardingScore: 999
-                    }
-                });
-                console.log(fancy(`✅ Welcome sent to ${phoneNumber}`));
-            } catch (e) {
-                console.log(fancy(`⚠️ Welcome failed: ${e.message}`));
-            }
-        }, 3000);
-    }
-
-    /**
-     * Generate pairing code for a phone number in a specific session
+     * Request pairing code for a session
      */
     async requestPairingCode(sessionId, phoneNumber) {
         const session = this.sessions.get(sessionId);
-        if (!session?.conn) {
-            throw new Error('Session not found or not connected');
-        }
+        if (!session?.conn) throw new Error('Session not found');
         return await session.conn.requestPairingCode(phoneNumber);
     }
 }
@@ -385,12 +324,10 @@ class SessionManager {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Create public folder if missing
 if (!fs.existsSync(path.join(__dirname, 'public'))) {
     fs.mkdirSync(path.join(__dirname, 'public'), { recursive: true });
 }
 
-// Simple routes
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -398,13 +335,13 @@ app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
-// ==================== GLOBAL STATE ====================
+// ==================== CONFIG LOAD ====================
 let config = {};
 try {
     config = require('./config');
     console.log(fancy("📋 Config loaded"));
 } catch (error) {
-    console.log(fancy("❌ Config file error, using defaults"));
+    console.log(fancy("❌ Config error, using defaults"));
     config = {
         prefix: '.',
         ownerNumber: ['255000000000'],
@@ -416,13 +353,12 @@ try {
 
 // Initialize Session Manager
 const sessionManager = new SessionManager(MONGODB_URI);
-sessionManager.setHandler(handler);
 
 // ==================== API ENDPOINTS ====================
 
 /**
- * 🔑 PAIRING ENDPOINT - Creates NEW session per user
- * Usage: /pair?num=255787069580&sessionId=optional_custom_id
+ * 🔑 PAIRING: Creates NEW session per user
+ * Owner = phoneNumber that links device
  */
 app.get('/pair', async (req, res) => {
     try {
@@ -438,21 +374,21 @@ app.get('/pair', async (req, res) => {
             return res.json({ success: false, error: "Invalid number. Must be at least 10 digits." });
         }
         
-        // Generate unique session ID if not provided
+        // Generate unique session ID
         if (!sessionId) {
             const randomStr = crypto.randomBytes(4).toString('hex');
             sessionId = `sess_${cleanNum}_${Date.now()}_${randomStr}`;
         }
         
-        console.log(fancy(`🔑 Creating session ${sessionId} for: ${cleanNum}`));
+        console.log(fancy(`🔑 Creating session ${sessionId} for owner: ${cleanNum}`));
         
-        // Create NEW isolated session (won't affect others!)
+        // Create NEW isolated session - this number becomes the OWNER
         const result = await sessionManager.createSession(sessionId, cleanNum);
         if (!result.success) {
             return res.json({ success: false, error: result.error });
         }
         
-        // Request pairing code with timeout
+        // Request pairing code
         const code = await Promise.race([
             sessionManager.requestPairingCode(sessionId, cleanNum),
             new Promise((_, reject) => 
@@ -464,7 +400,7 @@ app.get('/pair', async (req, res) => {
             success: true, 
             code: code,
             sessionId: sessionId,
-            message: `✅ 8-digit code: ${code}\n🔑 Session ID: ${sessionId}`
+            message: `✅ Code: ${code}\n🔑 Session ID: ${sessionId}\n👑 You are the OWNER of this bot instance`
         });
         
     } catch (err) {
@@ -479,7 +415,7 @@ app.get('/pair', async (req, res) => {
 });
 
 /**
- * 🗑️ UNPAIR ENDPOINT
+ * 🗑️ UNPAIR: Remove session by number or sessionId
  */
 app.get('/unpair', async (req, res) => {
     try {
@@ -490,7 +426,6 @@ app.get('/unpair', async (req, res) => {
             return res.json({ success: false, error: "Provide number OR sessionId" });
         }
         
-        // If sessionId provided, remove directly
         if (sessionId) {
             const removed = await sessionManager.removeSession(sessionId);
             return res.json({ 
@@ -499,7 +434,7 @@ app.get('/unpair', async (req, res) => {
             });
         }
         
-        // Otherwise find by phone number
+        // Find by phone number
         const cleanNum = num.replace(/[^0-9]/g, '');
         let found = false;
         
@@ -533,8 +468,7 @@ app.get('/unpair', async (req, res) => {
 });
 
 /**
- * 🚀 DEPLOY ENDPOINT - User activates session via website
- * POST /deploy { phoneNumber: "255...", sessionId: "sess_..." }
+ * 🚀 DEPLOY: User activates session via website
  */
 app.post('/deploy', async (req, res) => {
     try {
@@ -548,12 +482,11 @@ app.post('/deploy', async (req, res) => {
         const session = sessionManager.getSession(sessionId);
         
         if (!session) {
-            // Session might exist in DB but not in memory (after restart)
-            // Try to reconnect it
+            // Reconnect if not in memory (after restart)
             await sessionManager.createSession(sessionId, cleanNum);
         }
         
-        // Update MongoDB with deployment info
+        // Update MongoDB - this number is the OWNER
         const client = new MongoClient(MONGODB_URI);
         await client.connect();
         const db = client.db('whatsapp_sessions');
@@ -573,9 +506,9 @@ app.post('/deploy', async (req, res) => {
         
         res.json({ 
             success: true, 
-            message: "✅ Session deployed! Bot is now active.",
+            message: "✅ Session deployed! You are now the OWNER of this bot instance.",
             sessionId,
-            phoneNumber: cleanNum
+            ownerNumber: cleanNum
         });
         
     } catch (err) {
@@ -592,7 +525,7 @@ app.get('/sessions', (req, res) => {
     for (const [id, data] of sessionManager.sessions) {
         sessions.push({
             sessionId: id,
-            phoneNumber: data.phoneNumber,
+            ownerNumber: data.phoneNumber,
             connected: data.conn?.user ? true : false,
             botName: data.conn?.user?.name,
             botJid: data.conn?.user?.id,
@@ -617,10 +550,9 @@ app.get('/health', (req, res) => {
 });
 
 /**
- * 🤖 BOT INFO (legacy - now shows first session)
+ * 🤖 BOT INFO (shows first connected session)
  */
 app.get('/botinfo', (req, res) => {
-    // Return info about first connected session
     let firstSession = null;
     for (const [id, data] of sessionManager.sessions) {
         if (data.conn?.user) {
@@ -637,10 +569,10 @@ app.get('/botinfo', (req, res) => {
     res.json({
         success: true,
         sessionId: id,
+        ownerNumber: data.phoneNumber,
         botName: data.conn.user?.name || "INSIDIOUS",
         botNumber: data.conn.user?.id?.split(':')[0] || "Unknown",
         botJid: data.conn.user?.id || "Unknown",
-        phoneNumber: data.phoneNumber,
         connected: true,
         uptime: Date.now() - data.createdAt
     });
@@ -656,10 +588,9 @@ async function startServer() {
             socketTimeoutMS: 45000,
             maxPoolSize: 10
         });
-        console.log(fancy("✅ MongoDB Connected (Mongoose)"));
+        console.log(fancy("✅ MongoDB Connected"));
     } catch (err) {
-        console.log(fancy("❌ Mongoose connection warning (MongoDB client will still work)"));
-        console.log(fancy("💡 Error: " + err.message));
+        console.log(fancy("⚠️ Mongoose warning (MongoDB client will still work)"));
     }
 
     // Reconnect saved sessions BEFORE starting server
@@ -668,19 +599,18 @@ async function startServer() {
 
     // Start Express
     app.listen(PORT, '0.0.0.0', () => {
-        console.log(fancy("🌐 Web Interface: http://localhost:" + PORT));
-        console.log(fancy("🔗 Pairing: /pair?num=255XXXXXXXXX"));
-        console.log(fancy("🗑️ Unpair: /unpair?num=255XXXXXXXXX&sessionId=..."));
+        console.log(fancy("🌐 Server: http://localhost:" + PORT));
+        console.log(fancy("🔗 Pair: /pair?num=255XXXXXXXXX"));
+        console.log(fancy("🗑️ Unpair: /unpair?num=255XXXXXXXXX"));
         console.log(fancy("🚀 Deploy: POST /deploy {phoneNumber, sessionId}"));
         console.log(fancy("📊 Sessions: /sessions"));
         console.log(fancy("❤️ Health: /health"));
         console.log(fancy("👑 Developer: STANYTZ"));
         console.log(fancy("📅 Version: 2.1.1 | Year: 2025"));
-        console.log(fancy("🙏 Special Thanks: REDTECH"));
     });
 }
 
-// Handle graceful shutdown
+// Graceful shutdown
 process.on('SIGINT', async () => {
     console.log(fancy("🛑 Shutting down..."));
     for (const [id] of sessionManager.sessions) {
@@ -690,8 +620,7 @@ process.on('SIGINT', async () => {
     process.exit(0);
 });
 
-// Start everything
-startBot = startServer; // Keep compatibility if handler references startBot
+// Start
 startServer();
 
 module.exports = { app, sessionManager };
