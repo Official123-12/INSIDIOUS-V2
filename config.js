@@ -37,7 +37,7 @@ module.exports = {
     botName: getConfig('BOT_NAME', "INSIDIOUS: THE LAST KEY"),
     developer: getConfig('DEVELOPER_NAME', "STANYTZ"),
     developerName: getConfig('DEVELOPER_NAME', "STANYTZ"),
-    ownerNumber: getConfig('OWNER_NUMBER', "255787069580"),
+    ownerNumber: parseArray(getConfig('OWNER_NUMBER', "255787069580")), // ✅ fixed: now an array
     supportEmail: getConfig('SUPPORT_EMAIL', "officialstanlee143@gmail.com"),
     version: getConfig('VERSION', "2.2.0"),
     year: getConfig('YEAR', "2025"),
@@ -301,7 +301,9 @@ module.exports = {
  * Get owner JID
  */
 module.exports.getOwnerJid = function() {
-    return `${module.exports.ownerNumber}@s.whatsapp.net`;
+    // ownerNumber is an array; return the first one as JID
+    const owner = module.exports.ownerNumber[0] || "255787069580";
+    return `${owner}@s.whatsapp.net`;
 };
 
 /**
@@ -309,7 +311,7 @@ module.exports.getOwnerJid = function() {
  */
 module.exports.isOwner = function(jid) {
     const number = jid.replace(/[^0-9]/g, '');
-    return number === module.exports.ownerNumber;
+    return module.exports.ownerNumber.includes(number);
 };
 
 /**
@@ -333,7 +335,7 @@ module.exports.getFullFooter = function() {
 module.exports.validate = function() {
     const warnings = [];
     
-    if (!module.exports.ownerNumber || module.exports.ownerNumber === "255000000000") {
+    if (!module.exports.ownerNumber || module.exports.ownerNumber.length === 0 || module.exports.ownerNumber[0] === "255000000000") {
         warnings.push("⚠️  OWNER_NUMBER not set! Using default.");
     }
     
@@ -360,4 +362,3 @@ module.exports.validate = function() {
 if (process.env.NODE_ENV !== 'production') {
     module.exports.validate();
 }
-
