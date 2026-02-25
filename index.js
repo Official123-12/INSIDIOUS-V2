@@ -346,7 +346,7 @@ try {
         prefix: '.',
         ownerNumber: ['255000000000'],
         botName: 'INSIDIOUS',
-        workMode: 'public',
+        Mode: 'public',
         botImage: 'https://files.catbox.moe/f3c07u.jpg'
     };
 }
