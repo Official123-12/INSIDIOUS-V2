@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![INSIDIOUS](https://raw.githubusercontent.com/Official123-12/STANYFREEBOT-/refs/heads/main/IMG_1377.jpegstyle=for-the-badge)
+![INSIDIOUS](https://img.shields.io/badge/INSIDIOUS-Bot-blue?style=for-the-badge)
 ![Version](https://img.shields.io/badge/Version-2.2.0-green?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-red?style=for-the-badge)
 ![Status](https://img.shields.io/badge/Status-Active-success?style=for-the-badge)
