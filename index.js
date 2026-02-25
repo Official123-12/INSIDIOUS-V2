@@ -58,18 +58,13 @@ async function connectToMongo() {
     } catch (err) {
         console.log(fancy("❌ MongoDB Connection FAILED"), err.message);
         isMongoConnected = false;
-        // Jaribu tena baada ya sekunde 30
         setTimeout(connectToMongo, 30000);
     }
 }
 
 // ==================== SERVER INASUBIRI MONGODB IWE TAYARI ====================
 async function startServer() {
-    // Anza kuunganisha MongoDB
     connectToMongo();
-
-    // Subiri hadi MongoDB iwe tayari au tuanze server hata kama haijaunganishwa
-    // (tutaacha server ianze, lakini endpoints zitaangalia connection)
     app.listen(PORT, () => {
         console.log(fancy(`🌐 Web Interface: http://localhost:${PORT}`));
         console.log(fancy(`🔗 Pairing: http://localhost:${PORT}/pair?num=255XXXXXXXXX`));
@@ -81,7 +76,7 @@ async function startServer() {
     });
 }
 
-// ==================== WAIT FOR MONGO CONNECTION (kwa endpoints) ====================
+// ==================== WAIT FOR MONGO CONNECTION ====================
 async function waitForMongoConnection(timeout = 10000) {
     const start = Date.now();
     while (Date.now() - start < timeout) {
@@ -171,16 +166,15 @@ async function startAllActiveSessions() {
     } catch (error) { console.error(fancy("❌ Error loading active sessions:"), error.message); }
 }
 
-// ==================== ENDPOINTS (zimesubiri connection) ====================
+// ==================== ENDPOINTS ====================
 
-// ✅ PAIR ENDPOINT
 app.get('/pair', async (req, res) => {
     if (!await waitForMongoConnection()) return res.json({ success: false, error: "MongoDB not connected. Please try again." });
     try {
         let num = req.query.num;
-        if (!num) return res.json({ success: false, error: "Provide number! Example: /pair?num=255123456789" });
+        if (!num) return res.json({ success: false, error: "Provide number!" });
         const cleanNum = num.replace(/[^0-9]/g, '');
-        if (cleanNum.length < 10) return res.json({ success: false, error: "Invalid number. Must be at least 10 digits." });
+        if (cleanNum.length < 10) return res.json({ success: false, error: "Invalid number." });
 
         const sessionId = randomMegaId(6, 4);
         console.log(`[PAIR] Starting pairing for ${cleanNum} with session ${sessionId}`);
@@ -209,7 +203,6 @@ app.get('/pair', async (req, res) => {
         await Promise.race([connectionPromise, new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 120000))]);
         console.log(`[PAIR] Connection opened. Waiting for creds to populate...`);
 
-        // Subiri creds zijazwe (max 15 sec)
         let credsReady = false;
         for (let i = 0; i < 15; i++) {
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -250,7 +243,6 @@ app.get('/pair', async (req, res) => {
     }
 });
 
-// ✅ DEPLOY ENDPOINT
 app.post('/deploy', async (req, res) => {
     if (!await waitForMongoConnection()) return res.json({ success: false, error: "MongoDB not connected. Please try again." });
     try {
@@ -265,14 +257,12 @@ app.post('/deploy', async (req, res) => {
     } catch (err) { console.error("Deploy error:", err.message); res.json({ success: false, error: "Failed: " + err.message }); }
 });
 
-// ✅ GET SESSIONS
 app.get('/sessions', async (req, res) => {
     if (!await waitForMongoConnection()) return res.json({ success: false, error: "MongoDB not connected" });
     try { const sessions = await Session.find({}, { sessionId: 1, phoneNumber: 1, status: 1, _id: 0 }); res.json({ success: true, sessions }); }
     catch (err) { console.error("Sessions fetch error:", err.message); res.json({ success: false, error: err.message }); }
 });
 
-// ✅ DELETE SESSION
 app.delete('/sessions/:sessionId', async (req, res) => {
     if (!await waitForMongoConnection()) return res.json({ success: false, error: "MongoDB not connected" });
     try {
@@ -286,19 +276,15 @@ app.delete('/sessions/:sessionId', async (req, res) => {
     } catch (err) { console.error("Delete session error:", err.message); res.json({ success: false, error: err.message }); }
 });
 
-// ✅ HEALTH CHECK
 app.get('/health', (req, res) => {
     const uptime = process.uptime(); const hours = Math.floor(uptime / 3600); const minutes = Math.floor((uptime % 3600) / 60); const seconds = Math.floor(uptime % 60);
     res.json({ status: 'healthy', connectedSessions: activeSockets.size, database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected', uptime: `${hours}h ${minutes}m ${seconds}s` });
 });
 
-// ✅ BOT INFO
 app.get('/botinfo', (req, res) => { res.json({ success: true, botName: config.botName || "INSIDIOUS", activeSessions: activeSockets.size, uptime: Date.now() - botStartTime }); });
 
-// ==================== HANDLE UNHANDLED REJECTIONS ====================
 process.on('unhandledRejection', (err) => { console.error('Unhandled Rejection:', err); });
 
-// ==================== START SERVER ====================
 startServer();
 
 module.exports = app;
