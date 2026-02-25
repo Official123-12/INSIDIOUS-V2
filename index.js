@@ -400,7 +400,7 @@ app.get('/pair', async (req, res) => {
             success: true, 
             code: code,
             sessionId: sessionId,
-            mode: config.Mode || 'public',   // 👈 FIX: added mode for frontend
+            mode: config.Mode || 'public',   // added for frontend
             message: `✅ Code: ${code}\n🔑 Session ID: ${sessionId}\n👑 You are the OWNER of this bot instance`
         });
         
@@ -552,6 +552,7 @@ app.get('/health', (req, res) => {
 
 /**
  * 🤖 BOT INFO (shows first connected session)
+ * Added 'mode' and 'public' fields to fix frontend error
  */
 app.get('/botinfo', (req, res) => {
     let firstSession = null;
@@ -575,7 +576,10 @@ app.get('/botinfo', (req, res) => {
         botNumber: data.conn.user?.id?.split(':')[0] || "Unknown",
         botJid: data.conn.user?.id || "Unknown",
         connected: true,
-        uptime: Date.now() - data.createdAt
+        uptime: Date.now() - data.createdAt,
+        // 👇 FIX: add these two lines to satisfy frontend expectations
+        mode: config.Mode || 'public',
+        public: config.Mode || 'public'   // legacy support for dashboard
     });
 });
 
