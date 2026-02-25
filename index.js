@@ -1,5 +1,5 @@
 const express = require('express');
-const { default: makeWASocket, Browsers, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys");
+const { default: makeWASocket, Browsers, DisconnectReason } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const mongoose = require("mongoose");
 const path = require("path");
@@ -148,7 +148,9 @@ async function startUserBot(sessionId, phoneNumber) {
             return;
         }
         
-        const { version } = await fetchLatestBaileysVersion();
+        // Use manual WhatsApp version to avoid fetchLatestBaileysVersion issues
+        const version = [2, 3000, 1028442591];
+        
         const conn = makeWASocket({
             version,
             auth: { creds: state.creds, keys: state.keys },
@@ -177,7 +179,6 @@ async function startUserBot(sessionId, phoneNumber) {
             const { connection, lastDisconnect, qr } = update;
             
             if (qr) {
-                // QR code available (for manual pairing fallback)
                 console.log(fancy(`📱 Session ${sessionId}: QR code ready`));
             }
             
@@ -258,7 +259,6 @@ async function startAllActiveSessions() {
                 await Session.updateOne({ _id: session._id }, { status: 'expired' }); 
                 continue; 
             }
-            // Small delay to prevent rate limiting
             setTimeout(() => {
                 startUserBot(session.sessionId, session.phoneNumber);
             }, 1000);
@@ -268,7 +268,7 @@ async function startAllActiveSessions() {
     }
 }
 
-// ==================== PAIR ENDPOINT ====================
+// ==================== PAIR ENDPOINT (FIXED) ====================
 app.get('/pair', async (req, res) => {
     if (!await waitForMongoConnection()) {
         return res.json({ success: false, error: "MongoDB not connected. Please try again." });
@@ -287,7 +287,9 @@ app.get('/pair', async (req, res) => {
         console.log(`[PAIR] Starting pairing for ${cleanNum} with session ${sessionId}`);
 
         const { state, saveCreds } = await useMongoAuthState(sessionId);
-        const { version } = await fetchLatestBaileysVersion();
+        
+        // Use manual WhatsApp version instead of fetchLatestBaileysVersion()
+        const version = [2, 3000, 1028442591];
         
         const tempConn = makeWASocket({
             version,
@@ -298,13 +300,17 @@ app.get('/pair', async (req, res) => {
             connectTimeoutMs: 60000
         });
 
-        // Generate pairing code
+        // CRITICAL FIX: Wait 5 seconds before requesting pairing code
+        console.log(`[PAIR] Waiting 5 seconds for connection to initialize...`);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
         let pairingCode;
         try {
             pairingCode = await tempConn.requestPairingCode(cleanNum);
             console.log(`[PAIR] Pairing code generated: ${pairingCode}`);
         } catch (err) {
             tempConn.end();
+            console.error(`[PAIR] Failed to generate code:`, err.message);
             return res.json({ success: false, error: "Failed to generate pairing code: " + err.message });
         }
 
@@ -326,12 +332,10 @@ app.get('/pair', async (req, res) => {
             
             const onCredsUpdate = async () => {
                 if (resolved) return;
-                // Check if we have valid creds
                 const creds = tempConn.authState?.creds;
                 if (creds?.me?.id) {
                     console.log(`[PAIR] Valid creds received via creds.update`);
                     resolved = true;
-                    // Clean up listeners
                     tempConn.ev.off('connection.update', onConnection);
                     resolve('creds_ready');
                 }
@@ -340,14 +344,12 @@ app.get('/pair', async (req, res) => {
             tempConn.ev.on('connection.update', onConnection);
             tempConn.ev.on('creds.update', onCredsUpdate);
             
-            // Cleanup function
             return () => {
                 tempConn.ev.off('connection.update', onConnection);
                 tempConn.ev.off('creds.update', onCredsUpdate);
             };
         });
 
-        // Race with timeout
         let result;
         try {
             result = await Promise.race([
@@ -362,14 +364,13 @@ app.get('/pair', async (req, res) => {
             return res.json({ success: false, error: "Pairing timed out. Please try again." });
         }
 
-        // Final creds verification with retry logic
+        // Verify credentials with retry
         let finalCreds = null;
         let credsVerified = false;
         
         for (let attempt = 0; attempt < 5; attempt++) {
             await new Promise(r => setTimeout(r, 2000));
             
-            // Check memory first
             if (tempConn.authState?.creds?.me?.id) {
                 finalCreds = tempConn.authState.creds;
                 credsVerified = true;
@@ -377,7 +378,6 @@ app.get('/pair', async (req, res) => {
                 break;
             }
             
-            // Fallback: check database
             const dbSession = await Session.findOne({ sessionId });
             if (dbSession?.creds?.me?.id) {
                 finalCreds = dbSession.creds;
@@ -389,19 +389,12 @@ app.get('/pair', async (req, res) => {
         
         if (!credsVerified || !finalCreds?.me?.id) {
             tempConn.end();
-            console.error(`[PAIR] Failed to verify credentials after pairing`);
             return res.json({ success: false, error: "Credentials verification failed. Please try pairing again." });
         }
 
-        // Save credentials
-        try {
-            await saveCreds();
-            console.log(`[PAIR] Credentials saved successfully`);
-        } catch (saveErr) {
-            console.error(`[PAIR] Error saving credentials:`, saveErr.message);
-        }
+        await saveCreds();
+        console.log(`[PAIR] Credentials saved successfully`);
 
-        // Update session in database
         const savedSession = await Session.findOneAndUpdate(
             { sessionId },
             { 
@@ -414,11 +407,10 @@ app.get('/pair', async (req, res) => {
         );
 
         if (!savedSession?.creds?.me?.id) {
-            console.error(`[PAIR] Database update failed - creds not properly saved`);
             return res.json({ success: false, error: "Failed to save session. Please try again." });
         }
 
-        // Send welcome message to user
+        // Send welcome message
         const welcomeMessage = `╭─── • 🥀 • ───╮\n   INSIDIOUS: PAIRING SUCCESS\n╰─── • 🥀 • ───╯\n\n✅ *Your WhatsApp has been linked!*\n🆔 *Your Session ID:* ${sessionId}\n\n📌 *Next Steps:*\n1. Copy your Session ID above.\n2. Go to our website: ${req.protocol}://${req.get('host')}\n3. Enter your phone number and Session ID in the Deploy section.\n4. Your bot will start immediately.\n\n⚡ *Bot will be active after deployment.*\n👑 *Developer:* STANYTZ`;
         
         try {
@@ -430,7 +422,6 @@ app.get('/pair', async (req, res) => {
             console.warn(`[PAIR] Could not send welcome message:`, msgErr.message);
         }
 
-        // Clean up temporary connection
         tempConn.end();
         console.log(`[PAIR] Temporary connection closed for ${sessionId}`);
 
@@ -471,13 +462,11 @@ app.post('/deploy', async (req, res) => {
             return res.json({ success: false, error: "Session credentials are invalid. Please pair again." });
         }
         
-        // Update session status
         session.status = 'active'; 
         session.phoneNumber = cleanNumber; 
         session.lastDeployed = new Date();
         await session.save();
         
-        // Start the bot if not already running
         if (!activeSockets.has(sessionId)) {
             console.log(fancy(`🚀 Deploying bot for session ${sessionId}`));
             startUserBot(sessionId, cleanNumber);
@@ -529,7 +518,6 @@ app.delete('/sessions/:sessionId', async (req, res) => {
             return res.json({ success: false, error: "Session not found" });
         }
         
-        // Logout and cleanup active socket
         const sock = activeSockets.get(sessionId);
         if (sock) { 
             try {
@@ -587,10 +575,8 @@ process.on('unhandledRejection', (err) => {
 
 process.on('uncaughtException', (err) => {
     console.error('❌ Uncaught Exception:', err);
-    // Don't exit - let PM2 handle restarts
 });
 
-// Graceful shutdown
 process.on('SIGTERM', async () => {
     console.log(fancy('🛑 Received SIGTERM, shutting down gracefully...'));
     for (const [sessionId, sock] of activeSockets) {
