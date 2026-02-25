@@ -9,7 +9,6 @@ const handler = require('./handler');
 const useMongoAuthState = require('./mongoAuthState');
 const Session = require('./models/Session');
 
-// ==================== FANCY FUNCTION ====================
 function fancy(text) {
     if (!text || typeof text !== 'string') return text;
     const map = {
@@ -33,8 +32,6 @@ function randomMegaId(len = 6, numLen = 4) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ==================== MONGODB CONNECTION (Sila Cluster) ====================
-console.log(fancy("🔗 Connecting to MongoDB (Sila)..."));
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://sila_md:sila0022@sila.67mxtd7.mongodb.net/insidious?retryWrites=true&w=majority";
 const mongooseOptions = {
     serverSelectionTimeoutMS: 60000,
@@ -62,7 +59,6 @@ async function connectToMongo() {
     }
 }
 
-// ==================== SERVER INASUBIRI MONGODB IWE TAYARI ====================
 async function startServer() {
     connectToMongo();
     app.listen(PORT, () => {
@@ -76,7 +72,6 @@ async function startServer() {
     });
 }
 
-// ==================== WAIT FOR MONGO CONNECTION ====================
 async function waitForMongoConnection(timeout = 10000) {
     const start = Date.now();
     while (Date.now() - start < timeout) {
@@ -86,7 +81,6 @@ async function waitForMongoConnection(timeout = 10000) {
     return false;
 }
 
-// ==================== MIDDLEWARE ====================
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -97,14 +91,12 @@ if (!fs.existsSync(path.join(__dirname, 'public'))) {
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
 
-// ==================== GLOBAL VARIABLES ====================
 const activeSockets = new Map();
 let botStartTime = Date.now();
 
 let config = {};
 try { config = require('./config'); console.log(fancy("📋 Config loaded")); } catch { config = { prefix: '.', ownerNumber: ['255000000000'], botName: 'INSIDIOUS', workMode: 'public', botImage: 'https://files.catbox.moe/f3c07u.jpg' }; }
 
-// ==================== CLEANUP & START SESSIONS ====================
 async function cleanupInvalidSessions() {
     try {
         const result = await Session.deleteMany({ $or: [{ creds: { $exists: false } }, { creds: null }, { "creds.me": { $exists: false } }] });
@@ -166,8 +158,7 @@ async function startAllActiveSessions() {
     } catch (error) { console.error(fancy("❌ Error loading active sessions:"), error.message); }
 }
 
-// ==================== ENDPOINTS ====================
-
+// ==================== PAIR ENDPOINT (IMEBORESHA) ====================
 app.get('/pair', async (req, res) => {
     if (!await waitForMongoConnection()) return res.json({ success: false, error: "MongoDB not connected. Please try again." });
     try {
@@ -203,28 +194,35 @@ app.get('/pair', async (req, res) => {
         await Promise.race([connectionPromise, new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 120000))]);
         console.log(`[PAIR] Connection opened. Waiting for creds to populate...`);
 
+        // Subiri hadi creds.me iwe defined (max 30 seconds)
         let credsReady = false;
-        for (let i = 0; i < 15; i++) {
+        for (let i = 0; i < 30; i++) {
             await new Promise(resolve => setTimeout(resolve, 1000));
-            if (tempConn.authState.creds && tempConn.authState.creds.me) {
+            // Angalia kwenye authState ya socket
+            if (tempConn.authState.creds && tempConn.authState.creds.me && tempConn.authState.creds.me.id) {
                 console.log(`[PAIR] Creds found in memory after ${i+1}s`);
                 credsReady = true;
                 break;
             }
+            // Pia angalia DB
             const checkSession = await Session.findOne({ sessionId });
-            if (checkSession && checkSession.creds && checkSession.creds.me) {
+            if (checkSession && checkSession.creds && checkSession.creds.me && checkSession.creds.me.id) {
                 console.log(`[PAIR] Creds found in DB after ${i+1}s`);
                 credsReady = true;
                 break;
             }
         }
-        if (!credsReady) throw new Error("Credentials did not populate after pairing");
+        if (!credsReady) throw new Error("Credentials did not populate after pairing (timeout)");
 
+        // Hifadhi creds
         await saveCreds();
-        console.log(`[PAIR] Creds saved manually`);
+        console.log(`[PAIR] Creds saved`);
 
         const savedSession = await Session.findOne({ sessionId });
-        if (!savedSession || !savedSession.creds || !savedSession.creds.me) throw new Error("Failed to save credentials properly");
+        if (!savedSession || !savedSession.creds || !savedSession.creds.me || !savedSession.creds.me.id) {
+            console.error(`[PAIR] Failed to save credentials properly`, savedSession);
+            throw new Error("Failed to save credentials properly");
+        }
 
         savedSession.status = 'inactive';
         savedSession.phoneNumber = cleanNum;
@@ -243,6 +241,7 @@ app.get('/pair', async (req, res) => {
     }
 });
 
+// ==================== DEPLOY ENDPOINT ====================
 app.post('/deploy', async (req, res) => {
     if (!await waitForMongoConnection()) return res.json({ success: false, error: "MongoDB not connected. Please try again." });
     try {
